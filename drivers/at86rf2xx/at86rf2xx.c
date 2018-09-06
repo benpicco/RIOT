@@ -106,10 +106,14 @@ void at86rf2xx_reset(at86rf2xx_t *dev)
 
     /* set default channel */
     at86rf2xx_set_chan(dev, AT86RF2XX_DEFAULT_CHANNEL);
+
     /* set default TX power */
     at86rf2xx_set_txpower(dev, AT86RF2XX_DEFAULT_TXPOWER);
-    /* set default options */
 
+    /* set antena diversity */
+    at86rf2xx_set_option(dev, AT86RF2XX_OPT_ANT_DIV, AT86RF2XX_DEFAULT_ANT_DIV);
+
+    /* set default options */
     if (!IS_ACTIVE(AT86RF2XX_BASIC_MODE)) {
         at86rf2xx_set_option(dev, AT86RF2XX_OPT_AUTOACK, true);
         at86rf2xx_set_option(dev, AT86RF2XX_OPT_CSMA, true);
