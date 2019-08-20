@@ -994,6 +994,10 @@ ifneq (,$(filter periph_%, $(USEMODULE)))
   USEMODULE += periph_common
 endif
 
+ifneq (,$(filter periph_uart_nonblocking, $(USEMODULE)))
+  USEMODULE += periph_uart
+endif
+
 # recursively catch transitive dependencies
 USEMODULE := $(sort $(USEMODULE))
 USEPKG := $(sort $(USEPKG))
