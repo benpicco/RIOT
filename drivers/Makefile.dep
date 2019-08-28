@@ -42,7 +42,11 @@ ifneq (,$(filter at30tse75x,$(USEMODULE)))
 endif
 
 ifneq (,$(filter at86rf2%,$(USEMODULE)))
-  USEMODULE += at86rf2xx
+  ifneq (,$(filter at86rf215,$(USEMODULE)))
+    USEMODULE += at86rf215
+  else
+    USEMODULE += at86rf2xx
+  endif
   USEMODULE += xtimer
   USEMODULE += luid
   USEMODULE += netif
@@ -51,6 +55,12 @@ ifneq (,$(filter at86rf2%,$(USEMODULE)))
   FEATURES_REQUIRED += periph_gpio
   FEATURES_REQUIRED += periph_gpio_irq
   FEATURES_REQUIRED += periph_spi
+endif
+
+ifneq (,$(filter at86rf215,$(USEMODULE)))
+  USEMODULE += gnrc_netif_cmd_fsk
+  USEMODULE += gnrc_netif_cmd_ofdm
+  USEMODULE += gnrc_netif_cmd_oqpsk
 endif
 
 ifneq (,$(filter ata8520e,$(USEMODULE)))
