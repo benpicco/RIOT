@@ -27,6 +27,8 @@
 #define SPIDEV          (dev->params.spi)
 #define CSPIN           (dev->params.cs_pin)
 
+#ifndef TEST_SUITES
+
 static inline void getbus(const at86rf215_t *dev)
 {
     spi_acquire(SPIDEV, CSPIN, SPI_MODE_0, dev->params.spi_clk);
@@ -107,6 +109,8 @@ void at86rf215_reg_read_bytes(const at86rf215_t *dev, uint16_t reg, void *data, 
     spi_transfer_bytes(SPIDEV, CSPIN, false, NULL, data, len);
     spi_release(SPIDEV);
 }
+
+#endif /* TEST_SUITES */
 
 void at86rf215_filter_ack(at86rf215_t *dev, bool on)
 {
