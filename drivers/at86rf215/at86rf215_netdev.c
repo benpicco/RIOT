@@ -403,6 +403,12 @@ static int _get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
             res = max_len;
             break;
 
+        case NETOPT_CHANNEL_SPACING:
+            assert(max_len >= sizeof(uint16_t));
+            *((uint16_t *)val) = at86rf215_get_channel_spacing(dev);
+            res = max_len;
+            break;
+
         default:
             res = -ENOTSUP;
             break;
@@ -678,6 +684,20 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
                 res = -ERANGE;
             }
 
+            break;
+
+        case NETOPT_CHANNEL_SPACING:
+            if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_FSK) {
+                return -ENOTSUP;
+            }
+
+            res = _get_best_match(at86rf215_fsk_channel_spacing_25kHz,
+                                  FSK_CHANNEL_SPACING_400K + 1, *(uint16_t *)val / 25);
+            if (at86rf215_FSK_set_channel_spacing(dev, res) == 0) {
+                res = 25 * at86rf215_fsk_channel_spacing_25kHz[res];
+            } else {
+                res = -ERANGE;
+            }
             break;
 
         default:
