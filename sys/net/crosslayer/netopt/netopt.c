@@ -115,6 +115,7 @@ static const char *_netopt_strmap[] = {
     [NETOPT_FSK_MODULATION_ORDER]  = "NETOPT_FSK_MODULATION_ORDER",
     [NETOPT_FSK_SRATE]             = "NETOPT_FSK_SRATE",
     [NETOPT_FSK_FEC]               = "NETOPT_FSK_FEC",
+    [NETOPT_CHANNEL_SPACING]       = "NETOPT_CHANNEL_SPACING",
     [NETOPT_SYNCWORD]              = "NETOPT_SYNCWORD",
     [NETOPT_RANDOM]                = "NETOPT_RANDOM",
     [NETOPT_RX_SYMBOL_TIMEOUT]     = "NETOPT_RX_SYMBOL_TIMEOUT",
