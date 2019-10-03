@@ -20,13 +20,8 @@
 #include "at86rf215.h"
 #include "at86rf215_internal.h"
 
+#define ENABLE_DEBUG        (0)
 #include "debug.h"
-
-/* IEEE Std 802.15.4g™-2012 Amendment 3
- * Table 68d—Total number of channels and first channel center frequencies for SUN PHYs */
-#define FSK_CHANNEL_SPACING            (200U)     /* kHz */
-#define FSK_CENTER_FREQUENCY_SUBGHZ    (863125U)  /* Hz  */
-#define FSK_CENTER_FREQUENCY_24GHZ     (2400200U - CCF0_24G_OFFSET) /* Hz  */
 
 /* also used by at86rf215_netdev.c */
 const uint8_t at86rf215_fsk_srate_10kHz[] = {
@@ -36,6 +31,28 @@ const uint8_t at86rf215_fsk_srate_10kHz[] = {
     [FSK_SRATE_200K] = 20,
     [FSK_SRATE_300K] = 30,
     [FSK_SRATE_400K] = 40
+};
+
+/* also used by at86rf215_netdev.c */
+const uint8_t at86rf215_fsk_channel_spacing_25kHz[] = {
+    [FSK_CHANNEL_SPACING_200K]  = 8,
+    [FSK_CHANNEL_SPACING_400K] = 16
+};
+
+/* IEEE Std 802.15.4™-2015
+ * Table 10-10—Channel numbering for SUN PHYs,
+ * index is channel spacing */
+static const uint16_t chan_center_freq0_subghz_25khz[] = {
+    [FSK_CHANNEL_SPACING_200K]  = 863125U / 25,
+    [FSK_CHANNEL_SPACING_400K] = 863225U / 25
+};
+
+/* IEEE Std 802.15.4™-2015
+ * Table 10-10—Channel numbering for SUN PHYs,
+ * index is channel spacing */
+static const uint16_t chan_center_freq0_24ghz_25khz[] = {
+    [FSK_CHANNEL_SPACING_200K] = (2400200U - CCF0_24G_OFFSET) / 25,
+    [FSK_CHANNEL_SPACING_400K] = (2400400U - CCF0_24G_OFFSET) / 25
 };
 
 /* Table 6-57, index is symbol rate */
@@ -380,13 +397,13 @@ void at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, u
     at86rf215_reg_write(dev, dev->RF->RG_AGCC, AGCC_EN_MASK);
 
     /* set channel spacing, same for both sub-GHz & 2.4 GHz */
-    at86rf215_reg_write(dev, dev->RF->RG_CS, FSK_CHANNEL_SPACING / 25);
+    at86rf215_reg_write(dev, dev->RF->RG_CS, at86rf215_fsk_channel_spacing_25kHz[FSK_CHANNEL_SPACING_200K]);
 
     /* set center frequency */
     if (is_subGHz(dev)) {
-        at86rf215_reg_write16(dev, dev->RF->RG_CCF0L, FSK_CENTER_FREQUENCY_SUBGHZ / 25);
+        at86rf215_reg_write16(dev, dev->RF->RG_CCF0L, chan_center_freq0_subghz_25khz[FSK_CHANNEL_SPACING_200K]);
     } else {
-        at86rf215_reg_write16(dev, dev->RF->RG_CCF0L, FSK_CENTER_FREQUENCY_24GHZ / 25);
+        at86rf215_reg_write16(dev, dev->RF->RG_CCF0L, chan_center_freq0_24ghz_25khz[FSK_CHANNEL_SPACING_200K]);
     }
 
     /* set Bandwidth Time Product, Modulation Index & Modulation Order */
@@ -512,4 +529,35 @@ uint8_t at86rf215_FSK_get_fec(at86rf215_t *dev)
     } else {
         return IEEE802154_FEC_NRNSC;
     }
+}
+
+int at86rf215_FSK_set_channel_spacing(at86rf215_t *dev, uint8_t ch_space)
+{
+    if (ch_space > FSK_CHANNEL_SPACING_400K) {
+        return -1;
+    }
+
+    /* make sure we are in state TRXOFF */
+    uint8_t old_state = at86rf215_set_state(dev, CMD_RF_TRXOFF);
+
+    /* set channel spacing, same for both sub-GHz & 2.4 GHz */
+    at86rf215_reg_write(dev, dev->RF->RG_CS, at86rf215_fsk_channel_spacing_25kHz[ch_space]);
+
+    /* set center frequency */
+    if (is_subGHz(dev)) {
+        at86rf215_reg_write16(dev, dev->RF->RG_CCF0L, chan_center_freq0_subghz_25khz[ch_space]);
+    } else {
+        at86rf215_reg_write16(dev, dev->RF->RG_CCF0L, chan_center_freq0_24ghz_25khz[ch_space]);
+    }
+
+    DEBUG("CCF0 configured as: %"PRIu32"\n", (uint32_t)25 * at86rf215_reg_read16(dev, dev->RF->RG_CCF0L));
+
+    /* adjust channel spacing */
+    dev->num_chans = is_subGHz(dev) ? 34 / (ch_space + 1) : (416 / (ch_space + 1)) - (ch_space * 2);
+    dev->netdev.chan = at86rf215_chan_valid(dev, dev->netdev.chan);
+    at86rf215_reg_write16(dev, dev->RF->RG_CNL, dev->netdev.chan);
+
+    at86rf215_set_state(dev, old_state);
+
+    return 0;
 }

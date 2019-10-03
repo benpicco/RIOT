@@ -1494,6 +1494,9 @@ typedef enum bb_irq_tag {
 #define FSK_SRATE_300K                  0x4
 #define FSK_SRATE_400K                  0x5
 
+#define FSK_CHANNEL_SPACING_200K        0x0
+#define FSK_CHANNEL_SPACING_400K        0x1
+
 /** Bit Mask for Sub-Register FSKC1.FI */
 #define FSKC1_FI_MASK                   0x20
 /** Bit Offset for Sub-Register FSKC1.FI */

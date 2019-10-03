@@ -56,6 +56,11 @@ extern "C" {
 extern const uint8_t at86rf215_fsk_srate_10kHz[];
 
 /**
+ * @brief   Channel Spacing for register values, in 25kHz
+ */
+extern const uint8_t at86rf215_fsk_channel_spacing_25kHz[];
+
+/**
  * @brief   Perform a reset of the entire chip.
  *
  * @param   dev     device to reset, will also reset sibling device
@@ -208,6 +213,25 @@ int at86rf215_FSK_set_fec(at86rf215_t *dev, uint8_t mode);
  *                      @ref IEEE802154_FEC_NRNSC or @ref IEEE802154_FEC_RSC
  */
 uint8_t at86rf215_FSK_get_fec(at86rf215_t *dev);
+
+/**
+ * @brief   Configure the channel spacing for the FSK modulation
+ *
+ * @param[in] dev       device to configure
+ * @param[in] ch_space  channel spacing, possible values: FSK_CHANNEL_SPACING_200K … _400K
+ *
+ * @return              0 on success, failure otherwise
+ */
+int at86rf215_FSK_set_channel_spacing(at86rf215_t *dev, uint8_t ch_space);
+
+/**
+ * @brief   Get the configured channel spacing
+ *
+ * @param[in] dev   device to read from
+ *
+ * @return          channel spacing in kHz
+ */
+uint16_t at86rf215_get_channel_spacing(at86rf215_t *dev);
 
 /**
  * @brief   Configure the FSK modulation order.

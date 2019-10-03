@@ -73,6 +73,10 @@ void at86rf215_set_chan(at86rf215_t *dev, uint16_t channel)
     at86rf215_set_state(dev, old_state);
 }
 
+uint16_t at86rf215_get_channel_spacing(at86rf215_t *dev) {
+    return 25 * at86rf215_reg_read(dev, dev->RF->RG_CS);
+}
+
 uint8_t at86rf215_get_page(const at86rf215_t *dev)
 {
     return dev->page;
