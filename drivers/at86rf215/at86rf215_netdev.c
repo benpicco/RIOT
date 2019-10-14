@@ -805,12 +805,7 @@ static void _isr(netdev_t *netdev)
     if (!((bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_TXFE | BB_IRQ_RXAM)) |
           (rf_irq_mask & RF_IRQ_EDC))) {
 
-        /* check if we did get here because of ACK timeout */
-        if (ack_timeout) {
-            _handle_ack_timeout(dev);
-        }
-
-        return;
+        goto out;
     }
 
     amcs = at86rf215_reg_read(dev, dev->BBC->RG_AMCS);
@@ -920,7 +915,20 @@ static void _isr(netdev_t *netdev)
         }
     }
 
-    if (ack_timeout) {
+out:
+    if (!ack_timeout) {
+        return;
+    }
+
+    /* For a yet unknown reason, the device spends an excessive amount of time
+     * transmitting the preamble in non-legacy modes.
+     * This means the calculated ACK timeouts are often too short.
+     * To mitigate this, postpone the ACK timeout if the device is still RXign
+     * the ACK frame when the timeout expires.
+     */
+    if (bb_irq_mask & BB_IRQ_AGCH) {
+        _start_ack_timer(dev);
+    } else {
         _handle_ack_timeout(dev);
     }
 }
