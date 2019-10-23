@@ -1,0 +1,10 @@
+USEMODULE += boards_common_msba2
+
+# FLASHER will be lpc2k_pgm still
+export DEBUG_ADAPTER ?= dap
+export PROGRAMMER ?= openocd
+
+export JLINK_DEVICE := LPC2388
+
+include $(RIOTBOARD)/common/msba2/Makefile.include
+include $(RIOTMAKE)/tools/openocd.inc.mk
