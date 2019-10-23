@@ -25,6 +25,8 @@
 #include "mutex.h"
 #include "periph/rtc.h"
 #include "net/gnrc.h"
+#include "net/gnrc/ipv6.h"
+#include "net/gnrc/udp.h"
 
 #include "shell.h"
 #include "shell_commands.h"
@@ -32,6 +34,18 @@
 
 #define PORT_TEST   (2323)
 #define QUEUE_SIZE  (8)
+
+enum {
+    TEST_HELLO,
+    TEST_PING,
+    TEST_PONG
+};
+
+typedef struct {
+    uint8_t type;
+    int8_t rssi_recv;
+    uint16_t seq_no;
+} test_data_t;
 
 static void _rtc_alarm(void* ctx)
 {
@@ -76,45 +90,81 @@ static int _get_rssi(gnrc_pktsnip_t *pkt)
     return netif_hdr->rssi;
 }
 
-static void _dump(gnrc_pktsnip_t *pkt)
+static bool _udp_reply(gnrc_pktsnip_t *pkt_in, void* data, size_t len)
 {
-    int snips = 0;
-    int size = 0;
-    gnrc_pktsnip_t *snip = pkt;
+    gnrc_pktsnip_t *pkt_out;
 
-    printf("RSSI: %d\n", _get_rssi(pkt));
+    gnrc_pktsnip_t *snip_udp = pkt_in->next;
+    gnrc_pktsnip_t *snip_ip  = snip_udp->next;
+    gnrc_pktsnip_t *snip_if  = snip_ip->next;
 
-    while (snip != NULL) {
-        printf("~~ SNIP %2i - size: %3u byte, type: %d\n", snips,
-               (unsigned int)snip->size, snip->type);
-        ++snips;
-        size += snip->size;
-        snip = snip->next;
+    udp_hdr_t *udp = snip_udp->data;
+    ipv6_hdr_t *ip = snip_ip->data;
+    gnrc_netif_hdr_t *netif = snip_if->data;
+
+    if (!(pkt_out = gnrc_pktbuf_add(NULL, data, len, GNRC_NETTYPE_UNDEF))) {
+        return false;
     }
+    if (!(pkt_out = gnrc_udp_hdr_build(pkt_out,
+                                       byteorder_ntohs(udp->dst_port),
+                                       byteorder_ntohs(udp->src_port)))) {
+        goto error;
+    }
+    if (!(pkt_out = gnrc_ipv6_hdr_build(pkt_out, &ip->dst, &ip->src))) {
+        goto error;
+    }
+
+    /* make sure we send out the reply on the same interface */
+    gnrc_pktsnip_t *netif_hdr = gnrc_netif_hdr_build(NULL, 0, NULL, 0);
+    gnrc_netif_hdr_set_netif(netif_hdr->data, gnrc_netif_get_by_pid(netif->if_pid));
+    LL_PREPEND(pkt_out, netif_hdr);
+
+    return gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL, pkt_out);
+error:
+    gnrc_pktbuf_release(pkt_out);
+    return false;
 }
 
 static void* range_test_server(void *arg)
 {
-    msg_t msg;
-    msg_t msg_queue[QUEUE_SIZE];
-
-    /* setup the message queue */
-    msg_init_queue(msg_queue, ARRAY_SIZE(msg_queue));
+    msg_t msg, reply = {
+        .type = GNRC_NETAPI_MSG_TYPE_ACK,
+        .content.value = -ENOTSUP
+    };
 
     gnrc_netreg_entry_t ctx = {
         .demux_ctx  = PORT_TEST,
         .target.pid = thread_getpid()
     };
+
+    msg_t msg_queue[QUEUE_SIZE];
+
+    /* setup the message queue */
+    msg_init_queue(msg_queue, ARRAY_SIZE(msg_queue));
+
+    /* register thread for UDP traffic on this port */
     gnrc_netreg_register(GNRC_NETTYPE_UDP, &ctx);
 
     puts("listening…");
 
     while (1) {
         msg_receive(&msg);
+        gnrc_pktsnip_t *pkt = msg.content.ptr;
 
-        printf("got one: %p\n", msg.content.ptr);
+        /* handle netapi messages */
+        switch (msg.type) {
+        case GNRC_NETAPI_MSG_TYPE_SET:
+        case GNRC_NETAPI_MSG_TYPE_GET:
+            msg_reply(&msg, &reply);    /* fall-through */
+        case GNRC_NETAPI_MSG_TYPE_SND:
+            continue;
+        }
 
-        _dump(msg.content.ptr);
+        printf("'%s' (rssi: %d)\n", (char*) pkt->data, _get_rssi(pkt));
+
+        if (!_udp_reply(pkt, pkt->data, pkt->size)) {
+            puts("can't reply");
+        }
     }
 
     return arg;

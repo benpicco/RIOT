@@ -76,13 +76,40 @@ static const netopt_setting_t settings[] = {
     }
 };
 
-static void _netapi_set_forall(netopt_t opt, const uint32_t *data, size_t data_len) {
+static test_result_t results[ARRAY_SIZE(settings)];
+
+static void _netapi_set_forall(netopt_t opt, const uint32_t *data, size_t data_len)
+{
     for (gnrc_netif_t *netif = gnrc_netif_iter(NULL); netif; netif = gnrc_netif_iter(netif)) {
         gnrc_netapi_set(netif->pid, opt, 0, data, data_len);
     }
 }
 
-bool range_test_set_modulation(unsigned idx) {
+void range_test_begin_measurement(unsigned idx)
+{
+    results[idx].pkts_send++;
+}
+
+void range_test_add_measurement(unsigned idx, int rssi_local, int rssi_remote)
+{
+    results[idx].pkts_rcvd++;
+    results[idx].rssi_sum[0] += rssi_local;
+    results[idx].rssi_sum[1] += rssi_remote;
+}
+
+void range_test_print_results(void)
+{
+    for (unsigned i = 0; i < ARRAY_SIZE(settings); ++i) {
+        printf("[%s]\n", settings[i].name);
+        printf("received %d / %d\n", results[i].pkts_rcvd, results[i].pkts_send);
+        printf("RSSI local: %ld dBm\n", results[i].rssi_sum[0] / results[i].pkts_rcvd);
+        printf("RSSI remote: %ld dBm\n", results[i].rssi_sum[1] / results[i].pkts_rcvd);
+    }
+    memset(results, 0, sizeof(results));
+}
+
+bool range_test_set_modulation(unsigned idx)
+{
 
     if (idx >= ARRAY_SIZE(settings)) {
         return false;

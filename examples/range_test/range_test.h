@@ -22,7 +22,18 @@
 #define RANGE_TEST_H
 
 #include <stdbool.h>
+#include <stdint.h>
+
+typedef struct {
+    uint16_t pkts_send;
+    uint16_t pkts_rcvd;
+    int32_t rssi_sum[2];
+} test_result_t;
 
 bool range_test_set_modulation(unsigned idx);
+
+void range_test_begin_measurement(unsigned idx);
+void range_test_add_measurement(unsigned idx, int rssi_local, int rssi_remote);
+void range_test_print_results(void);
 
 #endif
