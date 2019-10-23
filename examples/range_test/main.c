@@ -28,66 +28,18 @@
 
 #include "shell.h"
 #include "shell_commands.h"
+#include "range_test.h"
 
+#define PORT_TEST   (2323)
+#define QUEUE_SIZE  (8)
 
-typedef struct {
-    netopt_t opt;
-    uint32_t data;
-    size_t   data_len;
-} netopt_val_t;
-
-typedef struct {
-    const char name[32];
-    size_t opt_num;
-    netopt_val_t opt[6];
-} netopt_setting_t;
-
-static const netopt_setting_t settings[] = {
-    {
-        .name = "OFDM-BPSKx4; opt=1",
-        .opt = {
-        {
-            .opt  = NETOPT_IEEE802154_PHY,
-            .data = IEEE802154_PHY_OFDM,
-            .data_len = 1
-        },
-        {
-            .opt  = NETOPT_OFDM_MCS,
-            .data = 0,
-            .data_len = 1
-        },
-        {
-            .opt  = NETOPT_OFDM_OPTION,
-            .data = 1,
-            .data_len = 1
-        },
-        },
-        .opt_num = 3
-    },
-    {
-        .name = "OFDM-BPSKx4; opt=2",
-        .opt = {
-        {
-            .opt  = NETOPT_OFDM_OPTION,
-            .data = 2,
-            .data_len = 1
-        },
-        },
-        .opt_num = 1
-    }
-};
-
-static void _rtc_alarm(void* ctx) {
+static void _rtc_alarm(void* ctx)
+{
     mutex_unlock(ctx);
 }
 
-static void _netapi_set_forall(netopt_t opt, const uint32_t *data, size_t data_len) {
-    for (gnrc_netif_t *netif = gnrc_netif_iter(NULL); netif; netif = gnrc_netif_iter(netif)) {
-        gnrc_netapi_set(netif->pid, opt, 0, data, data_len);
-    }
-}
-
-static int _range_test_cmd(int argc, char** argv) {
+static int _range_test_cmd(int argc, char** argv)
+{
     (void) argc;
     (void) argv;
 
@@ -98,20 +50,74 @@ static int _range_test_cmd(int argc, char** argv) {
     alarm.tm_sec += 10;
     rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
 
-    for (unsigned i = 0; i < ARRAY_SIZE(settings); ++i) {
+    unsigned i = 0;
+    do {
         mutex_lock(&mutex);
-        printf("using %s\n", settings[i].name);
-        for (unsigned j = 0; j < settings[i].opt_num; ++j) {
-            _netapi_set_forall(settings[i].opt[j].opt, &settings[i].opt[j].data, settings[i].opt[j].data_len);
-        }
 
         alarm.tm_sec += 10;
         rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
-    }
+    } while (range_test_set_modulation(i++));
 
     rtc_clear_alarm();
 
     return 0;
+}
+
+static int _get_rssi(gnrc_pktsnip_t *pkt)
+{
+    gnrc_netif_hdr_t *netif_hdr;
+    gnrc_pktsnip_t *netif = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
+
+    if (netif == NULL) {
+        return 0;
+    }
+
+    netif_hdr = netif->data;
+    return netif_hdr->rssi;
+}
+
+static void _dump(gnrc_pktsnip_t *pkt)
+{
+    int snips = 0;
+    int size = 0;
+    gnrc_pktsnip_t *snip = pkt;
+
+    printf("RSSI: %d\n", _get_rssi(pkt));
+
+    while (snip != NULL) {
+        printf("~~ SNIP %2i - size: %3u byte, type: %d\n", snips,
+               (unsigned int)snip->size, snip->type);
+        ++snips;
+        size += snip->size;
+        snip = snip->next;
+    }
+}
+
+static void* range_test_server(void *arg)
+{
+    msg_t msg;
+    msg_t msg_queue[QUEUE_SIZE];
+
+    /* setup the message queue */
+    msg_init_queue(msg_queue, ARRAY_SIZE(msg_queue));
+
+    gnrc_netreg_entry_t ctx = {
+        .demux_ctx  = PORT_TEST,
+        .target.pid = thread_getpid()
+    };
+    gnrc_netreg_register(GNRC_NETTYPE_UDP, &ctx);
+
+    puts("listening…");
+
+    while (1) {
+        msg_receive(&msg);
+
+        printf("got one: %p\n", msg.content.ptr);
+
+        _dump(msg.content.ptr);
+    }
+
+    return arg;
 }
 
 static const shell_command_t shell_commands[] = {
@@ -119,9 +125,21 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+
+#define MAIN_QUEUE_SIZE     (8)
+static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
+
+static char test_server_stack[THREAD_STACKSIZE_MAIN];
+
 int main(void)
 {
     char line_buf[SHELL_DEFAULT_BUFSIZE];
+
+    thread_create(test_server_stack, sizeof(test_server_stack),
+                  THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+                  range_test_server, NULL, "range test");
+
+    msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     return 0;

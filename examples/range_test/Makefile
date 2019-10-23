@@ -17,6 +17,11 @@ USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
 USEMODULE += gnrc
+USEMODULE += gnrc_udp
+
+USEMODULE += gnrc_icmpv6_echo
+USEMODULE += gnrc_ipv6_router_default
+
  # use the default network interface for the board
 USEMODULE += gnrc_netdev_default
 # automatically initialize the network interface
