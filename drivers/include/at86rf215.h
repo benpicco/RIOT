@@ -82,9 +82,10 @@ typedef struct at86rf215_BBC_regs at86rf215_BBC_regs_t;
 typedef enum {
     AT86RF215_STATE_OFF,        /**< radio not configured */
     AT86RF215_STATE_IDLE,       /**< idle state, listening */
-    AT86RF215_STATE_RX,         /**< receiving frame, sending ACK */
+    AT86RF215_STATE_RX_SEND_ACK,/**< receiving frame, sending ACK */
     AT86RF215_STATE_TX_PREP,    /**< preparing to send frame */
-    AT86RF215_STATE_TX,         /**< sending frame, wait for ACK */
+    AT86RF215_STATE_TX,         /**< sending frame */
+    AT86RF215_STATE_TX_WAIT_ACK,/**< sending frame, wait for ACK */
     AT86RF215_STATE_SLEEP       /**< sleep mode, not listening */
 } at86rf215_state_t;
 /** @} */
