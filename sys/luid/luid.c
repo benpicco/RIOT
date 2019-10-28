@@ -62,7 +62,9 @@ void luid_custom(void *buf, size_t len, int gen)
 {
     luid_base(buf, len);
 
-    for (size_t i = 0; i < sizeof(gen); i++) {
-        ((uint8_t *)buf)[i % len] ^= ((gen >> (i * 8)) & 0xff);
+    uint8_t *in  = (uint8_t *)&gen;
+    uint8_t *out = (uint8_t *)buf;
+    for (size_t i = 0; i < len; i++) {
+        out[i] ^= in[i % sizeof(gen)];
     }
 }
