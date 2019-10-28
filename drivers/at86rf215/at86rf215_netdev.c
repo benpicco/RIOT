@@ -814,7 +814,7 @@ static void _isr(netdev_t *netdev)
 
     /* check if the packet was sent with ACK request set */
     bool ack_req;
-    if (bb_irq_mask & BB_IRQ_TXFE) {
+    if (bb_irq_mask & BB_IRQ_RXFE) {
         ack_req = at86rf215_reg_read(dev, dev->BBC->RG_FBRXS) & IEEE802154_FCF_ACK_REQ;
     } else {
         ack_req = 0;
@@ -824,7 +824,7 @@ static void _isr(netdev_t *netdev)
     switch (dev->state) {
     case AT86RF215_STATE_IDLE:
         if (!(bb_irq_mask & BB_IRQ_RXFE)) {
-            puts("IDLE: only RXFE expected");
+            printf("IDLE: only RXFE expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -845,7 +845,7 @@ static void _isr(netdev_t *netdev)
 
     case AT86RF215_STATE_RX_SEND_ACK:
         if (!(bb_irq_mask & BB_IRQ_TXFE)) {
-            puts("RX_SEND_ACK: only TXFE expected");
+            printf("RX_SEND_ACK: only TXFE expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -862,7 +862,7 @@ static void _isr(netdev_t *netdev)
 
     case AT86RF215_STATE_TX_PREP:
         if (!(rf_irq_mask & RF_IRQ_EDC)) {
-            puts("TXPREP: only EDC expected");
+            printf("TXPREP: only EDC expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -876,6 +876,7 @@ static void _isr(netdev_t *netdev)
             break;
         }
 
+        puts("busy");
         if (dev->csma_retries) {
             --dev->csma_retries;
             /* re-start energy detection */
@@ -887,15 +888,14 @@ static void _isr(netdev_t *netdev)
 
             netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
 
-            dev->state = AT86RF215_STATE_IDLE;
             puts("CSMA give up");
-            /* radio is still in RX mode */
+            /* radio is still in RX mode, tx_done sets IDLE state */
         }
         break;
 
     case AT86RF215_STATE_TX:
         if (!(bb_irq_mask & BB_IRQ_TXFE)) {
-            puts("TX: only TXFE expected");
+            printf("TX: only TXFE expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -911,7 +911,7 @@ static void _isr(netdev_t *netdev)
 
     case AT86RF215_STATE_TX_WAIT_ACK:
         if (!((bb_irq_mask & BB_IRQ_RXFE) | ack_timeout)) {
-            puts("TX_WAIT_ACK: only RXFE or timeout expected");
+            printf("TX_WAIT_ACK: only RXFE or timeout expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -942,12 +942,12 @@ timeout:
         * To mitigate this, postpone the ACK timeout if the device is still RXign
         * the ACK frame when the timeout expires.
         */
-//        if (bb_irq_mask & BB_IRQ_AGCH) {
-//            puts("Ack timeout postponed");
-//            _start_ack_timer(dev);
-//        } else {
+        if (bb_irq_mask & BB_IRQ_AGCH) {
+            puts("Ack timeout postponed");
+            _start_ack_timer(dev);
+        } else {
             _handle_ack_timeout(dev);
-//        }
+        }
 
         ack_timeout = false;
         break;
