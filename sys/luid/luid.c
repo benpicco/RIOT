@@ -26,6 +26,24 @@
 
 #include "luid.h"
 
+#if CPUID_LEN
+void __attribute__((weak)) luid_base(void *buf, size_t len)
+{
+    uint8_t *out = (uint8_t *)buf;
+    uint8_t cid[CPUID_LEN];
+
+    cpuid_get(cid);
+    for (size_t i = 0; i < len; i++) {
+        out[i] = cid[i % CPUID_LEN];
+    }
+}
+#else
+void __attribute__((weak)) luid_base(void *buf, size_t len)
+{
+    memset(buf, LUID_BACKUP_SEED, len);
+}
+#endif
+
 static uint8_t lastused = 1;
 
 void luid_get(void *buf, size_t len)
@@ -42,21 +60,4 @@ void luid_custom(void *buf, size_t len, int gen)
     for (size_t i = 0; i < sizeof(gen); i++) {
         ((uint8_t *)buf)[i % len] ^= ((gen >> (i * 8)) & 0xff);
     }
-}
-
-void luid_base(void *buf, size_t len)
-{
-    assert(buf && (len > 0));
-
-    memset(buf, LUID_BACKUP_SEED, len);
-
-#if CPUID_LEN
-    uint8_t *out = (uint8_t *)buf;
-    uint8_t cid[CPUID_LEN];
-
-    cpuid_get(cid);
-    for (size_t i = 0; i < CPUID_LEN; i++) {
-        out[i % len] ^= cid[i];
-    }
-#endif
 }
