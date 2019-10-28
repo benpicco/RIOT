@@ -271,8 +271,6 @@ int at86rf215_tx_exec(at86rf215_t *dev)
     /* wait for TRXRDY - we should already be in that state by now */
     while (!(at86rf215_get_rf_state(dev) & RF_IRQ_TRXRDY)) {}
 
-    dev->state = AT86RF215_STATE_TX;
-
     if (dev->flags & AT86RF215_OPT_CSMA) {
         /* switch to state RX for energy detection */
         at86rf215_set_state(dev, CMD_RF_RX);
@@ -281,6 +279,7 @@ int at86rf215_tx_exec(at86rf215_t *dev)
         at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
     } else {
         /* no CSMA - send directly */
+        dev->state = AT86RF215_STATE_TX;
         at86rf215_enable_baseband(dev);
         at86rf215_rf_cmd(dev, CMD_RF_TX);
     }
