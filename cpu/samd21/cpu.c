@@ -204,8 +204,18 @@ static void clk_init(void)
                          | SYSCTRL_XOSC32K_ENABLE;
 #endif
 
+    /* Setup Clock generator 3 with divider 4 (1024 Hz) */
+    GCLK->GENDIV.reg  = (GCLK_GENDIV_ID(3)  | GCLK_GENDIV_DIV(4));
+    GCLK->GENCTRL.reg = (GCLK_GENCTRL_ID(3) | GCLK_GENCTRL_GENEN
+                      | GCLK_GENCTRL_RUNSTDBY | GCLK_GENCTRL_DIVSEL
+#if GEN2_ULP32K
+                      | GCLK_GENCTRL_SRC_OSCULP32K);
+#else
+                      | GCLK_GENCTRL_SRC_XOSC32K);
+#endif
+
     /* redirect all peripherals to a disabled clock generator (7) by default */
-    for (int i = 0x3; i <= 0x22; i++) {
+    for (int i = 0x4; i <= 0x22; i++) {
         GCLK->CLKCTRL.reg = ( GCLK_CLKCTRL_ID(i) | GCLK_CLKCTRL_GEN_GCLK7 );
         while (GCLK->STATUS.bit.SYNCBUSY) {}
     }
