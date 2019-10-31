@@ -32,6 +32,8 @@ DEVELHELP ?= 1
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+# CFLAGS += -DIEEE802154_DEFAULT_PANID=$(DEFAULT_PAN_ID)
+
 include $(RIOTBASE)/Makefile.include
 
 # Set a custom channel if needed

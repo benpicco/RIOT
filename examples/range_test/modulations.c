@@ -44,40 +44,29 @@ typedef struct {
 static const netopt_setting_t settings[] = {
     {
         .name = "O-QPSK legacy",
-        .opt = {},   /* this is the default */
-        .opt_num = 0
-    },
-    {
-        .name = "O-QPSK; rate mode 0",
         .opt =
         {
             {
+                .opt  = NETOPT_IEEE802154_PHY,
+                .data = IEEE802154_PHY_OQPSK,
+                .data_len = 1
+            },
+            {
                 .opt  = NETOPT_OQPSK_RATE,
-                .data = 0,
+                .data = IEEE802154_OQPSK_FLAG_LEGACY,
                 .data_len = 1
             },
         },
-        .opt_num = 1
+
+        .opt_num = 2
     },
     {
-        .name = "O-QPSK; rate mode 1",
+        .name = "O-QPSK; rate mode 4",
         .opt =
         {
             {
                 .opt  = NETOPT_OQPSK_RATE,
-                .data = 1,
-                .data_len = 1
-            },
-        },
-        .opt_num = 1
-    },
-    {
-        .name = "O-QPSK; rate mode 2",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = 2,
+                .data = 4,
                 .data_len = 1
             },
         },
@@ -96,12 +85,36 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "O-QPSK; rate mode 4",
+        .name = "O-QPSK; rate mode 2",
         .opt =
         {
             {
                 .opt  = NETOPT_OQPSK_RATE,
-                .data = 4,
+                .data = 2,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 1",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 1,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 0",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 0,
                 .data_len = 1
             },
         },
@@ -197,6 +210,7 @@ static const netopt_setting_t settings[] = {
         },
         .opt_num = 2
     },
+#if 0
     {
         .name = "FSK, 150 kHz",
         .opt =
@@ -221,6 +235,7 @@ static const netopt_setting_t settings[] = {
         },
         .opt_num = 1
     },
+#endif
 };
 
 static unsigned idx;
@@ -271,10 +286,10 @@ void range_test_print_results(void)
             };
 
             printf("=== Interface %d ===\n", j);
-            printf("received %d / %d\n", results[j][i].pkts_rcvd, results[j][i].pkts_send);
-            printf("RSSI local: %ld dBm\n", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
-            printf("RSSI remote: %ld dBm\n", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
-            printf("RTT: %ld µs\n", xtimer_usec_from_ticks(ticks));
+            printf("received:\t%d / %d (%d %%)\n", results[j][i].pkts_rcvd, results[j][i].pkts_send, 100 * results[j][i].pkts_rcvd / results[j][i].pkts_send);
+            printf("RSSI local:\t%ld dBm\n", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
+            printf("RSSI remote:\t%ld dBm\n", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
+            printf("RTT:\t\t%ld µs\n", xtimer_usec_from_ticks(ticks));
         }
     }
     memset(results, 0, sizeof(results));
