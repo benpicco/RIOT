@@ -116,12 +116,15 @@ void range_test_add_measurement(kernel_pid_t netif, int rssi_local, int rssi_rem
 
 void range_test_print_results(void)
 {
-    int j = 1;
     for (unsigned i = 0; i < ARRAY_SIZE(settings); ++i) {
         printf("[%s]\n", settings[i].name);
-        printf("received %d / %d\n", results[j][i].pkts_rcvd, results[j][i].pkts_send);
-        printf("RSSI local: %ld dBm\n", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
-        printf("RSSI remote: %ld dBm\n", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
+        for (int j = 0; j < GNRC_NETIF_NUMOF; ++j) {
+            printf("=== Interface %d ===\n", j);
+            printf("received %d / %d\n", results[j][i].pkts_rcvd, results[j][i].pkts_send);
+            printf("RSSI local: %ld dBm\n", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
+            printf("RSSI remote: %ld dBm\n", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
+            printf("RTT: %ld µs\n", results[j][idx].rtt_ticks);
+        }
     }
     memset(results, 0, sizeof(results));
     idx = 0;

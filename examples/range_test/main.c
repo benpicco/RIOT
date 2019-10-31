@@ -57,7 +57,7 @@ typedef struct {
 } test_pingpong_t;
 
 static char test_server_stack[THREAD_STACKSIZE_MAIN];
-static char test_sender_stack[THREAD_STACKSIZE_MAIN];
+static char test_sender_stack[GNRC_NETIF_NUMOF][THREAD_STACKSIZE_MAIN];
 
 static void _rtc_alarm(void* ctx)
 {
@@ -153,7 +153,7 @@ static void* range_test_sender(void *arg)
         range_test_begin_measurement(ctx->netif);
 
         mutex_unlock(&ctx->mutex);
-        printf("will sleep for %ld µs\n", xtimer_usec_from_ticks(range_test_get_timeout(ctx->netif)));
+        printf("[%d] will sleep for %ld µs\n", ctx->netif, xtimer_usec_from_ticks(range_test_get_timeout(ctx->netif)));
         xtimer_tsleep32(range_test_get_timeout(ctx->netif));
     }
 
@@ -172,28 +172,49 @@ static int _range_test_cmd(int argc, char** argv)
     alarm.tm_sec += 10;
     rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
 
-    struct sender_ctx ctx = {
-        .running = true,
-        .mutex = MUTEX_INIT_LOCKED,
-        .netif = 7
+    struct sender_ctx ctx[GNRC_NETIF_NUMOF] = {
+        {
+            .running = true,
+            .mutex = MUTEX_INIT_LOCKED,
+            .netif = 6
+        },
+        {
+            .running = true,
+            .mutex = MUTEX_INIT_LOCKED,
+            .netif = 7
+        }
     };
 
-    thread_create(test_sender_stack, sizeof(test_sender_stack),
+    thread_create(test_sender_stack[0], sizeof(test_sender_stack[0]),
                   THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
-                  range_test_sender, &ctx, "pinger");
+                  range_test_sender, &ctx[0], "pinger");
+    thread_create(test_sender_stack[1], sizeof(test_sender_stack[1]),
+                  THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+                  range_test_sender, &ctx[1], "pinger");
     do {
-        mutex_unlock(&ctx.mutex);
+        mutex_unlock(&ctx[0].mutex);
+        mutex_unlock(&ctx[1].mutex);
+
         mutex_lock(&mutex);
-        mutex_lock(&ctx.mutex);
+
+        mutex_lock(&ctx[0].mutex);
+        mutex_lock(&ctx[1].mutex);
 
         alarm.tm_sec += 10;
         rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
     } while (range_test_set_next_modulation());
 
-    ctx.running = false;
+    ctx[0].running = false;
+    ctx[1].running = false;
+
+    mutex_unlock(&ctx[0].mutex);
+    mutex_unlock(&ctx[1].mutex);
+
     rtc_clear_alarm();
 
     range_test_print_results();
+
+    xtimer_sleep(1);
 
     return 0;
 }
@@ -244,7 +265,6 @@ static void* range_test_server(void *arg)
             /* TODO */
             break;
         case TEST_PING:
-            puts("got PING");
             pp->type = TEST_PONG;
             pp->rssi = _get_rssi(pkt, NULL);
             _udp_reply(pkt, pkt->data, pkt->size);
