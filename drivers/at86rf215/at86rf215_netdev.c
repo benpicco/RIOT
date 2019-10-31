@@ -786,6 +786,12 @@ static void _isr(netdev_t *netdev)
 {
     at86rf215_t *dev = (at86rf215_t *) netdev;
     uint8_t bb_irq_mask, rf_irq_mask, amcs;
+    uint8_t bb_irqs_enabled = BB_IRQ_RXFE | BB_IRQ_TXFE;
+
+    /* not using IRQMM because we want to know about AGCH */
+    if (dev->flags & AT86RF215_OPT_TELL_RX_START) {
+        bb_irqs_enabled |= BB_IRQ_RXAM;
+    }
 
     rf_irq_mask = at86rf215_reg_read(dev, dev->RF->RG_IRQS);
     bb_irq_mask = at86rf215_reg_read(dev, dev->BBC->RG_IRQS);
@@ -805,14 +811,14 @@ static void _isr(netdev_t *netdev)
     }
 
     /* exit early if the interrupt was not for this interface */
-    if (!((bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_TXFE | BB_IRQ_RXAM)) |
+    if (!((bb_irq_mask & bb_irqs_enabled) |
           (rf_irq_mask & RF_IRQ_EDC) | ack_timeout)) {
         return;
     }
 
     amcs = at86rf215_reg_read(dev, dev->BBC->RG_AMCS);
 
-    /* check if the packet was sent with ACK request set */
+    /* check if the received packet has the ACK request bit set */
     bool ack_req;
     if (bb_irq_mask & BB_IRQ_RXFE) {
         ack_req = at86rf215_reg_read(dev, dev->BBC->RG_FBRXS) & IEEE802154_FCF_ACK_REQ;
@@ -823,8 +829,20 @@ static void _isr(netdev_t *netdev)
     do {
     switch (dev->state) {
     case AT86RF215_STATE_IDLE:
+        if (!(bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_RXAM))) {
+            printf("IDLE: only RXFE/RXAM expected (%x)\n", bb_irq_mask);
+            break;
+        }
+
+        if ((bb_irq_mask & BB_IRQ_RXAM) &&
+            (dev->flags & AT86RF215_OPT_TELL_RX_END)) {
+            /* will be executed in the same thread */
+            netdev->event_callback(netdev, NETDEV_EVENT_RX_STARTED);
+        }
+
+        bb_irq_mask &= ~BB_IRQ_RXAM;
+
         if (!(bb_irq_mask & BB_IRQ_RXFE)) {
-            printf("IDLE: only RXFE expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -876,10 +894,10 @@ static void _isr(netdev_t *netdev)
             break;
         }
 
-        puts("busy");
         if (dev->csma_retries) {
             --dev->csma_retries;
             /* re-start energy detection */
+            /* TODO: exponential? backoff */
             at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
         } else {
             /* channel busy and no retries left */
