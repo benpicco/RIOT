@@ -826,7 +826,20 @@ static void _isr(netdev_t *netdev)
         ack_req = 0;
     }
 
+    int iter = 0;
     do {
+
+    /* This should never happen */
+    if (++iter > 3) {
+        puts("AT86RF215: stuck in ISR");
+        printf("\tHW: %s\n", at86rf215_hw_state2a(at86rf215_get_rf_state(dev)));
+        printf("\tSW: %s\n", at86rf215_sw_state2a(dev->state));
+        printf("\trf_irq_mask: %x\n", rf_irq_mask);
+        printf("\tbb_irq_mask: %x\n", bb_irq_mask);
+        printf("\tack_timeout: %d\n", ack_timeout);
+        break;
+    }
+
     switch (dev->state) {
     case AT86RF215_STATE_IDLE:
         if (!(bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_RXAM))) {
