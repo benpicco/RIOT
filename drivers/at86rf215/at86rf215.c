@@ -278,7 +278,6 @@ int at86rf215_tx_exec(at86rf215_t *dev)
         /* start energy measurement */
         at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
     } else {
-        puts("NO CSMA");
         /* no CSMA - send directly */
         dev->state = AT86RF215_STATE_TX;
         at86rf215_enable_baseband(dev);
