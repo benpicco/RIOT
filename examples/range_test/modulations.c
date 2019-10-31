@@ -119,15 +119,27 @@ void range_test_print_results(void)
     for (unsigned i = 0; i < ARRAY_SIZE(settings); ++i) {
         printf("[%s]\n", settings[i].name);
         for (int j = 0; j < GNRC_NETIF_NUMOF; ++j) {
+            xtimer_ticks32_t ticks = {
+                .ticks32 = results[j][idx].rtt_ticks
+            };
+
             printf("=== Interface %d ===\n", j);
             printf("received %d / %d\n", results[j][i].pkts_rcvd, results[j][i].pkts_send);
             printf("RSSI local: %ld dBm\n", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
             printf("RSSI remote: %ld dBm\n", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
-            printf("RTT: %ld µs\n", results[j][idx].rtt_ticks);
+            printf("RTT: %ld µs\n", xtimer_usec_from_ticks(ticks));
         }
     }
     memset(results, 0, sizeof(results));
     idx = 0;
+}
+
+static void _set_modulation(void) {
+    printf("switching to %s\n", settings[idx].name);
+
+    for (unsigned j = 0; j < settings[idx].opt_num; ++j) {
+        _netapi_set_forall(settings[idx].opt[j].opt, &settings[idx].opt[j].data, settings[idx].opt[j].data_len);
+    }
 }
 
 bool range_test_set_next_modulation(void)
@@ -136,11 +148,7 @@ bool range_test_set_next_modulation(void)
         return false;
     }
 
-    printf("switching to %s\n", settings[idx].name);
-
-    for (unsigned j = 0; j < settings[idx].opt_num; ++j) {
-        _netapi_set_forall(settings[idx].opt[j].opt, &settings[idx].opt[j].data, settings[idx].opt[j].data_len);
-    }
+    _set_modulation();
 
     return true;
 }
@@ -149,4 +157,6 @@ void range_test_start(void)
 {
     netopt_enable_t disable = NETOPT_DISABLE;
     _netapi_set_forall(NETOPT_ACK_REQ, &disable, sizeof(disable));
+
+    _set_modulation();
 }
