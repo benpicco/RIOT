@@ -43,6 +43,71 @@ typedef struct {
 
 static const netopt_setting_t settings[] = {
     {
+        .name = "O-QPSK legacy",
+        .opt = {},   /* this is the default */
+        .opt_num = 0
+    },
+    {
+        .name = "O-QPSK; rate mode 0",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 0,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 1",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 1,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 2",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 2,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 3",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 3,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 4",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 4,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
         .name = "OFDM-BPSKx4; opt=1",
         .opt =
         {
@@ -116,12 +181,42 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "OFDM-BPSKx2; opt=4",
-        .opt = {
+        .name = "FSK, 50 kHz",
+        .opt =
+        {
             {
-                .opt  = NETOPT_OFDM_OPTION,
-                .data = 4,
+                .opt  = NETOPT_IEEE802154_PHY,
+                .data = IEEE802154_PHY_FSK,
                 .data_len = 1
+            },
+            {
+                .opt  = NETOPT_FSK_SRATE,
+                .data = 50,
+                .data_len = 2
+            },
+        },
+        .opt_num = 2
+    },
+    {
+        .name = "FSK, 150 kHz",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_FSK_SRATE,
+                .data = 150,
+                .data_len = 2
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "FSK, 400 kHz",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_FSK_SRATE,
+                .data = 400,
+                .data_len = 2
             },
         },
         .opt_num = 1

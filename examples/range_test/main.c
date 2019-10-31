@@ -167,7 +167,7 @@ static void* range_test_sender(void *arg)
         range_test_begin_measurement(ctx->netif);
 
         mutex_unlock(&ctx->mutex);
-        printf("[%d] will sleep for %ld µs\n", ctx->netif, xtimer_usec_from_ticks(range_test_get_timeout(ctx->netif)));
+//        printf("[%d] will sleep for %ld µs\n", ctx->netif, xtimer_usec_from_ticks(range_test_get_timeout(ctx->netif)));
         xtimer_tsleep32(range_test_get_timeout(ctx->netif));
     }
 
@@ -297,7 +297,6 @@ static void* range_test_server(void *arg)
         case GNRC_NETAPI_MSG_TYPE_SND:
             continue;
         case CUSTOM_MSG_TYPE_NEXT_SETTING:
-            puts("next modulation");
             if (range_test_set_next_modulation()) {
                 struct tm now;
                 rtc_get_time(&now);
