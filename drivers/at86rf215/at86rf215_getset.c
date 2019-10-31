@@ -240,6 +240,11 @@ uint8_t at86rf215_set_state(at86rf215_t *dev, uint8_t cmd)
         _set_state(dev, CMD_RF_TXPREP);
     }
 
+    if (old_state == CMD_RF_TRXOFF &&
+       (cmd == CMD_RF_RX || cmd == CMD_RF_TX)) {
+        _set_state(dev, CMD_RF_TXPREP);
+    }
+
     if (old_state == RF_STATE_RESET) {
         /* wake the transceiver */
         _set_state(dev, CMD_RF_TRXOFF);
