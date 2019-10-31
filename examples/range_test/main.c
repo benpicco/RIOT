@@ -32,20 +32,29 @@
 #include "shell_commands.h"
 #include "range_test.h"
 
-#define PORT_TEST   (2323)
-#define QUEUE_SIZE  (8)
+int at86rf215_debug(int argc, char** argv);
+
+#define TEST_PORT   (2323)
+#define QUEUE_SIZE  (4)
 
 enum {
     TEST_HELLO,
+    TEST_HELLO_ACK,
     TEST_PING,
     TEST_PONG
 };
 
 typedef struct {
     uint8_t type;
-    int8_t rssi_recv;
+    struct tm now;
+} test_hello_t;
+
+typedef struct {
+    uint8_t type;
+    int8_t rssi;
     uint16_t seq_no;
-} test_data_t;
+    uint32_t ticks;
+} test_pingpong_t;
 
 static void _rtc_alarm(void* ctx)
 {
@@ -90,10 +99,34 @@ static int _get_rssi(gnrc_pktsnip_t *pkt)
     return netif_hdr->rssi;
 }
 
-static bool _udp_reply(gnrc_pktsnip_t *pkt_in, void* data, size_t len)
+static bool _udp_send(int netif, const ipv6_addr_t* addr, uint16_t port, const void* data, size_t len)
 {
     gnrc_pktsnip_t *pkt_out;
 
+    if (!(pkt_out = gnrc_pktbuf_add(NULL, data, len, GNRC_NETTYPE_UNDEF))) {
+        return false;
+    }
+    if (!(pkt_out = gnrc_udp_hdr_build(pkt_out, port, port))) {
+        goto error;
+    }
+    if (!(pkt_out = gnrc_ipv6_hdr_build(pkt_out, NULL, addr))) {
+        goto error;
+    }
+
+    if (netif) {
+        gnrc_pktsnip_t *netif_hdr = gnrc_netif_hdr_build(NULL, 0, NULL, 0);
+        gnrc_netif_hdr_set_netif(netif_hdr->data, gnrc_netif_get_by_pid(netif));
+        LL_PREPEND(pkt_out, netif_hdr);
+    }
+
+    return gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL, pkt_out);
+error:
+    gnrc_pktbuf_release(pkt_out);
+    return false;
+}
+
+static bool _udp_reply(gnrc_pktsnip_t *pkt_in, void* data, size_t len)
+{
     gnrc_pktsnip_t *snip_udp = pkt_in->next;
     gnrc_pktsnip_t *snip_ip  = snip_udp->next;
     gnrc_pktsnip_t *snip_if  = snip_ip->next;
@@ -102,27 +135,17 @@ static bool _udp_reply(gnrc_pktsnip_t *pkt_in, void* data, size_t len)
     ipv6_hdr_t *ip = snip_ip->data;
     gnrc_netif_hdr_t *netif = snip_if->data;
 
-    if (!(pkt_out = gnrc_pktbuf_add(NULL, data, len, GNRC_NETTYPE_UNDEF))) {
-        return false;
-    }
-    if (!(pkt_out = gnrc_udp_hdr_build(pkt_out,
-                                       byteorder_ntohs(udp->dst_port),
-                                       byteorder_ntohs(udp->src_port)))) {
-        goto error;
-    }
-    if (!(pkt_out = gnrc_ipv6_hdr_build(pkt_out, &ip->dst, &ip->src))) {
-        goto error;
-    }
+    return _udp_send(netif->if_pid, &ip->src, byteorder_ntohs(udp->src_port), data, len);
+}
 
-    /* make sure we send out the reply on the same interface */
-    gnrc_pktsnip_t *netif_hdr = gnrc_netif_hdr_build(NULL, 0, NULL, 0);
-    gnrc_netif_hdr_set_netif(netif_hdr->data, gnrc_netif_get_by_pid(netif->if_pid));
-    LL_PREPEND(pkt_out, netif_hdr);
+static bool _send_ping(int netif, const ipv6_addr_t* addr, uint16_t port)
+{
+    test_pingpong_t ping = {
+        .type = TEST_PING,
+        .ticks = xtimer_now().ticks32
+    };
 
-    return gnrc_netapi_dispatch_send(GNRC_NETTYPE_UDP, GNRC_NETREG_DEMUX_CTX_ALL, pkt_out);
-error:
-    gnrc_pktbuf_release(pkt_out);
-    return false;
+    return _udp_send(netif, addr, port, &ping, sizeof(ping));
 }
 
 static void* range_test_server(void *arg)
@@ -133,7 +156,7 @@ static void* range_test_server(void *arg)
     };
 
     gnrc_netreg_entry_t ctx = {
-        .demux_ctx  = PORT_TEST,
+        .demux_ctx  = TEST_PORT,
         .target.pid = thread_getpid()
     };
 
@@ -160,18 +183,50 @@ static void* range_test_server(void *arg)
             continue;
         }
 
-        printf("'%s' (rssi: %d)\n", (char*) pkt->data, _get_rssi(pkt));
+//        test_hello_t *hello = pkt->data;
+        test_pingpong_t *pp = pkt->data;
 
-        if (!_udp_reply(pkt, pkt->data, pkt->size)) {
-            puts("can't reply");
+        switch (pp->type) {
+        case TEST_HELLO:
+            /* TODO */
+            break;
+        case TEST_HELLO_ACK:
+            /* TODO */
+            break;
+        case TEST_PING:
+            puts("got PING");
+            pp->type = TEST_PONG;
+            pp->rssi = _get_rssi(pkt);
+            _udp_reply(pkt, pkt->data, pkt->size);
+            break;
+        case TEST_PONG:
+            printf("got PONG:\n");
+            printf("RSSI remote: %d\n", pp->rssi);
+            printf("RSSI local: %d\n", _get_rssi(pkt));
+            printf("ticks: %ld\n", xtimer_now().ticks32 - pp->ticks);
+            break;
+        default:
+            printf("got '%s'\n", (char*) pkt->data);
         }
     }
 
     return arg;
 }
 
+static int _do_ping(int argc, char** argv)
+{
+    (void) argc;
+    (void) argv;
+
+    return !_send_ping(0, &ipv6_addr_all_nodes_link_local, TEST_PORT);
+}
+
 static const shell_command_t shell_commands[] = {
     { "range_test", "Iterates over radio settings", _range_test_cmd },
+    { "ping", "send single ping to all nodes", _do_ping },
+#ifdef MODULE_AT86RF215
+    { "rf215", "at86rf215 debugging", at86rf215_debug },
+#endif
     { NULL, NULL, NULL }
 };
 
@@ -183,13 +238,12 @@ static char test_server_stack[THREAD_STACKSIZE_MAIN];
 
 int main(void)
 {
-    char line_buf[SHELL_DEFAULT_BUFSIZE];
-
+    msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     thread_create(test_server_stack, sizeof(test_server_stack),
                   THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
                   range_test_server, NULL, "range test");
 
-    msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
+    char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 
     return 0;
