@@ -830,7 +830,7 @@ static void _isr(netdev_t *netdev)
     switch (dev->state) {
     case AT86RF215_STATE_IDLE:
         if (!(bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_RXAM))) {
-            printf("IDLE: only RXFE/RXAM expected (%x)\n", bb_irq_mask);
+            DEBUG("IDLE: only RXFE/RXAM expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -863,7 +863,7 @@ static void _isr(netdev_t *netdev)
 
     case AT86RF215_STATE_RX_SEND_ACK:
         if (!(bb_irq_mask & BB_IRQ_TXFE)) {
-            printf("RX_SEND_ACK: only TXFE expected (%x)\n", bb_irq_mask);
+            DEBUG("RX_SEND_ACK: only TXFE expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -880,7 +880,7 @@ static void _isr(netdev_t *netdev)
 
     case AT86RF215_STATE_TX_PREP:
         if (!(rf_irq_mask & RF_IRQ_EDC)) {
-            printf("TXPREP: only EDC expected (%x)\n", bb_irq_mask);
+            DEBUG("TXPREP: only EDC expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -894,6 +894,7 @@ static void _isr(netdev_t *netdev)
             break;
         }
 
+        DEBUG("CSMA busy\n");
         if (dev->csma_retries) {
             --dev->csma_retries;
             /* re-start energy detection */
@@ -906,14 +907,14 @@ static void _isr(netdev_t *netdev)
 
             netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
 
-            puts("CSMA give up");
+            DEBUG("CSMA give up");
             /* radio is still in RX mode, tx_done sets IDLE state */
         }
         break;
 
     case AT86RF215_STATE_TX:
         if (!(bb_irq_mask & BB_IRQ_TXFE)) {
-            printf("TX: only TXFE expected (%x)\n", bb_irq_mask);
+            DEBUG("TX: only TXFE expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -929,7 +930,7 @@ static void _isr(netdev_t *netdev)
 
     case AT86RF215_STATE_TX_WAIT_ACK:
         if (!((bb_irq_mask & BB_IRQ_RXFE) | ack_timeout)) {
-            printf("TX_WAIT_ACK: only RXFE or timeout expected (%x)\n", bb_irq_mask);
+            DEBUG("TX_WAIT_ACK: only RXFE or timeout expected (%x)\n", bb_irq_mask);
             break;
         }
 
@@ -961,7 +962,7 @@ timeout:
         * the ACK frame when the timeout expires.
         */
         if (bb_irq_mask & BB_IRQ_AGCH) {
-            puts("Ack timeout postponed");
+            DEBUG("Ack timeout postponed\n");
             _start_ack_timer(dev);
         } else {
             _handle_ack_timeout(dev);
