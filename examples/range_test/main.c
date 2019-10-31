@@ -208,6 +208,8 @@ static void* range_test_server(void *arg)
         default:
             printf("got '%s'\n", (char*) pkt->data);
         }
+
+        gnrc_pktbuf_release(pkt);
     }
 
     return arg;
