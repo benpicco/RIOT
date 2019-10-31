@@ -56,37 +56,15 @@ typedef struct {
     uint32_t ticks;
 } test_pingpong_t;
 
+static char test_server_stack[THREAD_STACKSIZE_MAIN];
+static char test_sender_stack[THREAD_STACKSIZE_MAIN];
+
 static void _rtc_alarm(void* ctx)
 {
     mutex_unlock(ctx);
 }
 
-static int _range_test_cmd(int argc, char** argv)
-{
-    (void) argc;
-    (void) argv;
-
-    mutex_t mutex = MUTEX_INIT_LOCKED;
-
-    struct tm alarm;
-    rtc_get_time(&alarm);
-    alarm.tm_sec += 10;
-    rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
-
-    unsigned i = 0;
-    do {
-        mutex_lock(&mutex);
-
-        alarm.tm_sec += 10;
-        rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
-    } while (range_test_set_modulation(i++));
-
-    rtc_clear_alarm();
-
-    return 0;
-}
-
-static int _get_rssi(gnrc_pktsnip_t *pkt)
+static int _get_rssi(gnrc_pktsnip_t *pkt, kernel_pid_t *pid)
 {
     gnrc_netif_hdr_t *netif_hdr;
     gnrc_pktsnip_t *netif = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
@@ -96,6 +74,11 @@ static int _get_rssi(gnrc_pktsnip_t *pkt)
     }
 
     netif_hdr = netif->data;
+
+    if (pid) {
+        *pid = netif_hdr->if_pid;
+    }
+
     return netif_hdr->rssi;
 }
 
@@ -148,6 +131,73 @@ static bool _send_ping(int netif, const ipv6_addr_t* addr, uint16_t port)
     return _udp_send(netif, addr, port, &ping, sizeof(ping));
 }
 
+struct sender_ctx {
+    bool running;
+    mutex_t mutex;
+    uint16_t netif;
+};
+
+static void* range_test_sender(void *arg)
+{
+
+    struct sender_ctx *ctx = arg;
+    while (ctx->running) {
+
+        mutex_lock(&ctx->mutex);
+
+        if (!_send_ping(ctx->netif, &ipv6_addr_all_nodes_link_local, TEST_PORT)) {
+            puts("UDP send failed!");
+            break;
+        }
+
+        range_test_begin_measurement(ctx->netif);
+
+        mutex_unlock(&ctx->mutex);
+        printf("will sleep for %ld µs\n", xtimer_usec_from_ticks(range_test_get_timeout(ctx->netif)));
+        xtimer_tsleep32(range_test_get_timeout(ctx->netif));
+    }
+
+    return arg;
+}
+
+static int _range_test_cmd(int argc, char** argv)
+{
+    (void) argc;
+    (void) argv;
+
+    mutex_t mutex = MUTEX_INIT_LOCKED;
+
+    struct tm alarm;
+    rtc_get_time(&alarm);
+    alarm.tm_sec += 10;
+    rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
+
+    struct sender_ctx ctx = {
+        .running = true,
+        .mutex = MUTEX_INIT_LOCKED,
+        .netif = 7
+    };
+
+    thread_create(test_sender_stack, sizeof(test_sender_stack),
+                  THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+                  range_test_sender, &ctx, "pinger");
+    do {
+        mutex_unlock(&ctx.mutex);
+        mutex_lock(&mutex);
+        mutex_lock(&ctx.mutex);
+
+        alarm.tm_sec += 10;
+        rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
+    } while (range_test_set_next_modulation());
+
+    ctx.running = false;
+    rtc_clear_alarm();
+
+    range_test_print_results();
+
+    return 0;
+}
+
 static void* range_test_server(void *arg)
 {
     msg_t msg, reply = {
@@ -174,6 +224,9 @@ static void* range_test_server(void *arg)
         msg_receive(&msg);
         gnrc_pktsnip_t *pkt = msg.content.ptr;
 
+//        test_hello_t *hello = pkt->data;
+        test_pingpong_t *pp = pkt->data;
+
         /* handle netapi messages */
         switch (msg.type) {
         case GNRC_NETAPI_MSG_TYPE_SET:
@@ -182,9 +235,6 @@ static void* range_test_server(void *arg)
         case GNRC_NETAPI_MSG_TYPE_SND:
             continue;
         }
-
-//        test_hello_t *hello = pkt->data;
-        test_pingpong_t *pp = pkt->data;
 
         switch (pp->type) {
         case TEST_HELLO:
@@ -196,15 +246,16 @@ static void* range_test_server(void *arg)
         case TEST_PING:
             puts("got PING");
             pp->type = TEST_PONG;
-            pp->rssi = _get_rssi(pkt);
+            pp->rssi = _get_rssi(pkt, NULL);
             _udp_reply(pkt, pkt->data, pkt->size);
             break;
         case TEST_PONG:
-            printf("got PONG:\n");
-            printf("RSSI remote: %d\n", pp->rssi);
-            printf("RSSI local: %d\n", _get_rssi(pkt));
-            printf("ticks: %ld\n", xtimer_now().ticks32 - pp->ticks);
+        {
+            kernel_pid_t netif = 0;
+            int rssi = _get_rssi(pkt, &netif);
+            range_test_add_measurement(netif, rssi, pp->rssi, xtimer_now().ticks32 - pp->ticks);
             break;
+        }
         default:
             printf("got '%s'\n", (char*) pkt->data);
         }
@@ -235,8 +286,6 @@ static const shell_command_t shell_commands[] = {
 
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
-
-static char test_server_stack[THREAD_STACKSIZE_MAIN];
 
 int main(void)
 {

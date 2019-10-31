@@ -28,12 +28,14 @@ typedef struct {
     uint16_t pkts_send;
     uint16_t pkts_rcvd;
     int32_t rssi_sum[2];
+    uint32_t rtt_ticks;
 } test_result_t;
 
-bool range_test_set_modulation(unsigned idx);
+bool range_test_set_next_modulation(void);
+xtimer_ticks32_t range_test_get_timeout(kernel_pid_t netif);
 
-void range_test_begin_measurement(unsigned idx);
-void range_test_add_measurement(unsigned idx, int rssi_local, int rssi_remote);
+void range_test_begin_measurement(kernel_pid_t netif);
+void range_test_add_measurement(kernel_pid_t netif, int rssi_local, int rssi_remote, uint32_t ticks);
 void range_test_print_results(void);
 
 #endif
