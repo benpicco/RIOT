@@ -44,36 +44,88 @@ typedef struct {
 static const netopt_setting_t settings[] = {
     {
         .name = "OFDM-BPSKx4; opt=1",
-        .opt = {
+        .opt =
         {
-            .opt  = NETOPT_IEEE802154_PHY,
-            .data = IEEE802154_PHY_OFDM,
-            .data_len = 1
-        },
-        {
-            .opt  = NETOPT_OFDM_MCS,
-            .data = 0,
-            .data_len = 1
-        },
-        {
-            .opt  = NETOPT_OFDM_OPTION,
-            .data = 1,
-            .data_len = 1
-        },
+            {
+                .opt  = NETOPT_IEEE802154_PHY,
+                .data = IEEE802154_PHY_OFDM,
+                .data_len = 1
+            },
+            {
+                .opt  = NETOPT_OFDM_MCS,
+                .data = 0,
+                .data_len = 1
+            },
+            {
+                .opt  = NETOPT_OFDM_OPTION,
+                .data = 1,
+                .data_len = 1
+            },
         },
         .opt_num = 3
     },
     {
         .name = "OFDM-BPSKx4; opt=2",
-        .opt = {
+        .opt =
         {
-            .opt  = NETOPT_OFDM_OPTION,
-            .data = 2,
-            .data_len = 1
-        },
+            {
+                .opt  = NETOPT_OFDM_OPTION,
+                .data = 2,
+                .data_len = 1
+            },
         },
         .opt_num = 1
-    }
+    },
+    {
+        .name = "OFDM-BPSKx2; opt=1",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OFDM_MCS,
+                .data = 1,
+                .data_len = 1
+            },
+            {
+                .opt  = NETOPT_OFDM_OPTION,
+                .data = 1,
+                .data_len = 1
+            },
+        },
+        .opt_num = 2
+    },
+    {
+        .name = "OFDM-BPSKx2; opt=2",
+        .opt = {
+            {
+                .opt  = NETOPT_OFDM_OPTION,
+                .data = 2,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "OFDM-BPSKx2; opt=3",
+        .opt = {
+            {
+                .opt  = NETOPT_OFDM_OPTION,
+                .data = 3,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "OFDM-BPSKx2; opt=4",
+        .opt = {
+            {
+                .opt  = NETOPT_OFDM_OPTION,
+                .data = 4,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
 };
 
 static unsigned idx;
