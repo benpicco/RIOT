@@ -43,7 +43,7 @@ typedef struct {
 
 static const netopt_setting_t settings[] = {
     {
-        .name = "OFDM-BPSKx4; opt=1",
+        .name = "OFDM-BPSKx4, opt=1",
         .opt =
         {
             {
@@ -65,7 +65,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 3
     },
     {
-        .name = "OFDM-BPSKx4; opt=2",
+        .name = "OFDM-BPSKx4, opt=2",
         .opt =
         {
             {
@@ -77,7 +77,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "OFDM-BPSKx2; opt=1",
+        .name = "OFDM-BPSKx2, opt=1",
         .opt =
         {
             {
@@ -94,7 +94,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 2
     },
     {
-        .name = "OFDM-BPSKx2; opt=2",
+        .name = "OFDM-BPSKx2, opt=2",
         .opt = {
             {
                 .opt  = NETOPT_OFDM_OPTION,
@@ -105,7 +105,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "OFDM-BPSKx2; opt=3",
+        .name = "OFDM-BPSKx2, opt=3",
         .opt = {
             {
                 .opt  = NETOPT_OFDM_OPTION,
@@ -157,7 +157,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "O-QPSK; rate mode 4",
+        .name = "O-QPSK, rate mode 4",
         .opt =
         {
             {
@@ -174,7 +174,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 2
     },
     {
-        .name = "O-QPSK; rate mode 3",
+        .name = "O-QPSK, rate mode 3",
         .opt =
         {
             {
@@ -186,7 +186,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "O-QPSK; rate mode 2",
+        .name = "O-QPSK, rate mode 2",
         .opt =
         {
             {
@@ -198,7 +198,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "O-QPSK; rate mode 1",
+        .name = "O-QPSK, rate mode 1",
         .opt =
         {
             {
@@ -210,7 +210,7 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
     {
-        .name = "O-QPSK; rate mode 0",
+        .name = "O-QPSK, rate mode 0",
         .opt =
         {
             {
@@ -275,18 +275,20 @@ void range_test_add_measurement(kernel_pid_t netif, int rssi_local, int rssi_rem
 
 void range_test_print_results(void)
 {
+    printf("modulation;iface;sent;received;RSSI_local;RSSI_remote;RTT\n");
     for (unsigned i = 0; i < ARRAY_SIZE(settings); ++i) {
-        printf("[%s]\n", settings[i].name);
         for (int j = 0; j < GNRC_NETIF_NUMOF; ++j) {
             xtimer_ticks32_t ticks = {
                 .ticks32 = results[j][i].rtt_ticks
             };
 
-            printf("=== Interface %d ===\n", j);
-            printf("received:\t%d / %d (%d %%)\n", results[j][i].pkts_rcvd, results[j][i].pkts_send, 100 * results[j][i].pkts_rcvd / results[j][i].pkts_send);
-            printf("RSSI local:\t%ld dBm\n", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
-            printf("RSSI remote:\t%ld dBm\n", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
-            printf("RTT:\t\t%ld µs\n", xtimer_usec_from_ticks(ticks));
+            printf("\"%s\";", settings[i].name);
+            printf("%d;", j);
+            printf("%d;", results[j][i].pkts_send);
+            printf("%d;", results[j][i].pkts_rcvd);
+            printf("%ld;", results[j][i].rssi_sum[0] / results[j][i].pkts_rcvd);
+            printf("%ld;", results[j][i].rssi_sum[1] / results[j][i].pkts_rcvd);
+            printf("%ld\n", xtimer_usec_from_ticks(ticks));
         }
     }
     memset(results, 0, sizeof(results));
