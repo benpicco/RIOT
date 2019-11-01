@@ -252,7 +252,7 @@ void range_test_begin_measurement(kernel_pid_t netif)
     netif -= 6; // XXX
     results[netif][idx].pkts_send++;
     if (results[netif][idx].rtt_ticks == 0) {
-        results[netif][idx].rtt_ticks = xtimer_ticks_from_usec(50000).ticks32;
+        results[netif][idx].rtt_ticks = xtimer_ticks_from_usec(500000).ticks32;
     }
 }
 
@@ -292,7 +292,6 @@ void range_test_print_results(void)
         }
     }
     memset(results, 0, sizeof(results));
-    idx = 0;
 }
 
 static void _set_modulation(void) {
@@ -316,6 +315,7 @@ bool range_test_set_next_modulation(void)
 
 void range_test_start(void)
 {
+    idx = 0;
     netopt_enable_t disable = NETOPT_DISABLE;
     _netapi_set_forall(NETOPT_ACK_REQ, &disable, sizeof(disable));
 

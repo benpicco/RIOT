@@ -34,7 +34,7 @@
 
 int at86rf215_debug(int argc, char** argv);
 
-#define TEST_PERIOD (10)
+#define TEST_PERIOD (5)
 #define TEST_PORT   (2323)
 #define QUEUE_SIZE  (4)
 
@@ -62,6 +62,11 @@ static char test_sender_stack[GNRC_NETIF_NUMOF][THREAD_STACKSIZE_MAIN];
 
 static void _rtc_alarm(void* ctx)
 {
+    struct tm alarm;
+    rtc_get_time(&alarm);
+    alarm.tm_sec += TEST_PERIOD;
+    rtc_set_alarm(&alarm, _rtc_alarm, ctx);
+
     mutex_unlock(ctx);
 }
 
@@ -190,11 +195,6 @@ static int _range_test_cmd(int argc, char** argv)
         return -1;
     }
 
-    struct tm alarm;
-    rtc_get_time(&alarm);
-    alarm.tm_sec += TEST_PERIOD;
-    rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
-
     struct sender_ctx ctx[GNRC_NETIF_NUMOF] = {
         {
             .running = true,
@@ -215,11 +215,14 @@ static int _range_test_cmd(int argc, char** argv)
                   THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
                   range_test_sender, &ctx[1], "pinger");
 
+    struct tm alarm;
+    rtc_get_time(&alarm);
+    alarm.tm_sec += TEST_PERIOD;
+    rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
+
     range_test_start();
 
     do {
-        xtimer_sleep(1);
-
         mutex_unlock(&ctx[0].mutex);
         mutex_unlock(&ctx[1].mutex);
 
@@ -227,9 +230,6 @@ static int _range_test_cmd(int argc, char** argv)
 
         mutex_lock(&ctx[0].mutex);
         mutex_lock(&ctx[1].mutex);
-
-        alarm.tm_sec += 10;
-        rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
     } while (range_test_set_next_modulation());
 
     ctx[0].running = false;
@@ -299,7 +299,7 @@ static void* range_test_server(void *arg)
         case CUSTOM_MSG_TYPE_NEXT_SETTING:
             if (range_test_set_next_modulation()) {
                 struct tm now;
-                rtc_get_time(&now);
+                rtc_get_alarm(&now);
                 now.tm_sec += TEST_PERIOD;
                 rtc_set_alarm(&now, _rtc_next_setting, &ctx);
             } else {
@@ -325,12 +325,10 @@ static void* range_test_server(void *arg)
 
             break;
         case TEST_HELLO_ACK:
-        {
             puts("got HELLO-ACK");
-            msg_t m;
-            msg_send(&m, sender_pid);
+            rtc_set_time(&hello->now);
+            msg_send(&msg, sender_pid);
             break;
-        }
         case TEST_PING:
             pp->type = TEST_PONG;
             pp->rssi = _get_rssi(pkt, NULL);
