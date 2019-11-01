@@ -43,84 +43,6 @@ typedef struct {
 
 static const netopt_setting_t settings[] = {
     {
-        .name = "O-QPSK legacy",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_IEEE802154_PHY,
-                .data = IEEE802154_PHY_OQPSK,
-                .data_len = 1
-            },
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = IEEE802154_OQPSK_FLAG_LEGACY,
-                .data_len = 1
-            },
-        },
-
-        .opt_num = 2
-    },
-    {
-        .name = "O-QPSK; rate mode 4",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = 4,
-                .data_len = 1
-            },
-        },
-        .opt_num = 1
-    },
-    {
-        .name = "O-QPSK; rate mode 3",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = 3,
-                .data_len = 1
-            },
-        },
-        .opt_num = 1
-    },
-    {
-        .name = "O-QPSK; rate mode 2",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = 2,
-                .data_len = 1
-            },
-        },
-        .opt_num = 1
-    },
-    {
-        .name = "O-QPSK; rate mode 1",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = 1,
-                .data_len = 1
-            },
-        },
-        .opt_num = 1
-    },
-    {
-        .name = "O-QPSK; rate mode 0",
-        .opt =
-        {
-            {
-                .opt  = NETOPT_OQPSK_RATE,
-                .data = 0,
-                .data_len = 1
-            },
-        },
-        .opt_num = 1
-    },
-    {
         .name = "OFDM-BPSKx4; opt=1",
         .opt =
         {
@@ -236,6 +158,83 @@ static const netopt_setting_t settings[] = {
         .opt_num = 1
     },
 #endif
+    {
+        .name = "O-QPSK; rate mode 4",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_IEEE802154_PHY,
+                .data = IEEE802154_PHY_OQPSK,
+                .data_len = 1
+            },
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 4,
+                .data_len = 1
+            },
+        },
+        .opt_num = 2
+    },
+    {
+        .name = "O-QPSK; rate mode 3",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 3,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 2",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 2,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 1",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 1,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK; rate mode 0",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = 0,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
+    {
+        .name = "O-QPSK legacy",
+        .opt =
+        {
+            {
+                .opt  = NETOPT_OQPSK_RATE,
+                .data = IEEE802154_OQPSK_FLAG_LEGACY,
+                .data_len = 1
+            },
+        },
+        .opt_num = 1
+    },
 };
 
 static unsigned idx;
