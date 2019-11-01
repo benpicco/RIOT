@@ -239,11 +239,15 @@ static bool _option_mcs_valid(uint8_t option, uint8_t mcs)
     return true;
 }
 
-void at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
+int at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
 {
     if (!_option_mcs_valid(option, scheme)) {
         DEBUG("[%s] invalid option/MCS: %d | %d\n", __func__, option, scheme);
-        return;
+        return -EINVAL;
+    }
+
+    if (dev->state > AT86RF215_STATE_IDLE) {
+        return -EBUSY;
     }
 
     /* make sure we are in state TRXOFF */
@@ -266,6 +270,8 @@ void at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
     at86rf215_enable_radio(dev, BB_MROFDM);
 
     at86rf215_set_state(dev, old_state);
+
+    return 0;
 }
 
 int at86rf215_OFDM_set_scheme(at86rf215_t *dev, uint8_t scheme)

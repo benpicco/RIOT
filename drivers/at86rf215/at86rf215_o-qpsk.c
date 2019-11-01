@@ -234,19 +234,23 @@ static void _set_ack_timeout(at86rf215_t *dev, uint8_t chips, uint8_t mode)
     DEBUG("[%s] ACK timeout: %"PRIu32" µs\n", "O-QPSK", dev->ack_timeout_usec);
 }
 
-void at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
+int at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
 {
     uint8_t direct_modulation, old_state;
     direct_modulation = 0;
 
     if (chips > BB_FCHIP2000) {
         DEBUG("[%s] invalid chips: %d\n", __func__, chips);
-        return;
+        return -EINVAL;
     }
 
     if ((mode & ~IEEE802154_OQPSK_FLAG_LEGACY) > 4) {
         DEBUG("[%s] invalid mode: %d\n", __func__, mode);
-        return;
+        return -EINVAL;
+    }
+
+    if (dev->state > AT86RF215_STATE_IDLE) {
+        return -EBUSY;
     }
 
     /* make sure we are in state TRXOFF */
@@ -300,6 +304,8 @@ void at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
     at86rf215_enable_radio(dev, BB_MROQPSK);
 
     at86rf215_set_state(dev, old_state);
+
+    return 0;
 }
 
 int at86rf215_OQPSK_set_chips(at86rf215_t *dev, uint8_t chips)

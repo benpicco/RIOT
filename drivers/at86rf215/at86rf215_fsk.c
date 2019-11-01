@@ -372,11 +372,15 @@ static void _set_ack_timeout(at86rf215_t *dev, uint8_t srate, bool mord4, bool f
     DEBUG("[%s] ACK timeout: %"PRIu32" µs\n", "FSK", dev->ack_timeout_usec);
 }
 
-void at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, uint8_t mod_order, uint8_t fec)
+int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, uint8_t mod_order, uint8_t fec)
 {
     if (srate > FSK_SRATE_400K) {
         DEBUG("[%s] invalid symbol rate: %d\n", __func__, srate);
-        return;
+        return -EINVAL;
+    }
+
+    if (dev->state > AT86RF215_STATE_IDLE) {
+        return -EBUSY;
     }
 
     /* make sure we are in state TRXOFF */
@@ -429,6 +433,8 @@ void at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, u
     _set_ack_timeout(dev, srate, mod_order, fec);
 
     at86rf215_set_state(dev, old_state);
+
+    return 0;
 }
 
 uint8_t at86rf215_FSK_get_mod_order(at86rf215_t *dev)
