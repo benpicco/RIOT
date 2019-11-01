@@ -230,6 +230,9 @@ static int _range_test_cmd(int argc, char** argv)
 
         mutex_lock(&ctx[0].mutex);
         mutex_lock(&ctx[1].mutex);
+
+        /* can't change the modulation if the radio is still sending */
+        xtimer_usleep(250000);
     } while (range_test_set_next_modulation());
 
     ctx[0].running = false;

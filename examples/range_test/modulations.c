@@ -132,7 +132,6 @@ static const netopt_setting_t settings[] = {
         },
         .opt_num = 2
     },
-#if 0
     {
         .name = "FSK, 150 kHz",
         .opt =
@@ -157,7 +156,6 @@ static const netopt_setting_t settings[] = {
         },
         .opt_num = 1
     },
-#endif
     {
         .name = "O-QPSK; rate mode 4",
         .opt =
@@ -281,7 +279,7 @@ void range_test_print_results(void)
         printf("[%s]\n", settings[i].name);
         for (int j = 0; j < GNRC_NETIF_NUMOF; ++j) {
             xtimer_ticks32_t ticks = {
-                .ticks32 = results[j][idx].rtt_ticks
+                .ticks32 = results[j][i].rtt_ticks
             };
 
             printf("=== Interface %d ===\n", j);
