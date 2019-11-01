@@ -329,7 +329,6 @@ static void* range_test_server(void *arg)
             break;
         case TEST_HELLO_ACK:
             puts("got HELLO-ACK");
-            rtc_set_time(&hello->now);
             msg_send(&msg, sender_pid);
             break;
         case TEST_PING:
