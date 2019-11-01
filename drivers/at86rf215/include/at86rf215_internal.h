@@ -139,8 +139,10 @@ void at86rf215_get_random(at86rf215_t *dev, uint8_t *data, size_t len);
  * @param[in] mod_order modulation order, may be FSK_MORD_2SFK or FSK_MORD_4SFK
  * @param[in] fec       forward error correction, may be @ref IEEE802154_FEC_NONE,
  *                      @ref IEEE802154_FEC_NRNSC or @ref IEEE802154_FEC_RSC
+ *
+ * @return              0 on success, error otherwise
  */
-void at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, uint8_t mod_order, uint8_t fec);
+int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, uint8_t mod_order, uint8_t fec);
 
 /**
  * @brief   Configure the symbol rate of the FSK modulation
@@ -269,8 +271,10 @@ uint8_t at86rf215_FSK_get_mod_order(at86rf215_t *dev);
  * @param[in] dev       device to configure
  * @param[in] option    modulation option, each increment halves the data rate
  * @param[in] mcs       modulation scheme, `BB_MCS_BPSK_REP4` … `BB_MCS_16QAM_3BY4`
+ *
+ * @return              0 on success, error otherwise
  */
-void at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t mcs);
+int at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t mcs);
 
 /**
  * @brief   Set the current modulation and coding scheme (MCS)
@@ -329,8 +333,10 @@ uint8_t at86rf215_OFDM_get_option(at86rf215_t *dev);
  * @param[in] dev       device to configure
  * @param[in] chips     chip rate, `BB_FCHIP100` … `BB_FCHIP2000`
  * @param[in] rate      rate mode, may be @ref AT86RF215_OQPSK_MODE_LEGACY or @ref AT86RF215_MR_OQPSK_MODE
+ *
+ * @return              0 on success, error otherwise
  */
-void at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t rate);
+int at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t rate);
 
 /**
  * @brief   Get the current O-QPSK chip rate
