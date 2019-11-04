@@ -19,7 +19,7 @@
 #ifndef PERIPH_CONF_H
 #define PERIPH_CONF_H
 
-#include "lpc2387.h"
+#include "periph_cpu.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,6 +61,12 @@ extern "C" {
 /** @} */
 
 /**
+ * @name    UART configuration
+ * @{
+ */
+/** @} */
+
+/**
  * @name    PWM device and pinout configuration
  *
  * Currently, we only support a single device and 3 channels, the implementation
@@ -96,8 +102,26 @@ extern "C" {
  * @name    UART configuration
  * @{
  */
-#define UART_NUMOF          (1)
-#define UART_0_EN           (1)
+static const uart_conf_t uart_config[] = {
+    {
+        .dev = UART0,
+        .irq_prio_rx = 6,
+        .pinsel_rx   = 0,
+        .pinsel_tx   = 0,
+        .pinsel_msk_rx = BIT4,
+        .pinsel_msk_tx = BIT6,
+    },
+    {
+        .dev = UART1,
+        .irq_prio_rx = 6,
+        .pinsel_rx   = 1,
+        .pinsel_tx   = 0,
+        .pinsel_msk_rx = BIT0,
+        .pinsel_msk_tx = BIT30,
+    }
+};
+
+#define UART_NUMOF          (2) // ARRAY_SIZE(uart_config)
 /** @} */
 
 /**

@@ -30,7 +30,4 @@ void board_init(void)
     /* LEDS */
     FIO2DIR |= LED0_MASK | LED1_MASK | LED2_MASK | LED3_MASK \
             |  LED4_MASK | LED5_MASK | LED6_MASK | LED7_MASK;
-
-    /* UART0 */
-    PINSEL0 |= BIT4 + BIT6;     /* RxD0 and TxD0 */
 }
