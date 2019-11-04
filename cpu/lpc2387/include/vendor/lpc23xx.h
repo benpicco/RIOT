@@ -771,8 +771,22 @@ typedef struct {
 #define U3FDR          (*(volatile unsigned long *)(UART3_BASE_ADDR + 0x28))
 #define U3TER          (*(volatile unsigned long *)(UART3_BASE_ADDR + 0x30))
 
+/**
+ * @brief   Generic I2C register map
+ */
+typedef struct {
+    REG32   CONSET;         /**< Control Set Register       */
+    REG32   STAT;           /**< Status Register            */
+    REG32   DAT;            /**< Data Register              */
+    REG32   ADR;            /**< Slave Address Register     */
+    REG32   SCLH;           /**< Duty Cycle High Half Word  */
+    REG32   SCLL;           /**< Duty Cycle Low Half Word   */
+    REG32   CONCLR;         /**< Control Clear Register     */
+} lpc23xx_i2c_t;
+
 /* I2C Interface 0 */
 #define I2C0_BASE_ADDR      0xE001C000
+#define I2C0           ((lpc23xx_i2c_t *)I2C0_BASE_ADDR)
 #define I20CONSET      (*(volatile unsigned long *)(I2C0_BASE_ADDR + 0x00))
 #define I20STAT        (*(volatile unsigned long *)(I2C0_BASE_ADDR + 0x04))
 #define I20DAT         (*(volatile unsigned long *)(I2C0_BASE_ADDR + 0x08))
@@ -783,6 +797,7 @@ typedef struct {
 
 /* I2C Interface 1 */
 #define I2C1_BASE_ADDR      0xE005C000
+#define I2C1           ((lpc23xx_i2c_t *)I2C1_BASE_ADDR)
 #define I21CONSET      (*(volatile unsigned long *)(I2C1_BASE_ADDR + 0x00))
 #define I21STAT        (*(volatile unsigned long *)(I2C1_BASE_ADDR + 0x04))
 #define I21DAT         (*(volatile unsigned long *)(I2C1_BASE_ADDR + 0x08))
@@ -793,6 +808,7 @@ typedef struct {
 
 /* I2C Interface 2 */
 #define I2C2_BASE_ADDR      0xE0080000
+#define I2C2           ((lpc23xx_i2c_t *)I2C2_BASE_ADDR)
 #define I22CONSET      (*(volatile unsigned long *)(I2C2_BASE_ADDR + 0x00))
 #define I22STAT        (*(volatile unsigned long *)(I2C2_BASE_ADDR + 0x04))
 #define I22DAT         (*(volatile unsigned long *)(I2C2_BASE_ADDR + 0x08))
