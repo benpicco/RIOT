@@ -34,6 +34,9 @@
 
 int at86rf215_debug(int argc, char** argv);
 
+#define HELLO_TIMEOUT_US    (50*1000)
+#define HELLO_RETRIES       (100)
+
 #define TEST_PERIOD (5 * RTT_FREQUENCY)
 #define TEST_PORT   (2323)
 #define QUEUE_SIZE  (4)
@@ -192,12 +195,22 @@ static int _range_test_cmd(int argc, char** argv)
 
     msg_t m;
 
-    _send_hello(0, &ipv6_addr_all_nodes_link_local, TEST_PORT);
+    unsigned tries = HELLO_RETRIES;
 
-    if (xtimer_msg_receive_timeout(&m, 1000000) < 0) {
-        puts("no response");
+    while (--tries) {
+        _send_hello(0, &ipv6_addr_all_nodes_link_local, TEST_PORT);
+
+        if (xtimer_msg_receive_timeout(&m, HELLO_TIMEOUT_US) > 0) {
+            break;
+        }
+    }
+
+    if (!tries) {
+        puts("handshake failed");
         return -1;
     }
+
+    printf("Handshake complete after %d tries\n", HELLO_RETRIES - tries);
 
     struct sender_ctx ctx[GNRC_NETIF_NUMOF] = {
         {
@@ -325,6 +338,7 @@ static void* range_test_server(void *arg)
             break;
         case TEST_HELLO_ACK:
             puts("got HELLO-ACK");
+            rtt_set_counter(hello->now);
             msg_send(&msg, sender_pid);
             break;
         case TEST_PING:
