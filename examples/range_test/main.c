@@ -212,25 +212,17 @@ static int _range_test_cmd(int argc, char** argv)
 
     printf("Handshake complete after %d tries\n", HELLO_RETRIES - tries);
 
-    struct sender_ctx ctx[GNRC_NETIF_NUMOF] = {
-        {
-            .running = true,
-            .mutex = MUTEX_INIT_LOCKED,
-            .netif = 6
-        },
-        {
-            .running = true,
-            .mutex = MUTEX_INIT_LOCKED,
-            .netif = 7
-        }
-    };
+    struct sender_ctx ctx[GNRC_NETIF_NUMOF];
 
-    thread_create(test_sender_stack[0], sizeof(test_sender_stack[0]),
-                  THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
-                  range_test_sender, &ctx[0], "pinger");
-    thread_create(test_sender_stack[1], sizeof(test_sender_stack[1]),
-                  THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
-                  range_test_sender, &ctx[1], "pinger");
+    for (int i = 0; i < GNRC_NETIF_NUMOF; ++i) {
+        mutex_init(&ctx[i].mutex);
+        mutex_lock(&ctx[i].mutex);
+        ctx[i].netif = 6 + i; // XXX
+        ctx[i].running = true;
+        thread_create(test_sender_stack[i], sizeof(test_sender_stack[i]),
+                      THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+                      range_test_sender, &ctx[i], "pinger");
+    }
 
     last_alarm = rtt_get_counter() + TEST_PERIOD;
     rtt_set_alarm(last_alarm, _rtt_alarm, &mutex);
@@ -238,23 +230,23 @@ static int _range_test_cmd(int argc, char** argv)
     range_test_start();
 
     do {
-        mutex_unlock(&ctx[0].mutex);
-        mutex_unlock(&ctx[1].mutex);
+        for (int i = 0; i < GNRC_NETIF_NUMOF; ++i)
+            mutex_unlock(&ctx[i].mutex);
 
         mutex_lock(&mutex);
 
-        mutex_lock(&ctx[0].mutex);
-        mutex_lock(&ctx[1].mutex);
+        for (int i = 0; i < GNRC_NETIF_NUMOF; ++i)
+            mutex_lock(&ctx[i].mutex);
 
         /* can't change the modulation if the radio is still sending */
         xtimer_usleep(250000);
     } while (range_test_set_next_modulation());
 
-    ctx[0].running = false;
-    ctx[1].running = false;
 
-    mutex_unlock(&ctx[0].mutex);
-    mutex_unlock(&ctx[1].mutex);
+    for (int i = 0; i < GNRC_NETIF_NUMOF; ++i) {
+        ctx[i].running = false;
+        mutex_unlock(&ctx[i].mutex);
+    }
 
     rtt_clear_alarm();
 
