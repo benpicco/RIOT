@@ -23,7 +23,7 @@
 
 #include "thread.h"
 #include "mutex.h"
-#include "periph/rtc.h"
+#include "periph/rtt.h"
 #include "net/gnrc.h"
 #include "net/gnrc/ipv6.h"
 #include "net/gnrc/udp.h"
@@ -34,7 +34,7 @@
 
 int at86rf215_debug(int argc, char** argv);
 
-#define TEST_PERIOD (5)
+#define TEST_PERIOD (5 * RTT_FREQUENCY)
 #define TEST_PORT   (2323)
 #define QUEUE_SIZE  (4)
 
@@ -47,7 +47,7 @@ enum {
 
 typedef struct {
     uint8_t type;
-    struct tm now;
+    uint32_t now;
 } test_hello_t;
 
 typedef struct {
@@ -60,12 +60,12 @@ typedef struct {
 static char test_server_stack[THREAD_STACKSIZE_MAIN];
 static char test_sender_stack[GNRC_NETIF_NUMOF][THREAD_STACKSIZE_MAIN];
 
-static void _rtc_alarm(void* ctx)
+static volatile uint32_t last_alarm;
+
+static void _rtt_alarm(void* ctx)
 {
-    struct tm alarm;
-    rtc_get_time(&alarm);
-    alarm.tm_sec += TEST_PERIOD;
-    rtc_set_alarm(&alarm, _rtc_alarm, ctx);
+    last_alarm += TEST_PERIOD;
+    rtt_set_alarm(last_alarm, _rtt_alarm, ctx);
 
     mutex_unlock(ctx);
 }
@@ -145,7 +145,7 @@ static bool _send_hello(int netif, const ipv6_addr_t* addr, uint16_t port)
     };
 
     sender_pid = thread_getpid();
-    rtc_get_time(&hello.now);
+    hello.now = rtt_get_counter();
 
     return _udp_send(netif, addr, port, &hello, sizeof(hello));
 }
@@ -215,10 +215,8 @@ static int _range_test_cmd(int argc, char** argv)
                   THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
                   range_test_sender, &ctx[1], "pinger");
 
-    struct tm alarm;
-    rtc_get_time(&alarm);
-    alarm.tm_sec += TEST_PERIOD;
-    rtc_set_alarm(&alarm, _rtc_alarm, &mutex);
+    last_alarm = rtt_get_counter() + TEST_PERIOD;
+    rtt_set_alarm(last_alarm, _rtt_alarm, &mutex);
 
     range_test_start();
 
@@ -241,7 +239,7 @@ static int _range_test_cmd(int argc, char** argv)
     mutex_unlock(&ctx[0].mutex);
     mutex_unlock(&ctx[1].mutex);
 
-    rtc_clear_alarm();
+    rtt_clear_alarm();
 
     range_test_print_results();
 
@@ -252,12 +250,15 @@ static int _range_test_cmd(int argc, char** argv)
 
 #define CUSTOM_MSG_TYPE_NEXT_SETTING    (0x0001)
 
-static void _rtc_next_setting(void* arg)
+static void _rtt_next_setting(void* arg)
 {
     gnrc_netreg_entry_t *ctx = arg;
     msg_t m = {
         .type = CUSTOM_MSG_TYPE_NEXT_SETTING
     };
+
+    last_alarm += TEST_PERIOD;
+    rtt_set_alarm(last_alarm, _rtt_next_setting, arg);
 
     msg_send(&m, ctx->target.pid);
 }
@@ -283,7 +284,6 @@ static void* range_test_server(void *arg)
     gnrc_netreg_register(GNRC_NETTYPE_UDP, &ctx);
 
     puts("listening…");
-    bool receiving = false;
 
     while (1) {
         msg_receive(&msg);
@@ -300,31 +300,23 @@ static void* range_test_server(void *arg)
         case GNRC_NETAPI_MSG_TYPE_SND:
             continue;
         case CUSTOM_MSG_TYPE_NEXT_SETTING:
-            if (range_test_set_next_modulation()) {
-                struct tm now;
-                rtc_get_alarm(&now);
-                now.tm_sec += TEST_PERIOD;
-                rtc_set_alarm(&now, _rtc_next_setting, &ctx);
-            } else {
-                receiving = false;
+            if (!range_test_set_next_modulation()) {
+                rtt_clear_alarm();
+                puts("Test done.");
             }
             continue;
         }
 
         switch (pp->type) {
         case TEST_HELLO:
-            if (receiving) {
-                break;
-            }
+            rtt_set_counter(hello->now);
 
-            receiving = true;
-            rtc_set_time(&hello->now);
             pp->type = TEST_HELLO_ACK;
             _udp_reply(pkt, pkt->data, pkt->size);
 
             range_test_start();
-            hello->now.tm_sec += TEST_PERIOD;
-            rtc_set_alarm(&hello->now, _rtc_next_setting, &ctx);
+            last_alarm = rtt_get_counter() + TEST_PERIOD;
+            rtt_set_alarm(last_alarm, _rtt_next_setting, &ctx);
 
             break;
         case TEST_HELLO_ACK:

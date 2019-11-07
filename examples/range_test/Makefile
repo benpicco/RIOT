@@ -22,7 +22,7 @@ USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
 
-USEMODULE += periph_rtc
+USEMODULE += periph_rtt
 
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
