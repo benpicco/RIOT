@@ -164,6 +164,10 @@ static void* range_test_sender(void *arg)
 
         mutex_lock(&ctx->mutex);
 
+        if (!ctx->running) {
+            break;
+        }
+
         if (!_send_ping(ctx->netif, &ipv6_addr_all_nodes_link_local, TEST_PORT)) {
             puts("UDP send failed!");
             break;
