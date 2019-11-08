@@ -63,6 +63,12 @@ int at86rf215_hardware_reset(at86rf215_t *dev)
     while (_get_rf_state_with_lock(dev) != RF_STATE_TRXOFF) {}
     spi_release(SPIDEV);
 
+    /* clear interrupts */
+    at86rf215_reg_read(dev, RG_RF09_IRQS);
+    at86rf215_reg_read(dev, RG_RF24_IRQS);
+    at86rf215_reg_read(dev, RG_BBC0_IRQS);
+    at86rf215_reg_read(dev, RG_BBC1_IRQS);
+
     return 0;
 }
 
