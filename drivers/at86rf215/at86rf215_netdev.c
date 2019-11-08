@@ -892,6 +892,11 @@ static void _isr(netdev_t *netdev)
         break;
 
     case AT86RF215_STATE_TX_PREP:
+        /* It's possible that we just finished RXing a frame while loading data
+         * into the TX buffer. For now we choose to dicard this frame.
+         */
+        bb_irq_mask &= ~BB_IRQ_RXFE;
+
         if (!(rf_irq_mask & RF_IRQ_EDC)) {
             DEBUG("TXPREP: only EDC expected (%x)\n", bb_irq_mask);
             break;
