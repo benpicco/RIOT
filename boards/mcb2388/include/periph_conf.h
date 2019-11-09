@@ -37,59 +37,10 @@ extern "C" {
 /** @} */
 
 /**
- * @name    Configuration for the 16x2 character LCD display
- * @{
- */
-#define HD44780_PARAMS {            \
-    .cols   = 16,                   \
-    .rows   = 2,                    \
-    .rs     = GPIO_PIN(1,28),       \
-    .rw     = GPIO_PIN(1,29),       \
-    .enable = GPIO_PIN(1,31),       \
-    .data   = {                     \
-                GPIO_PIN(1,24), GPIO_PIN(1,25), GPIO_PIN(1,26), GPIO_PIN(1,27), \
-                GPIO_UNDEF, GPIO_UNDEF, GPIO_UNDEF, GPIO_UNDEF, \
-              }                     \
-    }
-/** @} */
-
-/**
  * @name    Timer configuration, select a number from 1 to 4
  * @{
  */
 #define TIMER_NUMOF         (1U)
-/** @} */
-
-/**
- * @name    PWM device and pinout configuration
- *
- * Currently, we only support a single device and 3 channels, the implementation
- * is fixed on PWM1.
- * @{
- */
-#define PWM_NUMOF           (1U)
-
-/* PWM_0 device configuration */
-#define PWM_CHANNELS      (3)
-#define PWM_CH0           (3)
-#define PWM_CH0_MR        PWM1MR3
-#define PWM_CH1           (4)
-#define PWM_CH1_MR        PWM1MR4
-#define PWM_CH2           (5)
-#define PWM_CH2_MR        PWM1MR5
-/* PWM_0 pin configuration */
-#define PWM_PORT          PINSEL4
-#define PWM_CH0_PIN       (2)
-#define PWM_CH1_PIN       (3)
-#define PWM_CH2_PIN       (4)
-#define PWM_FUNC          (1)
-/** @} */
-
-/**
- * @name    Real Time Clock configuration
- * @{
- */
-#define RTC_NUMOF           (1)
 /** @} */
 
 /**

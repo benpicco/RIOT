@@ -27,6 +27,13 @@ extern "C" {
 #endif
 
 /**
+ * @name    xtimer tuning values
+ * @{
+ */
+#define XTIMER_OVERHEAD     7
+/** @} */
+
+/**
  * @name    LED pin definitions and handlers
  * @{
  */
@@ -90,10 +97,18 @@ extern "C" {
 /** @} */
 
 /**
- * @name    xtimer tuning values
+ * @name    Configuration for the 16x2 character LCD display
  * @{
  */
-#define XTIMER_OVERHEAD     7
+#define HD44780_PARAM_COLS              (16U)
+#define HD44780_PARAM_ROWS              (2U)
+#define HD44780_PARAM_PIN_RS            GPIO_PIN(1, 28)
+#define HD44780_PARAM_PIN_RW            GPIO_PIN(1, 29)
+#define HD44780_PARAM_PIN_ENABLE        GPIO_PIN(1, 31)
+#define HD44780_PARAM_PINS_DATA         {   GPIO_PIN(1,24), GPIO_PIN(1,25), \
+                                            GPIO_PIN(1,26), GPIO_PIN(1,27), \
+                                            GPIO_UNDEF,     GPIO_UNDEF,     \
+                                            GPIO_UNDEF,     GPIO_UNDEF      }
 /** @} */
 
 #ifdef __cplusplus
