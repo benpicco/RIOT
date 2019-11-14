@@ -886,18 +886,21 @@ static void _isr(netdev_t *netdev)
 
     if (dev->flags & AT86RF215_OPT_CCA_PENDING) {
 
+        /* Start ED or handle result */
         if (rf_irq_mask & RF_IRQ_EDC) {
             _handle_edc(dev, amcs);
         } else if (rf_irq_mask & RF_IRQ_TRXRDY) {
             /* disable baseband for energy detection */
             at86rf215_disable_baseband(dev);
             /* switch to state RX for energy detection */
-            at86rf215_set_state(dev, CMD_RF_RX);
+            at86rf215_rf_cmd(dev, CMD_RF_RX);
             /* start energy measurement */
             at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
         }
 
     } else if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+
+        /* start transmitting the frame */
         if (rf_irq_mask & RF_IRQ_TRXRDY) {
 
             /* automatically switch to RX when TX is done */
@@ -908,11 +911,12 @@ static void _isr(netdev_t *netdev)
                 at86rf215_filter_ack(dev, true);
             }
 
-            dev->flags &= ~AT86RF215_OPT_TX_PENDING;
+            /* switch to state TX */
             dev->state = AT86RF215_STATE_TX;
+            dev->flags &= ~AT86RF215_OPT_TX_PENDING;
             at86rf215_rf_cmd(dev, CMD_RF_TX);
 
-            /* transmission will start when energy detection is finished. */
+            /* This also tells the upper layer about retransmissions - should it be like that? */
             if (netdev->event_callback &&
                 (dev->flags & AT86RF215_OPT_TELL_TX_START)) {
                 netdev->event_callback(netdev, NETDEV_EVENT_TX_STARTED);
