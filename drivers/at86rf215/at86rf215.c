@@ -129,7 +129,7 @@ void at86rf215_reset(at86rf215_t *dev)
     at86rf215_reg_write(dev, dev->BBC->RG_IRQM, BB_IRQ_TXFE | BB_IRQ_RXFE);
 
     /* enable EDC IRQ */
-    at86rf215_reg_write(dev, dev->RF->RG_IRQM, RF_IRQ_EDC);
+    at86rf215_reg_write(dev, dev->RF->RG_IRQM, RF_IRQ_EDC | RF_IRQ_TRXRDY);
 
     /* set energy detect thresholt to -84 dBm */
     at86rf215_reg_write(dev, dev->BBC->RG_AMEDT, -84);
@@ -182,17 +182,6 @@ ssize_t at86rf215_send(at86rf215_t *dev, const void *data, size_t len)
     return len;
 }
 
-static void _enable_tx2rx(at86rf215_t *dev)
-{
-    uint8_t amcs = at86rf215_reg_read(dev, dev->BBC->RG_AMCS);
-
-    /* disable AACK, enable TX2RX */
-    amcs |=  AMCS_TX2RX_MASK;
-    amcs &= ~AMCS_AACK_MASK;
-
-    at86rf215_reg_write(dev, dev->BBC->RG_AMCS, amcs);
-}
-
 void at86rf215_tx_done(at86rf215_t *dev)
 {
     uint8_t amcs = at86rf215_reg_read(dev, dev->BBC->RG_AMCS);
@@ -208,21 +197,10 @@ void at86rf215_tx_done(at86rf215_t *dev)
 
 int at86rf215_tx_prepare(at86rf215_t *dev)
 {
-    if (dev->state != AT86RF215_STATE_IDLE) {
-        DEBUG("[%s] TX while %s\n", __func__, at86rf215_sw_state2a(dev->state));
+    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+        DEBUG("[%s] TX while TX pending\n", __func__);
         return -EBUSY;
     }
-
-    /* disable baseband for energy detection */
-    at86rf215_disable_baseband(dev);
-
-    dev->state = AT86RF215_STATE_TX_PREP;
-
-    /* automatically switch to RX when TX is done */
-    _enable_tx2rx(dev);
-
-    /* prepare for TX */
-    at86rf215_set_state(dev, CMD_RF_TXPREP);
 
     dev->tx_frame_len = IEEE802154_FCS_LEN;
 
@@ -232,9 +210,9 @@ int at86rf215_tx_prepare(at86rf215_t *dev)
 size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
                          size_t len, size_t offset)
 {
-    if (dev->state != AT86RF215_STATE_TX_PREP) {
-        DEBUG("[%s] TX while %s\n", __func__, at86rf215_sw_state2a(dev->state));
-        return 0;
+    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+        DEBUG("[%s] TX while TX pending\n", __func__);
+        return -EBUSY;
     }
 
     /* set bit if ACK was requested */
@@ -250,12 +228,10 @@ size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
 
 int at86rf215_tx_exec(at86rf215_t *dev)
 {
-    if (dev->state != AT86RF215_STATE_TX_PREP) {
-        DEBUG("[%s] TX while %s\n", __func__, at86rf215_sw_state2a(dev->state));
+    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+        DEBUG("[%s] TX while TX pending\n", __func__);
         return -EBUSY;
     }
-
-    netdev_t *netdev = (netdev_t *)dev;
 
     /* write frame length */
     at86rf215_reg_write16(dev, dev->BBC->RG_TXFLL, dev->tx_frame_len);
@@ -263,46 +239,23 @@ int at86rf215_tx_exec(at86rf215_t *dev)
     dev->retries = dev->retries_max;
     dev->csma_retries = dev->csma_retries_max;
 
-    /* only listen for ACK frames */
-    if (dev->flags & AT86RF215_OPT_ACK_REQUESTED) {
-        at86rf215_filter_ack(dev, true);
-    }
-
-    /* wait for TRXRDY - we should already be in that state by now */
-    while (!(at86rf215_get_rf_state(dev) & RF_IRQ_TRXRDY)) {}
-
+    dev->flags |= AT86RF215_OPT_TX_PENDING;
     if (dev->flags & AT86RF215_OPT_CSMA) {
-        /* switch to state RX for energy detection */
-        at86rf215_set_state(dev, CMD_RF_RX);
-
-        /* start energy measurement */
-        at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
-    } else {
-        /* no CSMA - send directly */
-        dev->state = AT86RF215_STATE_TX;
-        at86rf215_enable_baseband(dev);
-        at86rf215_rf_cmd(dev, CMD_RF_TX);
+        dev->flags |= AT86RF215_OPT_CCA_PENDING;
     }
 
-    /* transmission will start when energy detection is finished. */
-    if (netdev->event_callback &&
-        (dev->flags & AT86RF215_OPT_TELL_TX_START)) {
-        netdev->event_callback(netdev, NETDEV_EVENT_TX_STARTED);
-    }
+    at86rf215_rf_cmd(dev, CMD_RF_TXPREP);
 
     return 0;
 }
 
 void at86rf215_tx_abort(at86rf215_t *dev)
 {
-    if (dev->state != AT86RF215_STATE_TX_PREP) {
-        DEBUG("[%s] TX while %s\n", __func__, at86rf215_sw_state2a(dev->state));
-        return;
-    }
+    dev->flags &= ~(AT86RF215_OPT_CCA_PENDING | AT86RF215_OPT_TX_PENDING);
 
     at86rf215_tx_done(dev);
     at86rf215_enable_baseband(dev);
-    at86rf215_rf_cmd(dev, CMD_RF_TX);
+    at86rf215_rf_cmd(dev, CMD_RF_RX);
 
     dev->state = AT86RF215_STATE_IDLE;
 }
@@ -319,7 +272,7 @@ bool at86rf215_cca(at86rf215_t *dev)
     old_state = at86rf215_set_state(dev, RF_STATE_RX);
 
     /* disable ED IRQ, baseband */
-    at86rf215_reg_and(dev, dev->RF->RG_IRQM, ~RF_IRQ_EDC);
+    at86rf215_reg_and(dev, dev->RF->RG_IRQM, ~(RF_IRQ_EDC | RF_IRQ_TRXRDY));
     at86rf215_reg_and(dev, dev->BBC->RG_PC, ~PC_BBEN_MASK);
 
     /* start energy detect */
@@ -329,7 +282,7 @@ bool at86rf215_cca(at86rf215_t *dev)
     clear = !(at86rf215_reg_read(dev, dev->BBC->RG_AMCS) & AMCS_CCAED_MASK);
 
     /* enable ED IRQ, baseband */
-    at86rf215_reg_or(dev, dev->RF->RG_IRQM, RF_IRQ_EDC);
+    at86rf215_reg_or(dev, dev->RF->RG_IRQM, RF_IRQ_EDC | RF_IRQ_TRXRDY);
     at86rf215_reg_or(dev, dev->BBC->RG_PC, PC_BBEN_MASK);
 
     at86rf215_set_state(dev, old_state);

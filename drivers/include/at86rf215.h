@@ -83,7 +83,6 @@ typedef enum {
     AT86RF215_STATE_OFF,        /**< radio not configured */
     AT86RF215_STATE_IDLE,       /**< idle state, listening */
     AT86RF215_STATE_RX_SEND_ACK,/**< receiving frame, sending ACK */
-    AT86RF215_STATE_TX_PREP,    /**< preparing to send frame */
     AT86RF215_STATE_TX,         /**< sending frame */
     AT86RF215_STATE_TX_WAIT_ACK,/**< sending frame, wait for ACK */
     AT86RF215_STATE_SLEEP       /**< sleep mode, not listening */
@@ -109,6 +108,8 @@ typedef enum {
 #define AT86RF215_OPT_AUTOACK        (0x0080)       /**< Auto ACK active */
 #define AT86RF215_OPT_ACK_REQUESTED  (0x0100)       /**< ACK requested for current frame */
 #define AT86RF215_OPT_SUBGHZ         (0x0200)       /**< Operate in the Sub-GHz band */
+#define AT86RF215_OPT_TX_PENDING     (0x0400)       /**< Frame is loaded into TX buffer */
+#define AT86RF215_OPT_CCA_PENDING    (0x0800)       /**< CCA needs to be done for the current frame */
 /** @} */
 
 /**

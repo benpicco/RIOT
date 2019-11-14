@@ -208,7 +208,6 @@ static netopt_state_t _get_state(at86rf215_t *dev)
         case AT86RF215_STATE_RX_SEND_ACK:
             return NETOPT_STATE_RX;
         case AT86RF215_STATE_TX:
-        case AT86RF215_STATE_TX_PREP:
         case AT86RF215_STATE_TX_WAIT_ACK:
             return NETOPT_STATE_TX;
         case AT86RF215_STATE_OFF:
@@ -712,6 +711,17 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
     return res;
 }
 
+static void _enable_tx2rx(at86rf215_t *dev)
+{
+    uint8_t amcs = at86rf215_reg_read(dev, dev->BBC->RG_AMCS);
+
+    /* disable AACK, enable TX2RX */
+    amcs |=  AMCS_TX2RX_MASK;
+    amcs &= ~AMCS_AACK_MASK;
+
+    at86rf215_reg_write(dev, dev->BBC->RG_AMCS, amcs);
+}
+
 static void _tx_end(at86rf215_t *dev, netdev_event_t event)
 {
     netdev_t *netdev = (netdev_t *)dev;
@@ -760,10 +770,14 @@ static void _handle_ack_timeout(at86rf215_t *dev)
 {
     if (dev->retries) {
         --dev->retries;
-        dev->csma_retries = dev->csma_retries_max;
-        dev->state = AT86RF215_STATE_TX_PREP;
-        /* start energy measurement - will trigger TX again */
-        at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
+
+        if (dev->flags & AT86RF215_OPT_CSMA) {
+            dev->csma_retries = dev->csma_retries_max;
+            dev->flags |= AT86RF215_OPT_CCA_PENDING;
+        }
+
+        dev->flags |= AT86RF215_OPT_TX_PENDING;
+        at86rf215_rf_cmd(dev, CMD_RF_TXPREP);
     } else {
         /* no retransmissions left */
         _tx_end(dev, NETDEV_EVENT_TX_NOACK);
@@ -778,6 +792,37 @@ static inline void _clear_sibling_irq(at86rf215_t *dev) {
     } else {
         at86rf215_reg_read(dev, RG_RF09_IRQS);
         at86rf215_reg_read(dev, RG_BBC0_IRQS);
+    }
+}
+
+static void _handle_edc(at86rf215_t *dev, uint8_t amcs)
+{
+    netdev_t *netdev = (netdev_t *) dev;
+
+    /* channel clear -> TX */
+    if (!(amcs & AMCS_CCAED_MASK)) {
+        dev->flags &= ~AT86RF215_OPT_CCA_PENDING;
+        at86rf215_enable_baseband(dev);
+        at86rf215_rf_cmd(dev, CMD_RF_TXPREP);
+        return;
+    }
+
+    DEBUG("CSMA busy\n");
+    if (dev->csma_retries) {
+        --dev->csma_retries;
+        /* re-start energy detection */
+        /* TODO: exponential? backoff */
+        at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
+    } else {
+        /* channel busy and no retries left */
+        dev->flags &= ~(AT86RF215_OPT_CCA_PENDING | AT86RF215_OPT_TX_PENDING);
+        at86rf215_enable_baseband(dev);
+        at86rf215_tx_done(dev);
+
+        netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
+
+        DEBUG("CSMA give up");
+        /* radio is still in RX mode, tx_done sets IDLE state */
     }
 }
 
@@ -812,7 +857,7 @@ static void _isr(netdev_t *netdev)
 
     /* exit early if the interrupt was not for this interface */
     if (!((bb_irq_mask & bb_irqs_enabled) |
-          (rf_irq_mask & RF_IRQ_EDC) | ack_timeout)) {
+          (rf_irq_mask & (RF_IRQ_EDC | RF_IRQ_TRXRDY)) | ack_timeout)) {
         return;
     }
 
@@ -824,6 +869,42 @@ static void _isr(netdev_t *netdev)
         ack_req = at86rf215_reg_read(dev, dev->BBC->RG_FBRXS) & IEEE802154_FCF_ACK_REQ;
     } else {
         ack_req = 0;
+    }
+
+    if (dev->flags & AT86RF215_OPT_CCA_PENDING) {
+
+        if (rf_irq_mask & RF_IRQ_EDC) {
+            _handle_edc(dev, amcs);
+        } else if (rf_irq_mask & RF_IRQ_TRXRDY) {
+            /* disable baseband for energy detection */
+            at86rf215_disable_baseband(dev);
+            /* switch to state RX for energy detection */
+            at86rf215_set_state(dev, CMD_RF_RX);
+            /* start energy measurement */
+            at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
+        }
+
+    } else if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+        if (rf_irq_mask & RF_IRQ_TRXRDY) {
+
+            /* automatically switch to RX when TX is done */
+            _enable_tx2rx(dev);
+
+            /* only listen for ACK frames */
+            if (dev->flags & AT86RF215_OPT_ACK_REQUESTED) {
+                at86rf215_filter_ack(dev, true);
+            }
+
+            dev->flags &= ~AT86RF215_OPT_TX_PENDING;
+            dev->state = AT86RF215_STATE_TX;
+            at86rf215_rf_cmd(dev, CMD_RF_TX);
+
+            /* transmission will start when energy detection is finished. */
+            if (netdev->event_callback &&
+                (dev->flags & AT86RF215_OPT_TELL_TX_START)) {
+                netdev->event_callback(netdev, NETDEV_EVENT_TX_STARTED);
+            }
+        }
     }
 
     int iter = 0;
@@ -891,45 +972,6 @@ static void _isr(netdev_t *netdev)
         at86rf215_rf_cmd(dev, CMD_RF_RX);
         break;
 
-    case AT86RF215_STATE_TX_PREP:
-        /* It's possible that we just finished RXing a frame while loading data
-         * into the TX buffer. For now we choose to dicard this frame.
-         */
-        bb_irq_mask &= ~BB_IRQ_RXFE;
-
-        if (!(rf_irq_mask & RF_IRQ_EDC)) {
-            DEBUG("TXPREP: only EDC expected (%x)\n", bb_irq_mask);
-            break;
-        }
-
-        rf_irq_mask &= ~RF_IRQ_EDC;
-
-        /* channel clear -> TX */
-        if (!(amcs & AMCS_CCAED_MASK)) {
-            dev->state = AT86RF215_STATE_TX;
-            at86rf215_enable_baseband(dev);
-            at86rf215_set_state(dev, CMD_RF_TX);
-            break;
-        }
-
-        DEBUG("CSMA busy\n");
-        if (dev->csma_retries) {
-            --dev->csma_retries;
-            /* re-start energy detection */
-            /* TODO: exponential? backoff */
-            at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
-        } else {
-            /* channel busy and no retries left */
-            at86rf215_enable_baseband(dev);
-            at86rf215_tx_done(dev);
-
-            netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
-
-            DEBUG("CSMA give up");
-            /* radio is still in RX mode, tx_done sets IDLE state */
-        }
-        break;
-
     case AT86RF215_STATE_TX:
         if (!(bb_irq_mask & BB_IRQ_TXFE)) {
             DEBUG("TX: only TXFE expected (%x)\n", bb_irq_mask);
@@ -989,5 +1031,5 @@ timeout:
         ack_timeout = false;
         break;
     }
-    } while (ack_timeout || (bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_TXFE)) || (rf_irq_mask & RF_IRQ_EDC));
+    } while (ack_timeout || (bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_TXFE)));
 }

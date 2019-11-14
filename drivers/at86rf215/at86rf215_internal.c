@@ -182,7 +182,6 @@ const char* at86rf215_sw_state2a(at86rf215_state_t state) {
     case AT86RF215_STATE_OFF: return "OFF";
     case AT86RF215_STATE_IDLE: return "IDLE";
     case AT86RF215_STATE_RX_SEND_ACK: return "RX (sending ACK)";
-    case AT86RF215_STATE_TX_PREP: return "TX prep";
     case AT86RF215_STATE_TX: return "TX";
     case AT86RF215_STATE_TX_WAIT_ACK: return "TX (wait for ACK)";
     case AT86RF215_STATE_SLEEP: return "SLEEP";
