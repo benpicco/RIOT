@@ -195,10 +195,27 @@ void at86rf215_tx_done(at86rf215_t *dev)
     at86rf215_reg_write(dev, dev->BBC->RG_AMCS, amcs);
 }
 
-int at86rf215_tx_prepare(at86rf215_t *dev)
+static bool _busy_tx(at86rf215_t *dev)
 {
     if (dev->flags & AT86RF215_OPT_TX_PENDING) {
-        DEBUG("[%s] TX while TX pending\n", __func__);
+        return true;
+    }
+
+    if (dev->state == AT86RF215_STATE_TX) {
+        return true;
+    }
+
+    if (dev->state == AT86RF215_STATE_TX_WAIT_ACK) {
+        return true;
+    }
+
+    return false;
+}
+
+int at86rf215_tx_prepare(at86rf215_t *dev)
+{
+    if (_busy_tx(dev)) {
+        DEBUG("[%s] TX while TXing\n", __func__);
         return -EBUSY;
     }
 
@@ -210,8 +227,8 @@ int at86rf215_tx_prepare(at86rf215_t *dev)
 size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
                          size_t len, size_t offset)
 {
-    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
-        DEBUG("[%s] TX while TX pending\n", __func__);
+    if (_busy_tx(dev)) {
+        DEBUG("[%s] TX while TXing\n", __func__);
         return -EBUSY;
     }
 
@@ -244,7 +261,9 @@ int at86rf215_tx_exec(at86rf215_t *dev)
         dev->flags |= AT86RF215_OPT_CCA_PENDING;
     }
 
-    at86rf215_rf_cmd(dev, CMD_RF_TXPREP);
+    if (dev->state == AT86RF215_STATE_IDLE) {
+        at86rf215_rf_cmd(dev, CMD_RF_TXPREP);
+    }
 
     return 0;
 }

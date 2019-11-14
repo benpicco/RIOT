@@ -747,6 +747,19 @@ static void _ack_timeout_cb(void* arg) {
     msg_send_int(&dev->ack_msg, dev->ack_msg.sender_pid);
 }
 
+static void _set_idle(at86rf215_t *dev)
+{
+    dev->state = AT86RF215_STATE_IDLE;
+
+    uint8_t next_state;
+    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+        next_state = CMD_RF_TXPREP;
+    } else {
+        next_state = CMD_RF_RX;
+    }
+    at86rf215_rf_cmd(dev, next_state);
+}
+
 /* wake up the radio thread when on ACK timeout */
 static void _start_ack_timer(at86rf215_t *dev)
 {
@@ -952,7 +965,7 @@ static void _isr(netdev_t *netdev)
             netdev->event_callback(netdev, NETDEV_EVENT_RX_COMPLETE);
         }
 
-        at86rf215_rf_cmd(dev, CMD_RF_RX);
+        _set_idle(dev);
         break;
 
     case AT86RF215_STATE_RX_SEND_ACK:
@@ -968,8 +981,7 @@ static void _isr(netdev_t *netdev)
             netdev->event_callback(netdev, NETDEV_EVENT_RX_COMPLETE);
         }
 
-        dev->state = AT86RF215_STATE_IDLE;
-        at86rf215_rf_cmd(dev, CMD_RF_RX);
+        _set_idle(dev);
         break;
 
     case AT86RF215_STATE_TX:
