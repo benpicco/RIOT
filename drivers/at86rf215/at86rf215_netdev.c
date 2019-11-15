@@ -925,7 +925,7 @@ static void _isr(netdev_t *netdev)
     }
 
     int iter = 0;
-    do {
+    while (ack_timeout || (bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_TXFE))) {
 
     /* This should never happen */
     if (++iter > 3) {
@@ -1047,5 +1047,5 @@ timeout:
         ack_timeout = false;
         break;
     }
-    } while (ack_timeout || (bb_irq_mask & (BB_IRQ_RXFE | BB_IRQ_TXFE)));
+    }
 }
