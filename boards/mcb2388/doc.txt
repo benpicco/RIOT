@@ -5,7 +5,7 @@
 
 ## Overview
 
-![MCB2300 image](http://www.keil.com/mcb2300/mcb2300.jpg)
+![MCB2388 image](http://www.keil.com/support/man/docs/mcb2300/mcb2388_board.jpg)
 
 ## Hardware
 
