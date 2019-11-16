@@ -1,5 +1,3 @@
-USEMODULE += boards_common_msba2
-
 # FLASHER will be lpc2k_pgm still
 DEBUG_ADAPTER ?= dap
 PROGRAMMER ?= openocd
