@@ -1,0 +1,8 @@
+INCLUDES += -I$(RIOTBOARD)/common/stm32/include
+
+PROGRAMMER = dfu-util
+DFU_USB_ID ?= 0483:df11
+DFU_FLAGS ?= -a 0 -s 0x08002000:leave
+
+# Setup of programmer and serial is shared between STM32 based boards
+include $(RIOTMAKE)/boards/stm32.inc.mk
