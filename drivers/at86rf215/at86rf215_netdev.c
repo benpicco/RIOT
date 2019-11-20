@@ -877,11 +877,11 @@ static void _isr(netdev_t *netdev)
     amcs = at86rf215_reg_read(dev, dev->BBC->RG_AMCS);
 
     /* check if the received packet has the ACK request bit set */
-    bool ack_req;
+    bool rx_ack_req;
     if (bb_irq_mask & BB_IRQ_RXFE) {
-        ack_req = at86rf215_reg_read(dev, dev->BBC->RG_FBRXS) & IEEE802154_FCF_ACK_REQ;
+        rx_ack_req = at86rf215_reg_read(dev, dev->BBC->RG_FBRXS) & IEEE802154_FCF_ACK_REQ;
     } else {
-        ack_req = 0;
+        rx_ack_req = 0;
     }
 
     if (dev->flags & AT86RF215_OPT_CCA_PENDING) {
@@ -959,7 +959,7 @@ static void _isr(netdev_t *netdev)
 
         bb_irq_mask &= ~BB_IRQ_RXFE;
 
-        if (ack_req) {
+        if (rx_ack_req) {
             dev->state = AT86RF215_STATE_RX_SEND_ACK;
             break;
         }
@@ -996,7 +996,7 @@ static void _isr(netdev_t *netdev)
 
         bb_irq_mask &= ~BB_IRQ_TXFE;
 
-        if (ack_req) {
+        if (dev->flags & AT86RF215_OPT_ACK_REQUESTED) {
             dev->state = AT86RF215_STATE_TX_WAIT_ACK;
             _start_ack_timer(dev);
         } else {
@@ -1041,6 +1041,7 @@ timeout:
             DEBUG("Ack timeout postponed\n");
             _start_ack_timer(dev);
         } else {
+            DEBUG("Ack timeout");
             _handle_ack_timeout(dev);
         }
 
