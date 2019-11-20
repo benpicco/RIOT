@@ -19,7 +19,9 @@
 
 #ifdef MODULE_AT86RF215
 
+#ifndef AT86RF215_DISABLE_SUBGHZ
 #define USE_DUALBAND (GNRC_NETIF_NUMOF >= 2)
+#endif
 
 #include "log.h"
 #include "board.h"
@@ -92,8 +94,11 @@ void auto_init_at86rf215(void)
 #else
     for (unsigned i = 0; i < AT86RF215_NUM; i++) {
         /* AT86RF215M only has sub-GHz interface */
+#ifdef AT86RF215_DISABLE_SUBGHZ
+        at86rf215_setup(NULL, &at86rf215_devs[i], &at86rf215_params[i]);
+#else
         at86rf215_setup(&at86rf215_devs[i], NULL, &at86rf215_params[i]);
-
+#endif
         /* setup sub-GHz interface */
         _setup_netif(&at86rf215_devs[i], &_at86rf215_stacks[i], AT86RF215_MAC_PRIO);
     }
