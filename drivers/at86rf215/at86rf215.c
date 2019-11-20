@@ -195,28 +195,48 @@ void at86rf215_tx_done(at86rf215_t *dev)
     at86rf215_reg_write(dev, dev->BBC->RG_AMCS, amcs);
 }
 
-static bool _busy_tx(at86rf215_t *dev)
+static bool _tx_ongoing(at86rf215_t *dev)
 {
     if (dev->flags & AT86RF215_OPT_TX_PENDING) {
         return true;
     }
 
-    if (dev->state == AT86RF215_STATE_TX) {
-        return true;
-    }
-
-    if (dev->state == AT86RF215_STATE_TX_WAIT_ACK) {
+    if (dev->state == AT86RF215_STATE_TX ||
+        dev->state == AT86RF215_STATE_TX_WAIT_ACK) {
         return true;
     }
 
     return false;
 }
 
+/*
+ * As there is no packet queue in RIOT we have to block in send()
+ * when the device is busy sending a previous frame.
+ *
+ * Since both _send() and _isr() are running in the same thread
+ * we have to service radio events while waiting in order to
+ * advance the previous transmission.
+ */
+static void _block_while_busy(at86rf215_t *dev)
+{
+    gpio_irq_disable(dev->params.int_pin);
+
+    do {
+        if (gpio_read(dev->params.int_pin) || dev->ack_timeout) {
+            at86rf215_driver.isr((netdev_t *) dev);
+        }
+        /* allow the other interface to process events */
+        thread_yield();
+    } while (_tx_ongoing(dev));
+
+    gpio_irq_enable(dev->params.int_pin);
+}
+
 int at86rf215_tx_prepare(at86rf215_t *dev)
 {
-    if (_busy_tx(dev)) {
-        DEBUG("[%s] TX while TXing\n", __func__);
-        return -EBUSY;
+    if (_tx_ongoing(dev)) {
+        DEBUG("[at86rf215] Block while TXing\n");
+        _block_while_busy(dev);
     }
 
     dev->tx_frame_len = IEEE802154_FCS_LEN;
@@ -227,11 +247,6 @@ int at86rf215_tx_prepare(at86rf215_t *dev)
 size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
                          size_t len, size_t offset)
 {
-    if (_busy_tx(dev)) {
-        DEBUG("[%s] TX while TXing\n", __func__);
-        return -EBUSY;
-    }
-
     /* set bit if ACK was requested */
     if (offset == 0 && (data[0] & IEEE802154_FCF_ACK_REQ) && dev->retries_max) {
         dev->flags |= AT86RF215_OPT_ACK_REQUESTED;
@@ -245,11 +260,6 @@ size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
 
 int at86rf215_tx_exec(at86rf215_t *dev)
 {
-    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
-        DEBUG("[%s] TX while TX pending\n", __func__);
-        return -EBUSY;
-    }
-
     /* write frame length */
     at86rf215_reg_write16(dev, dev->BBC->RG_TXFLL, dev->tx_frame_len);
 
