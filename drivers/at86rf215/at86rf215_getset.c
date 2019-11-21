@@ -180,6 +180,32 @@ int8_t at86rf215_get_ed_level(at86rf215_t *dev)
     return at86rf215_reg_read(dev, dev->RF->RG_EDV);
 }
 
+static void _enable_rpc(at86rf215_t *dev)
+{
+    /* no Reduced Power mode availiable for OFDM */
+    switch (at86rf215_get_phy_mode(dev)) {
+    case IEEE802154_PHY_FSK:
+        at86rf215_reg_or(dev, dev->BBC->RG_FSKRPC, FSKRPC_EN_MASK);
+        break;
+    case IEEE802154_PHY_OQPSK:
+        at86rf215_reg_or(dev, dev->BBC->RG_OQPSKC2, OQPSKC2_RPC_MASK);
+        break;
+    }
+}
+
+static void _disable_rpc(at86rf215_t *dev)
+{
+    /* no Reduced Power mode availiable for OFDM */
+    switch (at86rf215_get_phy_mode(dev)) {
+    case IEEE802154_PHY_FSK:
+        at86rf215_reg_and(dev, dev->BBC->RG_FSKRPC, ~FSKRPC_EN_MASK);
+        break;
+    case IEEE802154_PHY_OQPSK:
+        at86rf215_reg_and(dev, dev->BBC->RG_OQPSKC2, ~OQPSKC2_RPC_MASK);
+        break;
+    }
+}
+
 void at86rf215_set_option(at86rf215_t *dev, uint16_t option, bool state)
 {
     /* set option field */
@@ -188,7 +214,7 @@ void at86rf215_set_option(at86rf215_t *dev, uint16_t option, bool state)
 
     switch (option) {
         case AT86RF215_OPT_TELL_RX_START:
-            if (state){
+            if (state) {
                 at86rf215_reg_or(dev, dev->BBC->RG_IRQM, BB_IRQ_RXAM);
             } else {
                 at86rf215_reg_and(dev, dev->BBC->RG_IRQM, ~BB_IRQ_RXAM);
@@ -196,7 +222,7 @@ void at86rf215_set_option(at86rf215_t *dev, uint16_t option, bool state)
 
             break;
         case AT86RF215_OPT_PROMISCUOUS:
-            if (state){
+            if (state) {
                 at86rf215_reg_or(dev, dev->BBC->RG_AFC0, AFC0_PM_MASK);
             } else {
                 at86rf215_reg_and(dev, dev->BBC->RG_AFC0, ~AFC0_PM_MASK);
@@ -204,14 +230,21 @@ void at86rf215_set_option(at86rf215_t *dev, uint16_t option, bool state)
 
             break;
         case AT86RF215_OPT_AUTOACK:
-            if (state){
+            if (state) {
                 at86rf215_reg_or(dev, dev->BBC->RG_AMCS, AMCS_AACK_MASK);
             } else {
                 at86rf215_reg_and(dev, dev->BBC->RG_AMCS, ~AMCS_AACK_MASK);
             }
 
             break;
+        case AT86RF215_OPT_RPC:
+            if (state) {
+                _enable_rpc(dev);
+            } else {
+                _disable_rpc(dev);
+            }
 
+            break;
         default:
             /* do nothing */
             break;

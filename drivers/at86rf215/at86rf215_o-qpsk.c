@@ -207,9 +207,12 @@ static uint8_t _set_mode(at86rf215_t *dev, uint8_t mode, bool legacy, uint8_t *c
     /* listening to both uses ~1mA more that just listening to legacy */
     uint8_t rxm = legacy ? RXM_LEGACY_OQPSK : RXM_MR_OQPSK;
 
+    if (dev->flags & AT86RF215_OPT_RPC) {
+        rxm |= OQPSKC2_RPC_MASK;                /* enable Reduced Power Consumption */
+    }
+
     at86rf215_reg_write(dev, dev->BBC->RG_OQPSKC2,
                          rxm                    /* receive mode, legacy or MR-O-QPSK */
-                       | OQPSKC2_RPC_MASK       /* enable Reduce Power Consumption */
                        | OQPSKC2_FCSTLEG_MASK   /* 16 bit frame checksum */
                        | OQPSKC2_ENPROP_MASK);  /* enable Reduce Power Consumption */
     return mode;

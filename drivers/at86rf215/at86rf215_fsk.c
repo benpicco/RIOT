@@ -423,6 +423,13 @@ int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, ui
     /* enable direct modulation */
     at86rf215_reg_write(dev, dev->BBC->RG_FSKDM, FSKDM_EN_MASK | FSKDM_PE_MASK);
 
+    /* Enable / Disable Reduced Power Consumption */
+    if (dev->flags & AT86RF215_OPT_RPC) {
+        at86rf215_reg_or(dev, dev->BBC->RG_FSKRPC, FSKRPC_EN_MASK);
+    } else {
+        at86rf215_reg_and(dev, dev->BBC->RG_OQPSKC2, ~OQPSKC2_RPC_MASK);
+    }
+
     /* set forward error correction */
     at86rf215_FSK_set_fec(dev, fec);
 
