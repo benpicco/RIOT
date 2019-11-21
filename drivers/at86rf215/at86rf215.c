@@ -320,6 +320,8 @@ bool at86rf215_cca(at86rf215_t *dev)
     at86rf215_reg_and(dev, dev->RF->RG_IRQM, ~(RF_IRQ_EDC | RF_IRQ_TRXRDY));
     at86rf215_reg_and(dev, dev->BBC->RG_PC, ~PC_BBEN_MASK);
 
+    at86rf215_disable_rpc(dev);
+
     /* start energy detect */
     at86rf215_reg_write(dev, dev->RF->RG_EDC, 1);
     while (!(at86rf215_reg_read(dev, dev->RF->RG_IRQS) & RF_IRQ_EDC)) {}
@@ -330,6 +332,7 @@ bool at86rf215_cca(at86rf215_t *dev)
     at86rf215_reg_or(dev, dev->RF->RG_IRQM, RF_IRQ_EDC | RF_IRQ_TRXRDY);
     at86rf215_reg_or(dev, dev->BBC->RG_PC, PC_BBEN_MASK);
 
+    at86rf215_enable_rpc(dev);
     at86rf215_set_idle_from_rx(dev, old_state);
 
     return clear;

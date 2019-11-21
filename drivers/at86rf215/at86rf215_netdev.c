@@ -816,6 +816,7 @@ static void _handle_edc(at86rf215_t *dev, uint8_t amcs)
     if (!(amcs & AMCS_CCAED_MASK)) {
         dev->flags &= ~AT86RF215_OPT_CCA_PENDING;
         at86rf215_enable_baseband(dev);
+        at86rf215_enable_rpc(dev);
         at86rf215_rf_cmd(dev, CMD_RF_TXPREP);
         return;
     }
@@ -830,6 +831,7 @@ static void _handle_edc(at86rf215_t *dev, uint8_t amcs)
         /* channel busy and no retries left */
         dev->flags &= ~(AT86RF215_OPT_CCA_PENDING | AT86RF215_OPT_TX_PENDING);
         at86rf215_enable_baseband(dev);
+        at86rf215_enable_rpc(dev);
         at86rf215_tx_done(dev);
 
         netdev->event_callback(netdev, NETDEV_EVENT_TX_MEDIUM_BUSY);
@@ -892,6 +894,7 @@ static void _isr(netdev_t *netdev)
         } else if (rf_irq_mask & RF_IRQ_TRXRDY) {
             /* disable baseband for energy detection */
             at86rf215_disable_baseband(dev);
+            at86rf215_disable_rpc(dev);
             /* switch to state RX for energy detection */
             at86rf215_rf_cmd(dev, CMD_RF_RX);
             /* start energy measurement */

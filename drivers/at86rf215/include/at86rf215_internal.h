@@ -581,6 +581,20 @@ static inline void at86rf215_enable_radio(at86rf215_t *dev, uint8_t modulation)
 }
 
 /**
+ * @brief Internal convenience function to disable reduced power mode for energy detection.
+ *
+ * @param[in] dev           device to configure
+ */
+void at86rf215_disable_rpc(at86rf215_t *dev);
+
+/**
+ * @brief Internal convenience function to re-enable reduced power mode after energy detection.
+ *
+ * @param[in] dev           device to configure
+ */
+void at86rf215_enable_rpc(at86rf215_t *dev);
+
+/**
  * @brief Checks whether the device operates in the sub-GHz band.
  *
  * @param[in] dev   device to read from

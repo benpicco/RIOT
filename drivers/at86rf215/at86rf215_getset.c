@@ -180,8 +180,12 @@ int8_t at86rf215_get_ed_level(at86rf215_t *dev)
     return at86rf215_reg_read(dev, dev->RF->RG_EDV);
 }
 
-static void _enable_rpc(at86rf215_t *dev)
+void at86rf215_enable_rpc(at86rf215_t *dev)
 {
+    if (!(dev->flags & AT86RF215_OPT_RPC)) {
+        return;
+    }
+
     /* no Reduced Power mode availiable for OFDM */
     switch (at86rf215_get_phy_mode(dev)) {
     case IEEE802154_PHY_FSK:
@@ -193,8 +197,12 @@ static void _enable_rpc(at86rf215_t *dev)
     }
 }
 
-static void _disable_rpc(at86rf215_t *dev)
+void at86rf215_disable_rpc(at86rf215_t *dev)
 {
+    if (!(dev->flags & AT86RF215_OPT_RPC)) {
+        return;
+    }
+
     /* no Reduced Power mode availiable for OFDM */
     switch (at86rf215_get_phy_mode(dev)) {
     case IEEE802154_PHY_FSK:
@@ -239,9 +247,9 @@ void at86rf215_set_option(at86rf215_t *dev, uint16_t option, bool state)
             break;
         case AT86RF215_OPT_RPC:
             if (state) {
-                _enable_rpc(dev);
+                at86rf215_enable_rpc(dev);
             } else {
-                _disable_rpc(dev);
+                at86rf215_disable_rpc(dev);
             }
 
             break;
