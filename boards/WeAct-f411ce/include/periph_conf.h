@@ -23,43 +23,13 @@
 #define PERIPH_CONF_H
 
 #include "periph_cpu.h"
-// #include "cfg_i2c1_pb8_pb9.h"
+#include "f4/cfg_clock_96_25_1.h"
+#include "cfg_i2c1_pb8_pb9.h"
 #include "cfg_timer_tim5.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @name    Clock settings
- *
- * @note    This is auto-generated from
- *          `cpu/stm32_common/dist/clk_conf/clk_conf.c`
- * @{
- */
-/* give the target core clock (HCLK) frequency [in Hz],
- * maximum: 100MHz */
-#define CLOCK_CORECLOCK     (96000000U)
-/* 0: no external high speed crystal available
- * else: actual crystal frequency [in Hz] */
-#define CLOCK_HSE           (25000000U)
-/* 0: no external low speed crystal available,
- * 1: external crystal available (always 32.768kHz) */
-#define CLOCK_LSE           (1U)
-/* peripheral clock setup */
-#define CLOCK_AHB_DIV       RCC_CFGR_HPRE_DIV1
-#define CLOCK_AHB           (CLOCK_CORECLOCK / 1)
-#define CLOCK_APB1_DIV      RCC_CFGR_PPRE1_DIV2     /* max 50MHz */
-#define CLOCK_APB1          (CLOCK_CORECLOCK / 2)
-#define CLOCK_APB2_DIV      RCC_CFGR_PPRE2_DIV1     /* max 100MHz */
-#define CLOCK_APB2          (CLOCK_CORECLOCK / 1)
-
-/* Main PLL factors */
-#define CLOCK_PLL_M          (25)
-#define CLOCK_PLL_N          (384)
-#define CLOCK_PLL_P          (4)
-#define CLOCK_PLL_Q          (8)
-/** @} */
 
 /**
  * @name    UART configuration
