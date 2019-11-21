@@ -113,11 +113,13 @@ void at86rf215_reset(at86rf215_t *dev)
         if (is_subGHz(dev)) {
             at86rf215_reg_write(dev, RG_BBC1_IRQM, 0);
             at86rf215_reg_write(dev, RG_RF24_IRQM, 0);
+            at86rf215_reg_write(dev, RG_RF24_CMD, CMD_RF_SLEEP);
 
         /* disable sub-GHz IRQs if the interface is not enabled */
         } else {
             at86rf215_reg_write(dev, RG_BBC0_IRQM, 0);
             at86rf215_reg_write(dev, RG_RF09_IRQM, 0);
+            at86rf215_reg_write(dev, RG_RF09_CMD, CMD_RF_SLEEP);
         }
     }
 
