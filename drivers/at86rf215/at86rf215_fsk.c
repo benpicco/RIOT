@@ -355,7 +355,7 @@ static void _set_srate(at86rf215_t *dev, uint8_t srate, bool mod_idx_half)
     at86rf215_reg_write(dev, dev->BBC->RG_FSKPE2, FSKPE_Val[2][srate]);
 
     /* set preamble length in octets */
-    uint8_t fskpl = _FSKPL(srate);
+    uint8_t fskpl = 8 * _FSKPL(srate);
     at86rf215_reg_write(dev, dev->BBC->RG_FSKPLL, fskpl);
 
     /* Preamble detection takes RSSI values into account if the preamble length is less than 8 octets. */
@@ -364,6 +364,11 @@ static void _set_srate(at86rf215_t *dev, uint8_t srate, bool mod_idx_half)
     } else {
         at86rf215_reg_and(dev, dev->BBC->RG_FSKC2, (uint8_t) ~FSKC2_PDTM_MASK);
     }
+
+    /* t_on = t_off = t_min (time to TX minimal preamble length) */
+    uint8_t t_on = _FSKPL(srate) * 100 / at86rf215_fsk_srate_10kHz[srate];
+    at86rf215_reg_write(dev, dev->BBC->RG_FSKRPCONT, t_on);
+    at86rf215_reg_write(dev, dev->BBC->RG_FSKRPCOFFT, t_on);
 
     /* set symbol rate, preamble is less than 256 so set high bits 0 */
     at86rf215_reg_write(dev, dev->BBC->RG_FSKC1, srate);
@@ -423,12 +428,14 @@ int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, ui
     /* enable direct modulation */
     at86rf215_reg_write(dev, dev->BBC->RG_FSKDM, FSKDM_EN_MASK | FSKDM_PE_MASK);
 
+    /* 4 µs base time */
+    uint8_t fskrpc = 0x3;
+
     /* Enable / Disable Reduced Power Consumption */
     if (dev->flags & AT86RF215_OPT_RPC) {
-        at86rf215_reg_or(dev, dev->BBC->RG_FSKRPC, FSKRPC_EN_MASK);
-    } else {
-        at86rf215_reg_and(dev, dev->BBC->RG_OQPSKC2, ~OQPSKC2_RPC_MASK);
+        fskrpc |= FSKRPC_EN_MASK;
     }
+    at86rf215_reg_write(dev, dev->BBC->RG_FSKRPC, fskrpc);
 
     /* set forward error correction */
     at86rf215_FSK_set_fec(dev, fec);
