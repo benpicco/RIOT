@@ -202,6 +202,16 @@ static uint8_t _set_mode(at86rf215_t *dev, uint8_t mode, bool legacy, uint8_t *c
 
     /* TX with selected rate mode */
     at86rf215_reg_write(dev, dev->BBC->RG_OQPSKPHRTX, mode);
+
+    /* power save mode only works when not listening to legacy frames */
+    /* listening to both uses ~1mA more that just listening to legacy */
+    uint8_t rxm = legacy ? RXM_LEGACY_OQPSK : RXM_MR_OQPSK;
+
+    at86rf215_reg_write(dev, dev->BBC->RG_OQPSKC2,
+                         rxm                    /* receive mode, legacy or MR-O-QPSK */
+                       | OQPSKC2_RPC_MASK       /* enable Reduce Power Consumption */
+                       | OQPSKC2_FCSTLEG_MASK   /* 16 bit frame checksum */
+                       | OQPSKC2_ENPROP_MASK);  /* enable Reduce Power Consumption */
     return mode;
 }
 
@@ -279,13 +289,7 @@ int at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
 
     /* lowest preamble detection sensitivity */
     at86rf215_reg_write(dev, dev->BBC->RG_OQPSKC1, 0);
-    /* listen for both MR-O-QPSK and legacy O-QPSK */
-    /* 16 bit frame checksum */
-    /* support RX of proprietary modes */
-    /* no powersaving (for now) */
-    at86rf215_reg_write(dev, dev->BBC->RG_OQPSKC2, RXM_BOTH_OQPSK
-                                            | OQPSKC2_FCSTLEG_MASK
-                                            | OQPSKC2_ENPROP_MASK);
+
     /* legacy O-QPSK & listen to sync word SFD_1 */
     at86rf215_reg_write(dev, dev->BBC->RG_OQPSKC3, 0x0);
 
