@@ -355,7 +355,15 @@ static void _set_srate(at86rf215_t *dev, uint8_t srate, bool mod_idx_half)
     at86rf215_reg_write(dev, dev->BBC->RG_FSKPE2, FSKPE_Val[2][srate]);
 
     /* set preamble length in octets */
-    at86rf215_reg_write(dev, dev->BBC->RG_FSKPLL, _FSKPL(srate));
+    uint8_t fskpl = _FSKPL(srate);
+    at86rf215_reg_write(dev, dev->BBC->RG_FSKPLL, fskpl);
+
+    /* Preamble detection takes RSSI values into account if the preamble length is less than 8 octets. */
+    if (fskpl < 8) {
+        at86rf215_reg_or(dev, dev->BBC->RG_FSKC2, FSKC2_PDTM_MASK);
+    } else {
+        at86rf215_reg_and(dev, dev->BBC->RG_FSKC2, (uint8_t) ~FSKC2_PDTM_MASK);
+    }
 
     /* set symbol rate, preamble is less than 256 so set high bits 0 */
     at86rf215_reg_write(dev, dev->BBC->RG_FSKC1, srate);
