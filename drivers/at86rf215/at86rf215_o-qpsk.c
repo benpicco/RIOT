@@ -236,7 +236,7 @@ static void _set_ack_timeout(at86rf215_t *dev, uint8_t chips, uint8_t mode)
 
 int at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
 {
-    uint8_t direct_modulation, old_state;
+    uint8_t direct_modulation;
     direct_modulation = 0;
 
     if (chips > BB_FCHIP2000) {
@@ -249,12 +249,7 @@ int at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
         return -EINVAL;
     }
 
-    if (dev->state > AT86RF215_STATE_IDLE) {
-        return -EBUSY;
-    }
-
-    /* make sure we are in state TRXOFF */
-    old_state = at86rf215_set_state(dev, CMD_RF_TRXOFF);
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     /* disable radio */
     at86rf215_reg_write(dev, dev->BBC->RG_PC, 0);
@@ -303,8 +298,6 @@ int at86rf215_configure_OQPSK(at86rf215_t *dev, uint8_t chips, uint8_t mode)
 
     at86rf215_enable_radio(dev, BB_MROQPSK);
 
-    at86rf215_set_state(dev, old_state);
-
     return 0;
 }
 
@@ -325,6 +318,8 @@ int at86rf215_OQPSK_set_chips(at86rf215_t *dev, uint8_t chips)
         direct_modulation = 0;
     }
 
+    at86rf215_await_state_end(dev, RF_STATE_TX);
+
     _set_chips(dev, chips, direct_modulation);
     _set_ack_timeout(dev, chips, mode);
     return 0;
@@ -344,6 +339,8 @@ int at86rf215_OQPSK_set_mode(at86rf215_t *dev, uint8_t mode)
     }
 
     chips = at86rf215_OQPSK_get_chips(dev);
+
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     mode = _set_mode(dev,
                      mode & ~IEEE802154_OQPSK_FLAG_LEGACY,

@@ -177,14 +177,14 @@ static int _set_state(at86rf215_t *dev, netopt_state_t state)
 {
     switch (state) {
         case NETOPT_STATE_STANDBY:
-            at86rf215_set_state(dev, CMD_RF_TRXOFF);
+            at86rf215_set_idle_from_rx(dev, CMD_RF_TRXOFF);
             break;
         case NETOPT_STATE_SLEEP:
-            at86rf215_set_state(dev, CMD_RF_SLEEP);
+            at86rf215_set_idle_from_rx(dev, CMD_RF_SLEEP);
             break;
         case NETOPT_STATE_RX:
         case NETOPT_STATE_IDLE:
-            at86rf215_set_state(dev, RF_STATE_RX);
+            at86rf215_set_rx_from_idle(dev, NULL);
             break;
         case NETOPT_STATE_TX:
             if (dev->flags & AT86RF215_OPT_PRELOADING) {

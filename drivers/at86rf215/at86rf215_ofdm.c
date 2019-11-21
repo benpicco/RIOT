@@ -246,12 +246,7 @@ int at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
         return -EINVAL;
     }
 
-    if (dev->state > AT86RF215_STATE_IDLE) {
-        return -EBUSY;
-    }
-
-    /* make sure we are in state TRXOFF */
-    uint8_t old_state = at86rf215_set_state(dev, CMD_RF_TRXOFF);
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     /* disable radio */
     at86rf215_reg_write(dev, dev->BBC->RG_PC, 0);
@@ -269,8 +264,6 @@ int at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
 
     at86rf215_enable_radio(dev, BB_MROFDM);
 
-    at86rf215_set_state(dev, old_state);
-
     return 0;
 }
 
@@ -282,6 +275,8 @@ int at86rf215_OFDM_set_scheme(at86rf215_t *dev, uint8_t scheme)
         DEBUG("[%s] invalid MCS: %d\n", __func__, scheme);
         return -1;
     }
+
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     at86rf215_reg_write(dev, dev->BBC->RG_OFDMPHRTX, scheme);
     _set_ack_timeout(dev, at86rf215_OFDM_get_option(dev), scheme);
@@ -302,6 +297,8 @@ int at86rf215_OFDM_set_option(at86rf215_t *dev, uint8_t option)
         DEBUG("[%s] invalid option: %d\n", __func__, option);
         return -1;
     }
+
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     _set_option(dev, option);
     _set_ack_timeout(dev, option, mcs);

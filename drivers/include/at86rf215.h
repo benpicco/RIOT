@@ -316,16 +316,6 @@ int8_t at86rf215_get_ed_level(at86rf215_t *dev);
 void at86rf215_set_option(at86rf215_t *dev, uint16_t option, bool state);
 
 /**
- * @brief   Set the state of the given device (trigger a state change)
- *
- * @param[in,out] dev       device to change state of
- * @param[in] state         the targeted new state
- *
- * @return                  the previous state before the new state was set
- */
-uint8_t at86rf215_set_state(at86rf215_t *dev, uint8_t state);
-
-/**
  * @brief   Convenience function for simply sending data
  *
  * @note This function ignores the PRELOADING option

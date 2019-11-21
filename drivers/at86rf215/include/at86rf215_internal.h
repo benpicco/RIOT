@@ -505,6 +505,48 @@ static inline uint8_t at86rf215_get_rf_state(const at86rf215_t *dev)
 }
 
 /**
+ * @brief Blocks until the device has reached the given state
+ *
+ * @param[in] dev    device to poll
+ * @param[in] state  the expected state
+ */
+static inline void at86rf215_await_state(const at86rf215_t *dev, uint8_t state)
+{
+    while (at86rf215_get_rf_state(dev) != state) {}
+}
+
+/**
+ * @brief Blocks until the device has reached the given state
+ *
+ * @param[in] dev    device to poll
+ * @param[in] state  the expected state
+ */
+static inline void at86rf215_await_state_end(const at86rf215_t *dev, uint8_t state)
+{
+    while (at86rf215_get_rf_state(dev) == state) {}
+}
+
+/**
+ * @brief Switch device back to IDLE-RX from non-RX idle
+ *
+ * @param[in] dev         Device to update
+ * @param[out] old_state  Pointer to store the previous state, may be NULL
+ *
+ * @return  true if the operation was possible
+ */
+bool at86rf215_set_rx_from_idle(at86rf215_t *dev, uint8_t *old_state);
+
+/**
+ * @brief Switch device to non-RX idle state from RX
+ *
+ * @param[in] dev         Device to update
+ * @param[out] old_state  the new state (may be CMD_RF_TRXOFF or CMD_RF_SLEEP)
+ *
+ * @return  true if the operation was possible
+ */
+bool at86rf215_set_idle_from_rx(at86rf215_t *dev, uint8_t state);
+
+/**
  * @brief Enable the baseband processor of the device
  *
  * @param[in] dev   device to enable the baseband on

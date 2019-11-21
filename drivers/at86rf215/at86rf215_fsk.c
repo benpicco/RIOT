@@ -379,16 +379,11 @@ int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, ui
         return -EINVAL;
     }
 
-    if (dev->state > AT86RF215_STATE_IDLE) {
-        return -EBUSY;
-    }
-
-    /* make sure we are in state TRXOFF */
-    uint8_t old_state = at86rf215_set_state(dev, CMD_RF_TRXOFF);
-
     bool mod_idx_half = mod_idx <= 32;
     uint8_t _mod_idx, _mod_idx_scale;
     _fsk_mod_idx_get(mod_idx, &_mod_idx, &_mod_idx_scale);
+
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     /* disable radio */
     at86rf215_reg_write(dev, dev->BBC->RG_PC, 0);
@@ -432,8 +427,6 @@ int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, ui
 
     _set_ack_timeout(dev, srate, mod_order, fec);
 
-    at86rf215_set_state(dev, old_state);
-
     return 0;
 }
 
@@ -443,6 +436,9 @@ uint8_t at86rf215_FSK_get_mod_order(at86rf215_t *dev)
 }
 
 int at86rf215_FSK_set_mod_order(at86rf215_t *dev, uint8_t mod_order) {
+
+    at86rf215_await_state_end(dev, RF_STATE_TX);
+
     if (mod_order) {
         at86rf215_reg_or(dev, dev->BBC->RG_FSKC0, FSK_MORD_4SFK);
     } else {
@@ -468,6 +464,8 @@ int at86rf215_FSK_set_mod_idx(at86rf215_t *dev, uint8_t mod_idx)
 {
     uint8_t _mod_idx, _mod_idx_scale;
 
+    at86rf215_await_state_end(dev, RF_STATE_TX);
+
     _set_srate(dev, at86rf215_FSK_get_srate(dev), mod_idx <= 32);
 
     _fsk_mod_idx_get(mod_idx, &_mod_idx, &_mod_idx_scale);
@@ -489,6 +487,8 @@ int at86rf215_FSK_set_srate(at86rf215_t *dev, uint8_t srate)
         return -1;
     }
 
+    at86rf215_await_state_end(dev, RF_STATE_TX);
+
     _set_srate(dev, srate, at86rf215_FSK_get_mod_idx(dev) <= 32);
     _set_ack_timeout(dev, srate,
                      at86rf215_FSK_get_mod_order(dev),
@@ -498,7 +498,8 @@ int at86rf215_FSK_set_srate(at86rf215_t *dev, uint8_t srate)
 
 int at86rf215_FSK_set_fec(at86rf215_t *dev, uint8_t mode)
 {
-    (void) dev;
+    at86rf215_await_state_end(dev, RF_STATE_TX);
+
     switch (mode) {
     case IEEE802154_FEC_NONE:
         at86rf215_reg_and(dev, dev->BBC->RG_FSKPHRTX, ~FSKPHRTX_SFD_MASK);
@@ -543,8 +544,7 @@ int at86rf215_FSK_set_channel_spacing(at86rf215_t *dev, uint8_t ch_space)
         return -1;
     }
 
-    /* make sure we are in state TRXOFF */
-    uint8_t old_state = at86rf215_set_state(dev, CMD_RF_TRXOFF);
+    at86rf215_await_state_end(dev, RF_STATE_TX);
 
     /* set channel spacing, same for both sub-GHz & 2.4 GHz */
     at86rf215_reg_write(dev, dev->RF->RG_CS, at86rf215_fsk_channel_spacing_25kHz[ch_space]);
@@ -562,8 +562,6 @@ int at86rf215_FSK_set_channel_spacing(at86rf215_t *dev, uint8_t ch_space)
     dev->num_chans = is_subGHz(dev) ? 34 / (ch_space + 1) : (416 / (ch_space + 1)) - (ch_space * 2);
     dev->netdev.chan = at86rf215_chan_valid(dev, dev->netdev.chan);
     at86rf215_reg_write16(dev, dev->RF->RG_CNL, dev->netdev.chan);
-
-    at86rf215_set_state(dev, old_state);
 
     return 0;
 }

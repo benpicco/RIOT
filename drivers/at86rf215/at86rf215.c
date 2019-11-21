@@ -105,7 +105,8 @@ void at86rf215_reset(at86rf215_t *dev)
     dev->state = AT86RF215_STATE_OFF;
 
     /* Reset state machine to ensure a known state */
-    at86rf215_set_state(dev, RF_STATE_TRXOFF);
+    at86rf215_rf_cmd(dev, CMD_RF_TRXOFF);
+    at86rf215_await_state(dev, RF_STATE_TRXOFF);
 
     if (!dev->sibling) {
         /* disable 2.4-GHz IRQs if the interface is not enabled */
@@ -161,7 +162,10 @@ void at86rf215_reset(at86rf215_t *dev)
     /* set default TX power */
     at86rf215_set_txpower(dev, AT86RF215_DEFAULT_TXPOWER);
 
-    at86rf215_set_state(dev, RF_STATE_RX);
+    /* start listening for incomming packets */
+    at86rf215_rf_cmd(dev, CMD_RF_RX);
+    at86rf215_await_state(dev, RF_STATE_RX);
+
     dev->state = AT86RF215_STATE_IDLE;
 }
 
@@ -234,6 +238,10 @@ static void _block_while_busy(at86rf215_t *dev)
 
 int at86rf215_tx_prepare(at86rf215_t *dev)
 {
+    if (dev->state == AT86RF215_STATE_SLEEP) {
+        return -EAGAIN;
+    }
+
     if (_tx_ongoing(dev)) {
         DEBUG("[at86rf215] Block while TXing\n");
         _block_while_busy(dev);
@@ -298,7 +306,13 @@ bool at86rf215_cca(at86rf215_t *dev)
         return false;
     }
 
-    old_state = at86rf215_set_state(dev, RF_STATE_RX);
+    if (dev->flags & AT86RF215_OPT_TX_PENDING) {
+        return false;
+    }
+
+    if (!at86rf215_set_rx_from_idle(dev, &old_state)) {
+        return false;
+    }
 
     /* disable ED IRQ, baseband */
     at86rf215_reg_and(dev, dev->RF->RG_IRQM, ~(RF_IRQ_EDC | RF_IRQ_TRXRDY));
@@ -314,7 +328,7 @@ bool at86rf215_cca(at86rf215_t *dev)
     at86rf215_reg_or(dev, dev->RF->RG_IRQM, RF_IRQ_EDC | RF_IRQ_TRXRDY);
     at86rf215_reg_or(dev, dev->BBC->RG_PC, PC_BBEN_MASK);
 
-    at86rf215_set_state(dev, old_state);
+    at86rf215_set_idle_from_rx(dev, old_state);
 
     return clear;
 }
