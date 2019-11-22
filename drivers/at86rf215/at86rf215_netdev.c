@@ -886,6 +886,11 @@ static void _isr(netdev_t *netdev)
         rx_ack_req = 0;
     }
 
+    /* listen for short preamble in RX */
+    if (bb_irq_mask & BB_IRQ_TXFE) {
+        at86rf215_FSK_prepare_rx(dev);
+    }
+
     if (dev->flags & AT86RF215_OPT_CCA_PENDING) {
 
         /* Start ED or handle result */
@@ -905,6 +910,9 @@ static void _isr(netdev_t *netdev)
 
         /* start transmitting the frame */
         if (rf_irq_mask & RF_IRQ_TRXRDY) {
+
+            /* send long preamble in TX */
+            at86rf215_FSK_prepare_tx(dev);
 
             /* automatically switch to RX when TX is done */
             _enable_tx2rx(dev);

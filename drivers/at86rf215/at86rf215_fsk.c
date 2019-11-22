@@ -334,6 +334,23 @@ static inline uint8_t _RXDFE_RCUT(uint8_t srate, bool subGHz, bool half)
     return half ? _RXDFE_RCUT_half(srate, subGHz) : _RXDFE_RCUT_full(srate, subGHz);
 }
 
+void at86rf215_FSK_prepare_rx(at86rf215_t *dev)
+{
+    at86rf215_reg_write(dev, dev->BBC->RG_FSKPLL, dev->fsk_pl_rx);
+
+    /* Preamble detection takes RSSI values into account if the preamble length is less than 8 octets. */
+    if (dev->fsk_pl_rx < 8) {
+        at86rf215_reg_or(dev, dev->BBC->RG_FSKC2, FSKC2_PDTM_MASK);
+    } else {
+        at86rf215_reg_and(dev, dev->BBC->RG_FSKC2, (uint8_t) ~FSKC2_PDTM_MASK);
+    }
+}
+
+void at86rf215_FSK_prepare_tx(at86rf215_t *dev)
+{
+    at86rf215_reg_write(dev, dev->BBC->RG_FSKPLL, dev->fsk_pl_tx);
+}
+
 static void _set_srate(at86rf215_t *dev, uint8_t srate, bool mod_idx_half)
 {
     /* Set Receiver Bandwidth: fBW = 160 kHz, fIF = 250 kHz */
@@ -355,20 +372,18 @@ static void _set_srate(at86rf215_t *dev, uint8_t srate, bool mod_idx_half)
     at86rf215_reg_write(dev, dev->BBC->RG_FSKPE2, FSKPE_Val[2][srate]);
 
     /* set preamble length in octets */
-    uint8_t fskpl = 8 * _FSKPL(srate);
-    at86rf215_reg_write(dev, dev->BBC->RG_FSKPLL, fskpl);
+    dev->fsk_pl_rx = _FSKPL(srate);
+    dev->fsk_pl_tx = 8 * _FSKPL(srate);
 
-    /* Preamble detection takes RSSI values into account if the preamble length is less than 8 octets. */
-    if (fskpl < 8) {
-        at86rf215_reg_or(dev, dev->BBC->RG_FSKC2, FSKC2_PDTM_MASK);
-    } else {
-        at86rf215_reg_and(dev, dev->BBC->RG_FSKC2, (uint8_t) ~FSKC2_PDTM_MASK);
-    }
+    at86rf215_FSK_prepare_rx(dev);
 
     /* t_on = t_off = t_min (time to TX minimal preamble length) */
-    uint8_t t_on = _FSKPL(srate) * 100 / at86rf215_fsk_srate_10kHz[srate];
+    uint8_t t_on = 4 * _FSKPL(srate) * 100 / at86rf215_fsk_srate_10kHz[srate];
+
     at86rf215_reg_write(dev, dev->BBC->RG_FSKRPCONT, t_on);
     at86rf215_reg_write(dev, dev->BBC->RG_FSKRPCOFFT, t_on);
+
+    DEBUG("[at86rf215] t_on: %d µs\n", t_on);
 
     /* set symbol rate, preamble is less than 256 so set high bits 0 */
     at86rf215_reg_write(dev, dev->BBC->RG_FSKC1, srate);
@@ -428,8 +443,8 @@ int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, ui
     /* enable direct modulation */
     at86rf215_reg_write(dev, dev->BBC->RG_FSKDM, FSKDM_EN_MASK | FSKDM_PE_MASK);
 
-    /* 4 µs base time */
-    uint8_t fskrpc = 0x3;
+    /* 16 µs base time */
+    uint8_t fskrpc = 0x5;
 
     /* Enable / Disable Reduced Power Consumption */
     if (dev->flags & AT86RF215_OPT_RPC) {

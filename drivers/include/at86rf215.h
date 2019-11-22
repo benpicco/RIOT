@@ -149,6 +149,8 @@ typedef struct at86rf215 {
     uint8_t retries;                        /**< retries left */
     uint8_t csma_retries_max;               /**< number of retries until channel is clear */
     uint8_t csma_retries;                   /**< CSMA retries left */
+    uint8_t fsk_pl_rx;                      /**< FSK Preamble Length for RX */
+    uint8_t fsk_pl_tx;                      /**< FSK Preamble Length for TX */
 } at86rf215_t;
 
 /**

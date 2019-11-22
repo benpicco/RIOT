@@ -256,6 +256,10 @@ int at86rf215_FSK_set_mod_order(at86rf215_t *dev, uint8_t mod_order);
  */
 uint8_t at86rf215_FSK_get_mod_order(at86rf215_t *dev);
 
+void at86rf215_FSK_prepare_rx(at86rf215_t *dev);
+
+void at86rf215_FSK_prepare_tx(at86rf215_t *dev);
+
 /** @} */
 
 /**
