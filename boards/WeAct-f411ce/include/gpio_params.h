@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 HAW Hamburg
+ * Copyright (C) 2019 Benjamin Valentin
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -7,13 +7,13 @@
  */
 
 /**
- * @ingroup     boards_common_blxxxpill
+ * @ingroup     boards_weact-f411ce
  * @{
  *
  * @file
  * @brief       Board specific configuration of direct mapped GPIOs
  *
- * @author      Sebastian Meiling <s@mlng.net>
+ * @author      Benjamin Valentin <benpicco@googlemail.com>
  */
 
 #ifndef GPIO_PARAMS_H
