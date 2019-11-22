@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Inria
+ * Copyright (C) 2019 Benjamin Valentin
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -7,11 +7,11 @@
  */
 
 /**
- * @ingroup     boards_stm32f030f4-demo
+ * @ingroup     boards_weact-f411ce
  * @{
  *
  * @file
- * @brief       Peripheral MCU configuration for the stm32f030f4-demo board
+ * @brief       Peripheral MCU configuration for the WeAct-F411CE Board
  *
  * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
  * @author      José Ignacio Alamos <jialamos@uc.cl>
