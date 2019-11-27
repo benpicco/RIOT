@@ -264,6 +264,8 @@ int at86rf215_configure_OFDM(at86rf215_t *dev, uint8_t option, uint8_t scheme)
 
     at86rf215_enable_radio(dev, BB_MROFDM);
 
+    at86rf215_switch_mode(dev, AT86RF215_MODE_MR_OFDM);
+
     return 0;
 }
 

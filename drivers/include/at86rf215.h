@@ -89,6 +89,13 @@ typedef enum {
 } at86rf215_state_t;
 /** @} */
 
+enum {
+    AT86RF215_MODE_LEGACY_OQPSK,
+    AT86RF215_MODE_MR_OQPSK,
+    AT86RF215_MODE_MR_OFDM,
+    AT86RF215_MODE_MR_FSK
+};
+
 /**
  * @name    Internal device option flags
  * @{
@@ -143,7 +150,7 @@ typedef struct at86rf215 {
     uint16_t num_chans;                     /**< Number of legal channel at current modulation */
     uint16_t tx_frame_len;                  /**< length of the current TX frame */
     uint8_t ack_timeout;                    /**< 1 if ack timeout was reached, 0 otherwise */
-    uint8_t page;                           /**< currently used channel page */
+    uint8_t mode;                           /**< current phy mode */
     uint8_t state;                          /**< current state of the radio */
     uint8_t retries_max;                    /**< number of retries until ACK is received */
     uint8_t retries;                        /**< retries left */
@@ -226,23 +233,6 @@ uint8_t at86rf215_get_chan(const at86rf215_t *dev);
  * @param[in] chan          channel number to set
  */
 void at86rf215_set_chan(at86rf215_t *dev, uint16_t chan);
-
-/**
- * @brief   Get the configured channel page of the given device
- *
- * @param[in] dev           device to read from
- *
- * @return                  the currently set channel page
- */
-uint8_t at86rf215_get_page(const at86rf215_t *dev);
-
-/**
- * @brief   Set the channel page of the given device
- *
- * @param[in,out] dev       device to write to
- * @param[in] page          channel page to set
- */
-void at86rf215_set_page(at86rf215_t *dev, uint8_t page);
 
 /**
  * @brief   Get the configured PAN ID of the given device

@@ -164,6 +164,26 @@ uint16_t at86rf215_chan_valid(at86rf215_t *dev, uint16_t chan)
     return chan;
 }
 
+#include "net/gnrc/netif/internal.h"
+bool at86rf215_switch_mode(at86rf215_t *dev, uint8_t new_mode)
+{
+    if (new_mode == dev->mode) {
+        return false;
+    }
+
+    bool pdu_changed = (new_mode == AT86RF215_MODE_LEGACY_OQPSK ||
+                        dev->mode == AT86RF215_MODE_LEGACY_OQPSK);
+
+    dev->mode = new_mode;
+
+#ifdef MODULE_GNRC_IPV6 /* XXX move this out of the driver */
+    if (pdu_changed) {
+        gnrc_netif_ipv6_init_mtu(gnrc_netif_get_by_pid(thread_getpid()));
+    }
+#endif
+    return pdu_changed;
+}
+
 const char* at86rf215_hw_state2a(uint8_t state)
 {
     switch (state) {

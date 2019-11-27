@@ -71,10 +71,8 @@ void at86rf215_reset_cfg(at86rf215_t *dev)
     addr_long.uint8[0] |=  (0x02);
 
     if (is_subGHz(dev)) {
-        dev->page = 2; /* O-QPSK, legacy */
         dev->netdev.chan = AT86RF215_DEFAULT_SUBGHZ_CHANNEL;
     } else {
-        dev->page = 0; /* O-QPSK, legacy */
         dev->netdev.chan = AT86RF215_DEFAULT_CHANNEL;
 
         /* make sure both IFs don't have the same address */
@@ -146,8 +144,7 @@ void at86rf215_reset(at86rf215_t *dev)
                                               | AMCS_AACKFA_MASK
                                               | AMCS_AACKDR_MASK);
 
-    /* set default channel page */
-    at86rf215_set_page(dev, dev->page);
+    at86rf215_configure_OQPSK(dev, is_subGHz(dev) ? BB_FCHIP1000 : BB_FCHIP2000, IEEE802154_OQPSK_FLAG_LEGACY);
 
     /* set default channel */
     at86rf215_set_chan(dev, dev->netdev.chan);

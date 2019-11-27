@@ -85,25 +85,6 @@ uint16_t at86rf215_get_channel_spacing(at86rf215_t *dev) {
     return 25 * at86rf215_reg_read(dev, dev->RF->RG_CS);
 }
 
-uint8_t at86rf215_get_page(const at86rf215_t *dev)
-{
-    return dev->page;
-}
-
-/* TODO: find out how pages 9 & 10 are to be configured */
-void at86rf215_set_page(at86rf215_t *dev, uint8_t page)
-{
-    if (is_subGHz(dev) && page == 2) {
-        at86rf215_configure_OQPSK(dev, BB_FCHIP1000, IEEE802154_OQPSK_FLAG_LEGACY);
-        dev->page = page;
-    }
-
-    if (!is_subGHz(dev) && page == 0) {
-        at86rf215_configure_OQPSK(dev, BB_FCHIP2000, IEEE802154_OQPSK_FLAG_LEGACY);
-        dev->page = page;
-    }
-}
-
 uint8_t at86rf215_get_phy_mode(at86rf215_t *dev)
 {
     switch (at86rf215_reg_read(dev, dev->BBC->RG_PC) & PC_PT_MASK) {

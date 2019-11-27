@@ -296,6 +296,26 @@ static int _get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
                 !!(dev->flags & AT86RF215_OPT_AUTOACK);
             return sizeof(netopt_enable_t);
 
+        case NETOPT_CHANNEL_PAGE:
+            assert(max_len >= sizeof(uint16_t));
+            if (dev->mode != AT86RF215_MODE_LEGACY_OQPSK) {
+                return -ENOTSUP;
+            }
+            ((uint8_t *)val)[1] = 0;
+            ((uint8_t *)val)[0] = is_subGHz(dev) ? 2 : 0;
+            return sizeof(uint16_t);
+
+        case NETOPT_MAX_PDU_SIZE:
+            if (max_len < sizeof(uint16_t)) {
+                return -EOVERFLOW;
+            }
+            if (dev->mode == AT86RF215_MODE_LEGACY_OQPSK) {
+                *((uint16_t *)val) = IEEE802154_FRAME_LEN_MAX;
+            } else {
+                *((uint16_t *)val) = AT86RF215_MAX_PKT_LENGTH;
+            }
+            return sizeof(uint16_t);
+
         default:
             /* Can still be handled in second switch */
             break;
@@ -456,14 +476,6 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
             at86rf215_set_chan(dev, chan);
             /* don't set res to set netdev_ieee802154_t::chan */
-            break;
-
-        case NETOPT_CHANNEL_PAGE:
-            assert(len == sizeof(uint16_t));
-            uint8_t page = (((const uint16_t *)val)[0]) & UINT8_MAX;
-
-            at86rf215_set_page(dev, page);
-            res = sizeof(uint16_t);
             break;
 
         case NETOPT_TX_POWER:
@@ -887,7 +899,7 @@ static void _isr(netdev_t *netdev)
     }
 
     /* listen for short preamble in RX */
-    if (bb_irq_mask & BB_IRQ_TXFE) {
+    if (bb_irq_mask & BB_IRQ_TXFE && dev->mode == AT86RF215_MODE_MR_FSK) {
         at86rf215_FSK_prepare_rx(dev);
     }
 
@@ -912,7 +924,9 @@ static void _isr(netdev_t *netdev)
         if (rf_irq_mask & RF_IRQ_TRXRDY) {
 
             /* send long preamble in TX */
-            at86rf215_FSK_prepare_tx(dev);
+            if (dev->mode == AT86RF215_MODE_MR_FSK) {
+                at86rf215_FSK_prepare_tx(dev);
+            }
 
             /* automatically switch to RX when TX is done */
             _enable_tx2rx(dev);

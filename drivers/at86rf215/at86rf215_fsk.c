@@ -464,6 +464,8 @@ int at86rf215_configure_FSK(at86rf215_t *dev, uint8_t srate, uint8_t mod_idx, ui
 
     _set_ack_timeout(dev, srate, mod_order, fec);
 
+    at86rf215_switch_mode(dev, AT86RF215_MODE_MR_FSK);
+
     return 0;
 }
 
