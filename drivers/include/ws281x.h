@@ -92,7 +92,9 @@
 #include "periph/gpio.h"
 #include "ws281x_backend.h"
 #include "ws281x_constants.h"
+#ifdef MODULE_XTIMER
 #include "xtimer.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -201,7 +203,9 @@ void ws281x_end_transmission(ws281x_t *dev);
 static inline void ws281x_end_transmission(ws281x_t *dev)
 {
     (void)dev;
+#ifdef MODULE_XTIMER
     xtimer_usleep(WS281X_T_END_US);
+#endif
 }
 #endif
 

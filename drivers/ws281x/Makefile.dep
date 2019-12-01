@@ -15,5 +15,3 @@ endif
 ifneq (,$(filter ws281x_atmega,$(USEMODULE)))
   FEATURES_REQUIRED += arch_avr8
 endif
-
-USEMODULE += xtimer
