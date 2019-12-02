@@ -1,0 +1,14 @@
+APPLICATION = xmas-tree
+BOARD ?= atmega328p
+RIOTBASE ?= $(CURDIR)/../..
+DEVELHELP ?= 1
+QUIET ?= 1
+
+USEMODULE += dds
+USEMODULE += shell
+USEMODULE += shell_commands
+USEMODULE += ws281x
+
+include $(RIOTBASE)/Makefile.include
+CFLAGS += '-DWS281X_PARAM_NUMOF=10'
+CFLAGS += '-DWS281X_PARAM_PIN=GPIO_PIN(PORT_B, 0)'
