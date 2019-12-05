@@ -31,10 +31,10 @@ static inline void _init_data(void)
 {
     /* (linker script ensures that data is 32-bit aligned) */
     extern unsigned int _etext;
-    extern unsigned int _data;
-    extern unsigned int _edata;
-    extern unsigned int __bss_start;
-    extern unsigned int __bss_end;
+    extern unsigned int _srelocate; /* .data section */
+    extern unsigned int _erelocate;
+    extern unsigned int _szero;     /* .bss section */
+    extern unsigned int _ezero;
 
 /* Support for Battery Backup RAM */
 #ifdef CPU_HAS_BACKUP_RAM
@@ -51,16 +51,16 @@ static inline void _init_data(void)
 
     /* initialize data from flash */
     src = &_etext;
-    dst = &_data;
-    end = &_edata;
+    dst = &_srelocate;
+    end = &_erelocate;
 
     while (dst < end) {
         *dst++ = *src++;
     }
 
     /* clear bss */
-    dst = &__bss_start;
-    end = &__bss_end;
+    dst = &_szero;
+    end = &_ezero;
 
     while (dst < end) {
         *dst++ = 0;
