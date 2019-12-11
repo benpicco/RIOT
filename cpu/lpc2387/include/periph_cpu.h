@@ -177,6 +177,17 @@ typedef struct {
     uint32_t pinsel_msk;    /**< PINSEL Mask for ADC pin */
 } adc_conf_t;
 
+/**
+ * @brief   I2C device configuration
+ */
+typedef struct {
+    lpc23xx_i2c_t *dev;     /**< pointer to the I2C device  */
+    uint8_t pinsel_sda;     /**< PINSEL# of the SDA pin     */
+    uint8_t pinsel_scl;     /**< PINSEL# of the SCL pin     */
+    uint32_t pinsel_msk_sda;/**< SDA PINSEL Mask            */
+    uint32_t pinsel_msk_scl;/**< SCL PINSEL Mask            */
+} i2c_conf_t;
+
 /* @} */
 #ifdef __cplusplus
 }
