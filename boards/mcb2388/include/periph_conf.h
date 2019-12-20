@@ -94,6 +94,24 @@ static const adc_conf_t adc_config[] = {
 #define ADC_NUMOF           ARRAY_SIZE(adc_config)
 /** @} */
 
+/**
+ * @name I2C configuration
+ * @{
+ */
+static const i2c_conf_t i2c_config[] = {
+    {
+        .dev        = I2C0,
+        .speed      = I2C_SPEED_NORMAL,
+        .pinsel_sda = 1,
+        .pinsel_scl = 1,
+        .pinsel_msk_sda = BIT22, /* P0.27 */
+        .pinsel_msk_scl = BIT24, /* P0.28 */
+    },
+};
+
+#define I2C_NUMOF           ARRAY_SIZE(i2c_config)
+/** @} */
+
 #ifdef __cplusplus
 }
 #endif
