@@ -34,6 +34,19 @@
 #include "mutex.h"
 
 /**
+ * @brief State of the I2C master state machine
+ */
+typedef enum {
+    I2C_IDLE = 0,
+    I2C_STARTED,
+    I2C_RESTARTED,
+    I2C_REPEATED_START,
+    DATA_ACK,
+    DATA_NACK,
+} i2c_state_t;
+static i2c_state_t i2c_state[I2C_NUMOF];
+
+/**
  * @brief Array holding one pre-initialized mutex for each I2C device
  */
 static mutex_t locks[I2C_NUMOF];
@@ -116,6 +129,126 @@ void i2c_init(i2c_t dev)
     i2c->CONSET = I2CONSET_I2EN;
 }
 
+static i2c_state_t _i2c_do(lpc23xx_i2c_t *i2c, i2c_state_t state, uint8_t data)
+{
+   switch (i2c->STAT) {
+        case 0x08: /* A Start condition is issued. */
+            //puts("A Start condition is issued\n");
+            i2c->DAT = data;
+            //printf("I22DAT = %lu\n", I22DAT);
+            i2c->CONCLR = (I2CONCLR_SIC | I2CONCLR_STAC);
+            return I2C_STARTED;
+
+        case 0x10: /* A repeated started is issued */
+            //puts("A repeated Start is issued\n");
+            //  if ( I2CCmd == L3DG420_WHO_AM_I)
+            //  {
+            //    I22DAT = I2CMasterBuffer[2];
+            //  }
+            i2c->DAT = data; // ??
+            i2c->CONCLR = (I2CONCLR_SIC | I2CONCLR_STAC);
+            return I2C_RESTARTED;
+
+        case 0x18: /* Regardless, it's a ACK */
+
+            //puts("got an Ack\n");
+            if (state == I2C_STARTED) {
+                i2c->DAT = data;
+                return DATA_ACK;
+            }
+
+            i2c->CONCLR = I2CONCLR_SIC;
+            return state;
+
+        case 0x28: /* Data byte has been transmitted, regardless ACK or NACK */
+        case 0x30:
+
+            //puts("Data byte has been transmitted\n");
+            if (wr_index != i2c_write_length) {
+
+                // this should be the last one
+                I20DAT = i2c_master_buffer[1 + wr_index];
+
+                if (wr_index != i2c_write_length) {
+                    i2c_master_state = DATA_ACK;
+                }
+                else {
+                    i2c_master_state = DATA_NACK;
+                    I20CONSET = I2CONSET_STO; /* Set Stop flag */
+
+                    if (i2c_read_length != 0) {
+                        I20CONSET = I2CONSET_STA; /* Set Repeated-start flag */
+                        i2c_master_state = I2C_REPEATED_START;
+                    }
+                }
+
+                wr_index++;
+            }
+            else {
+                if (i2c_read_length != 0) {
+                    I20CONSET = I2CONSET_STA; /* Set Repeated-start flag */
+                    i2c_master_state = I2C_REPEATED_START;
+                }
+                else {
+                    i2c_master_state = DATA_NACK;
+                    I20CONSET = I2CONSET_STO; /* Set Stop flag */
+                }
+            }
+
+            I20CONCLR = I2CONCLR_SIC;
+            break;
+
+        case 0x40: /* Master Receive, SLA_R has been sent */
+
+            //puts("Master Receive, SLA_R has been sent!\n");
+            if (i2c_read_length >= 2) {
+                I20CONSET = I2CONSET_AA; /* assert ACK after data is received */
+            }
+
+            I20CONCLR = I2CONCLR_SIC;
+            break;
+
+            // Data byte has been received, regardless following ACK or NACK
+        case 0x50:
+        case 0x58:
+            //puts("Data received\n");
+            i2c_master_buffer[3 + rd_index] = I20DAT;
+            rd_index++;
+
+            if (rd_index < (i2c_read_length - 1)) {
+                i2c_master_state = DATA_ACK;
+                I20CONSET = I2CONSET_AA; /* assert ACK after data is received */
+            }
+            else {
+                I20CONCLR = I2CONCLR_AAC; /* NACK after data is received */
+            }
+
+            if (rd_index == i2c_read_length) {
+                rd_index = 0;
+                i2c_master_state = DATA_NACK;
+            }
+
+            I20CONCLR = I2CONCLR_SIC;
+            break;
+
+        case 0x20: /* regardless, it's a NACK */
+        case 0x48:
+            I20CONCLR = I2CONCLR_SIC;
+            i2c_master_state = DATA_NACK;
+            break;
+
+        case 0x38: /*
+                    * Arbitration lost, in this example, we don't
+                    *  deal with multiple master situation
+                    **/
+
+            //puts("Arbritration lost!\n");
+        default:
+            I20CONCLR = I2CONCLR_SIC;
+            break;
+    }
+}
+
 int i2c_read_bytes(i2c_t dev, uint16_t addr,
                    void *data, size_t len, uint8_t flags)
 {
@@ -136,6 +269,8 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
                     uint8_t flags)
 {
     assert(dev < I2C_NUMOF);
+    lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
+
 
     /* Check for wrong arguments given */
     if (data == NULL || len == 0) {
@@ -144,14 +279,15 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
 
     if (!(flags & I2C_NOSTART)) {
         /* set Start flag */
-        dev->dev->CONSET = I2CONSET_STA;
+        i2c->CONSET = I2CONSET_STA;
     }
 
-    // TODO: write
+    _i2c_do(i2c, i2c_state[dev], addr << 1);
 
     if (!(flags & I2C_NOSTOP)) {
         /* set Stop flag */
-        dev->dev->CONSET = I2CONSET_STO;
+        i2c->CONSET = I2CONSET_STO;
+        i2c->CONCLR = I2CONCLR_SIC;
     }
 
     /* return 0 on success */
