@@ -21,6 +21,7 @@
 
 #include "lpc2387.h"
 #include "arm_cpu.h"
+#include "kernel_defines.h"
 
 #ifdef __cplusplus
 extern "C" {
