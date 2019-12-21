@@ -46,10 +46,27 @@ typedef enum {
 } i2c_state_t;
 static i2c_state_t i2c_state[I2C_NUMOF];
 
+#if I2C_NUMOF > 0
+static void I2C0_IRQHandler(void) __attribute__((interrupt("IRQ")));
+#endif
+#if I2C_NUMOF > 1
+static void I2C1_IRQHandler(void) __attribute__((interrupt("IRQ")));
+#endif
+#if I2C_NUMOF > 2
+static void I2C2_IRQHandler(void) __attribute__((interrupt("IRQ")));
+#endif
+
 /**
  * @brief Array holding one pre-initialized mutex for each I2C device
  */
 static mutex_t locks[I2C_NUMOF];
+
+struct i2c_ctx {
+    i2c_t dev;
+    i2c_state_t state;
+    mutex_t lock;
+    mutex_t tx_done;
+};
 
 int i2c_acquire(i2c_t dev)
 {
@@ -103,6 +120,27 @@ static void _set_baudrate(lpc23xx_i2c_t *i2c, uint32_t baud)
     }
 }
 
+static void _enable_irq(i2c_t dev)
+{
+    switch ((uint32_t)i2c_config[dev].dev) {
+#if I2C_NUMOF > 0
+    case I2C0_BASE_ADDR:
+        install_irq(I2C0_INT, I2C0_IRQHandler, i2c_config[dev].irq_prio);
+        break;
+#endif
+#if I2C_NUMOF > 1
+    case I2C1_BASE_ADDR:
+        install_irq(I2C1_INT, I2C1_IRQHandler, i2c_config[dev].irq_prio);
+        break;
+#endif
+#if I2C_NUMOF > 2
+    case I2C2_BASE_ADDR:
+        install_irq(I2C2_INT, I2C2_IRQHandler, i2c_config[dev].irq_prio);
+        break;
+    }
+#endif
+}
+
 void i2c_init(i2c_t dev)
 {
     assert(dev < I2C_NUMOF);
@@ -127,6 +165,8 @@ void i2c_init(i2c_t dev)
 
     /* enable the interface */
     i2c->CONSET = I2CONSET_I2EN;
+
+    _enable_irq(dev);
 }
 
 static i2c_state_t _i2c_do(lpc23xx_i2c_t *i2c, i2c_state_t state, uint8_t data)
@@ -294,3 +334,24 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
     return 0;
 }
 
+#if I2C_NUMOF > 0
+static void I2C0_IRQHandler(void)
+{
+    irq_handler(0);
+    VICVectAddr = 0;                    /* Acknowledge Interrupt */
+}
+#endif
+#if I2C_NUMOF > 1
+static void I2C1_IRQHandler(void)
+{
+    irq_handler(1);
+    VICVectAddr = 0;                    /* Acknowledge Interrupt */
+}
+#endif
+#if I2C_NUMOF > 2
+static void I2C2_IRQHandler(void)
+{
+    irq_handler(2);
+    VICVectAddr = 0;                    /* Acknowledge Interrupt */
+}
+#endif

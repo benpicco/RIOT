@@ -195,6 +195,7 @@ typedef enum {
 typedef struct {
     lpc23xx_i2c_t *dev;     /**< pointer to the I2C device  */
     i2c_speed_t speed;      /**< I2C bus speed              */
+    uint8_t irq_prio;       /**< priority of the I2C IRQ    */
     uint8_t pinsel_sda;     /**< PINSEL# of the SDA pin     */
     uint8_t pinsel_scl;     /**< PINSEL# of the SCL pin     */
     uint32_t pinsel_msk_sda;/**< SDA PINSEL Mask            */
