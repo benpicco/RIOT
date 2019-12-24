@@ -178,10 +178,8 @@ static void irq_handler(i2c_t dev)
 
     unsigned stat = i2c->STAT;
 
-//    printf("STAT: %x\n", stat);
-
-    /* clear interrupt flag */
-    i2c->CONCLR = I2CONCLR_SIC;
+//    if (stat != 0x48 && stat != 0x8)
+//    printf("<%x>\n", stat);
 
     switch (stat) {
     case 0x08: /* A Start Condition is issued. */
@@ -189,8 +187,8 @@ static void irq_handler(i2c_t dev)
         ctx[dev].cur = ctx[dev].buf;
         ctx[dev].res = 0;
         i2c->DAT  = ctx[dev].addr;
-        i2c->CONCLR = I2CONCLR_STAC;
         i2c->CONSET = I2CONSET_AA;
+        i2c->CONCLR = I2CONCLR_STAC;
         break;
 
     case 0x20:  /* Address NACK received */
@@ -201,11 +199,15 @@ static void irq_handler(i2c_t dev)
         mutex_unlock(&ctx[dev].tx_done);
         break;
 
-    case 0x30:  /* Data NACK received */
     case 0x58:
-        /* send STOP */
-        i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
-        ctx[dev].res = -EIO;
+    case 0x30:  /* Data NACK received */
+
+        /* if TX was already successful, don't unlock mutex again */
+        if (ctx[dev].res) {
+            /* send STOP */
+            i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
+            ctx[dev].res = -EIO;
+        }
         mutex_unlock(&ctx[dev].tx_done);
         break;
 
@@ -214,6 +216,8 @@ static void irq_handler(i2c_t dev)
 
         /* last byte transmitted */
         if (ctx[dev].cur == ctx[dev].end) {
+            /* send STOP */
+            i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
             ctx[dev].res = 0;
             mutex_unlock(&ctx[dev].tx_done);
             break;
@@ -234,21 +238,25 @@ static void irq_handler(i2c_t dev)
 
     case 0x50: /* Data byte has been received */
 
-        *ctx[dev].cur = i2c->DAT;
-        ++ctx[dev].cur;
+        if (ctx[dev].cur < ctx[dev].end) {
+            *ctx[dev].cur = i2c->DAT;
+            ++ctx[dev].cur;
+        }
 
         /* last byte received */
         if (ctx[dev].cur == ctx[dev].end) {
             i2c->CONCLR = I2CONCLR_AAC;
-//            i2c->CONSET = I2CONSET_STO;
             ctx[dev].res = 0;
-            mutex_unlock(&ctx[dev].tx_done);
-            break;
+            /* state 0x58 will unlock mutex */
+        } else {
+            i2c->CONSET = I2CONSET_AA;
         }
 
-        i2c->CONSET = I2CONSET_AA;
         break;
     }
+
+    /* clear interrupt flag */
+    i2c->CONCLR = I2CONCLR_SIC;
 }
 
 static void _init_buffer(i2c_t dev, uint8_t *data, size_t len)
@@ -265,8 +273,6 @@ int i2c_read_bytes(i2c_t dev, uint16_t addr,
     assert(dev < I2C_NUMOF);
     lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
 
-//    printf("R(%x, %d, %lx, %lx)\n", addr, len, i2c->STAT, i2c->CONSET);
-
     /* Check for wrong arguments given */
     if (data == NULL || len == 0) {
         return -EINVAL;
@@ -282,19 +288,13 @@ int i2c_read_bytes(i2c_t dev, uint16_t addr,
     }
 
     mutex_lock(&ctx[dev].tx_done);
-    DEBUG("RX done!\n");
 
-    while (i2c->CONSET & I2CONSET_STO) {}
-
-#if 0
-    if (!(ctx[dev].res || (flags & I2C_NOSTOP))) {
+    if ((ctx[dev].res == 0) && !(flags & I2C_NOSTOP)) {
         /* set Stop flag */
-        i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
+        i2c->CONSET = I2CONSET_STO;
         while (i2c->CONSET & I2CONSET_STO) {}
-        i2c->CONCLR = I2CONCLR_SIC;
-        printf("[%lx]\n", i2c->CONSET);
     }
-#endif
+
     return ctx[dev].res;
 }
 
@@ -303,6 +303,8 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
 {
     assert(dev < I2C_NUMOF);
     lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
+
+    puts("i2c_write_bytes");
 
     /* Check for wrong arguments given */
     if (data == NULL || len == 0) {
