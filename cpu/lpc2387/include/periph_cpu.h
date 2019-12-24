@@ -203,6 +203,16 @@ typedef struct {
 } i2c_conf_t;
 /* @} */
 
+/**
+ * @name   Use shared I2C functions
+ * @{
+ */
+#define PERIPH_I2C_NEED_READ_REG
+#define PERIPH_I2C_NEED_READ_REGS
+#define PERIPH_I2C_NEED_WRITE_REG
+#define PERIPH_I2C_NEED_WRITE_REGS
+/** @} */
+
 #ifdef __cplusplus
 }
 #endif
