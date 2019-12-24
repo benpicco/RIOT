@@ -177,7 +177,6 @@ static void irq_handler(i2c_t dev)
 
     unsigned stat = i2c->STAT;
 
-//    printf("<%x>\n", stat);
     switch (stat) {
     case 0x08: /* A Start Condition is issued. */
     case 0x10: /* A repeated Start Condition is issued */
@@ -213,8 +212,6 @@ static void irq_handler(i2c_t dev)
 
         /* last byte transmitted */
         if (ctx[dev].cur == ctx[dev].end) {
-            /* send STOP */
-            i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
             ctx[dev].res = 0;
             mutex_unlock(&ctx[dev].tx_done);
             break;
