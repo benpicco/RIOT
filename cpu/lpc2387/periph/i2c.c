@@ -14,7 +14,6 @@
  * @file
  * @brief       Low-level I2C driver implementation for lpc23xx
  *
- * @author      Zakaria Kasmi <zkasmi@inf.fu-berlin.de>
  * @author      Benjamin Valentin <benpicco@beuth-hochschule.de>
  *
  * @}
@@ -178,9 +177,7 @@ static void irq_handler(i2c_t dev)
 
     unsigned stat = i2c->STAT;
 
-//    if (stat != 0x48 && stat != 0x8)
 //    printf("<%x>\n", stat);
-
     switch (stat) {
     case 0x08: /* A Start Condition is issued. */
     case 0x10: /* A repeated Start Condition is issued */
@@ -280,7 +277,9 @@ int i2c_read_bytes(i2c_t dev, uint16_t addr,
 
     _init_buffer(dev, data, len);
 
-    if (!(flags & I2C_NOSTART)) {
+    if (flags & I2C_NOSTART) {
+        i2c->CONSET = I2CONSET_AA;
+    } else {
         ctx[dev].addr = (addr << 1) | 1;
 
         /* set Start flag */
@@ -304,8 +303,6 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
     assert(dev < I2C_NUMOF);
     lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
 
-    puts("i2c_write_bytes");
-
     /* Check for wrong arguments given */
     if (data == NULL || len == 0) {
         return -EINVAL;
@@ -313,7 +310,9 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
 
     _init_buffer(dev, (void*) data, len);
 
-    if (!(flags & I2C_NOSTART)) {
+    if (flags & I2C_NOSTART) {
+        i2c->CONSET = I2CONSET_AA;
+    } else {
         ctx[dev].addr = addr << 1;
 
         /* set Start flag */
@@ -321,14 +320,12 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
     }
 
     mutex_lock(&ctx[dev].tx_done);
-    DEBUG("TX done!\n");
 
-#if 0
-    if (!(ctx[dev].res || (flags & I2C_NOSTOP))) {
+    if ((ctx[dev].res == 0) && !(flags & I2C_NOSTOP)) {
         /* set Stop flag */
-        puts("send STOP");
+        i2c->CONSET = I2CONSET_STO;
+        while (i2c->CONSET & I2CONSET_STO) {}
     }
-#endif
 
     return ctx[dev].res;
 }
