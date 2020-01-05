@@ -262,16 +262,23 @@ static void irq_handler(i2c_t dev)
         break;
 
     case 0x28: /* Data byte has been transmitted */
-    case 0x30:
+    case 0x30: /* Data NACK */
 
         /* last byte transmitted */
         if (ctx[dev].cur == ctx[dev].end) {
+            puts("early end");
             i2c->CONCLR = I2CONCLR_AAC;
             _end_tx(dev, 0);
         } else {
             i2c->DAT = *ctx[dev].cur++;
-            i2c->CONSET = I2CONSET_AA;
-            i2c->CONCLR = I2CONCLR_SIC;
+
+            if (ctx[dev].cur == ctx[dev].end) {
+                i2c->CONCLR = I2CONCLR_AAC;
+                _end_tx(dev, 0);
+            } else {
+                i2c->CONSET = I2CONSET_AA;
+                i2c->CONCLR = I2CONCLR_SIC;
+            }
         }
 
         break;
@@ -345,12 +352,12 @@ int i2c_read_bytes(i2c_t dev, uint16_t addr,
     ctx[dev].addr = (addr << 1) | 1;
 
     if (flags & I2C_NOSTART) {
-        i2c->CONCLR = I2CONCLR_SIC;
     } else {
         /* set Start flag */
         i2c->CONSET = I2CONSET_STA;
     }
 
+    i2c->CONCLR = I2CONCLR_SIC;
     _enable_irq(i2c);
 
     mutex_lock(&ctx[dev].tx_done);
