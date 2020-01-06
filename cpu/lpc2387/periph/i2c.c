@@ -264,14 +264,20 @@ static void irq_handler(i2c_t dev)
         break;
 
     case 0x40: /* Master Receive, SLA_R has been sent */
-        i2c->CONSET = I2CONSET_AA;
+
+        /* if we only want to read one byte, send NACK already */
+        if (ctx[dev].cur + 1 == ctx[dev].end) {
+            i2c->CONCLR = I2CONCLR_AAC;
+        } else {
+            i2c->CONSET = I2CONSET_AA;
+        }
         break;
 
     case 0x50: /* Data byte has been received */
 
         *ctx[dev].cur++ = i2c->DAT;
 
-        if (ctx[dev].cur + 1 == ctx[dev].end) {
+        if (ctx[dev].cur == ctx[dev].end) {
             i2c->CONCLR = I2CONCLR_AAC;
         } else {
             i2c->CONSET = I2CONSET_AA;
