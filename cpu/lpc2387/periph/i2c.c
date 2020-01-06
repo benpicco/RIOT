@@ -239,17 +239,18 @@ static void irq_handler(i2c_t dev)
     case 0x28: /* Data byte has been transmitted */
 
         if (ctx[dev].cur == ctx[dev].end) {
-            if (ctx[dev].buf_cur != ctx[dev].buf_num) {
-                i2c->CONSET = I2CONSET_AA;
-                _next_buffer(dev);
-            } else {
+            /* we transmited all buffers */
+            if (ctx[dev].buf_cur == ctx[dev].buf_num) {
                 i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
                 _end_tx(dev, 0);
+                break;
+            } else {
+                _next_buffer(dev);
             }
-        } else {
-            i2c->DAT = *ctx[dev].cur++;
-            i2c->CONSET = I2CONSET_AA;
         }
+
+        i2c->DAT = *ctx[dev].cur++;
+        i2c->CONSET = I2CONSET_AA;
         break;
 
     case 0x30: /* Data NACK */
