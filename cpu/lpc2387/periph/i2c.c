@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Beuth Hochschule für Technik Berlin
+ * Copyright (C) 2020 Beuth Hochschule für Technik Berlin
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -36,18 +36,6 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
-/**
- * @brief State of the I2C master state machine
- */
-typedef enum {
-    I2C_IDLE = 0,
-    I2C_STARTED,
-    I2C_RESTARTED,
-    I2C_REPEATED_START,
-    DATA_ACK,
-    DATA_NACK,
-} i2c_state_t;
-
 #if I2C_NUMOF > 0
 static void I2C0_IRQHandler(void) __attribute__((interrupt("IRQ")));
 #endif
@@ -58,8 +46,10 @@ static void I2C1_IRQHandler(void) __attribute__((interrupt("IRQ")));
 static void I2C2_IRQHandler(void) __attribute__((interrupt("IRQ")));
 #endif
 
+/**
+ * We only ever need two buffers for read/write reg
+ */
 #define TRX_BUFS_MAX    (2)
-
 static struct i2c_ctx {
     i2c_t dev;
     mutex_t lock;
@@ -74,19 +64,6 @@ static struct i2c_ctx {
     uint8_t buf_cur;
 } ctx[I2C_NUMOF];
 
-int i2c_acquire(i2c_t dev)
-{
-    assert(dev < I2C_NUMOF);
-    mutex_lock(&ctx[dev].lock);
-    return 0;
-}
-
-void i2c_release(i2c_t dev)
-{
-    assert(dev < I2C_NUMOF);
-    mutex_unlock(&ctx[dev].lock);
-}
-
 static void poweron(lpc23xx_i2c_t *i2c)
 {
     switch ((uint32_t)i2c) {
@@ -100,6 +77,39 @@ static void poweron(lpc23xx_i2c_t *i2c)
         PCONP |= BIT26;
         break;
     }
+}
+
+static void poweroff(lpc23xx_i2c_t *i2c)
+{
+    switch ((uint32_t)i2c) {
+    case I2C0_BASE_ADDR:
+        PCONP &= ~BIT7;
+        break;
+    case I2C1_BASE_ADDR:
+        PCONP &= ~BIT19;
+        break;
+    case I2C2_BASE_ADDR:
+        PCONP &= ~BIT26;
+        break;
+    }
+}
+
+int i2c_acquire(i2c_t dev)
+{
+    assert(dev < I2C_NUMOF);
+
+    mutex_lock(&ctx[dev].lock);
+    poweron(i2c_config[dev].dev);
+
+    return 0;
+}
+
+void i2c_release(i2c_t dev)
+{
+    assert(dev < I2C_NUMOF);
+
+    poweroff(i2c_config[dev].dev);
+    mutex_unlock(&ctx[dev].lock);
 }
 
 static void _set_baudrate(lpc23xx_i2c_t *i2c, uint32_t baud)
@@ -178,6 +188,8 @@ void i2c_init(i2c_t dev)
 
     /* enable the interface */
     i2c->CONSET = I2CONSET_I2EN;
+
+    poweroff(i2c);
 }
 
 static void _end_tx(i2c_t dev, unsigned res)
