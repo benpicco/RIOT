@@ -25,6 +25,7 @@
 
 #include "cpu.h"
 #include "board.h"
+#include "byteorder.h"
 #include "periph_conf.h"
 #include "periph/i2c.h"
 
@@ -325,7 +326,7 @@ int i2c_read_bytes(i2c_t dev, uint16_t addr,
         return -ENOTSUP;
     }
 
-    _init_buffer(dev, 0, 1 | (addr << 1), (void*) data, len);
+    _init_buffer(dev, 0, 1 | (addr << 1), (void*)data, len);
 
     /* set Start flag */
     i2c->CONSET = I2CONSET_STA;
@@ -350,7 +351,69 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
         return -ENOTSUP;
     }
 
-    _init_buffer(dev, 0, addr << 1, (void*) data, len);
+    _init_buffer(dev, 0, addr << 1, (void*)data, len);
+
+    /* set Start flag */
+    i2c->CONSET = I2CONSET_STA;
+
+    mutex_lock(&ctx[dev].tx_done);
+    return ctx[dev].res;
+}
+
+int i2c_read_regs(i2c_t dev, uint16_t addr, uint16_t reg,
+                  void *data, size_t len, uint8_t flags)
+{
+    assert(dev < I2C_NUMOF);
+    lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
+
+    /* Check for wrong arguments given */
+    if (data == NULL || len == 0) {
+        return -EINVAL;
+    }
+
+    /* TODO: 10 bit addresses */
+    if (flags & ~I2C_REG16) {
+        return -ENOTSUP;
+    }
+
+    /* Handle endianness of register if 16 bit */
+    if (flags & I2C_REG16) {
+        reg = htons(reg); /* Make sure register is in big-endian on I2C bus */
+    }
+
+    _init_buffer(dev, 0, addr << 1, (void*)&reg, (flags & I2C_REG16) ? 2 : 1);
+    _init_buffer(dev, 1, 1 | (addr << 1), (void*)data, len);
+
+    /* set Start flag */
+    i2c->CONSET = I2CONSET_STA;
+
+    mutex_lock(&ctx[dev].tx_done);
+    return ctx[dev].res;
+}
+
+int i2c_write_regs(i2c_t dev, uint16_t addr, uint16_t reg,
+                   const void *data, size_t len, uint8_t flags)
+{
+    assert(dev < I2C_NUMOF);
+    lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
+
+    /* Check for wrong arguments given */
+    if (data == NULL || len == 0) {
+        return -EINVAL;
+    }
+
+    /* TODO: 10 bit addresses */
+    if (flags & ~I2C_REG16) {
+        return -ENOTSUP;
+    }
+
+    /* Handle endianness of register if 16 bit */
+    if (flags & I2C_REG16) {
+        reg = htons(reg); /* Make sure register is in big-endian on I2C bus */
+    }
+
+    _init_buffer(dev, 0, addr << 1, (void*)&reg, (flags & I2C_REG16) ? 2 : 1);
+    _init_buffer(dev, 1, addr << 1, (void*)data, len);
 
     /* set Start flag */
     i2c->CONSET = I2CONSET_STA;
