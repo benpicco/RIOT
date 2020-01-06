@@ -140,20 +140,34 @@ static void _set_baudrate(lpc23xx_i2c_t *i2c, uint32_t baud)
     }
 }
 
-static bool _install_irq(i2c_t dev)
+static unsigned _get_irq(i2c_t dev)
 {
     switch ((uint32_t)i2c_config[dev].dev) {
-#if I2C_NUMOF > 0
     case I2C0_BASE_ADDR:
-        return install_irq(I2C0_INT, I2C0_IRQHandler, i2c_config[dev].irq_prio);
+        return I2C0_INT;
+    case I2C1_BASE_ADDR:
+        return I2C1_INT;
+    case I2C2_BASE_ADDR:
+        return I2C2_INT;
+    }
+
+    return 0;
+}
+
+static bool _install_irq(i2c_t dev)
+{
+    switch (dev) {
+#if I2C_NUMOF > 0
+    case 0:
+        return install_irq(_get_irq(dev), I2C0_IRQHandler, i2c_config[dev].irq_prio);
 #endif
 #if I2C_NUMOF > 1
-    case I2C1_BASE_ADDR:
-        return install_irq(I2C1_INT, I2C1_IRQHandler, i2c_config[dev].irq_prio);
+    case 1:
+        return install_irq(_get_irq(dev), I2C1_IRQHandler, i2c_config[dev].irq_prio);
 #endif
 #if I2C_NUMOF > 2
-    case I2C2_BASE_ADDR:
-        return install_irq(I2C2_INT, I2C2_IRQHandler, i2c_config[dev].irq_prio);
+    case 2:
+        return install_irq(_get_irq(dev), I2C2_IRQHandler, i2c_config[dev].irq_prio);
 #endif
     }
 
@@ -203,8 +217,6 @@ static void _next_buffer(i2c_t dev)
     lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
     uint8_t buf_cur = ctx[dev].buf_cur;
 
-    puts("---");
-
     /* if mode (read/write) changed, send START again */
     if (ctx[dev].addr[buf_cur] != ctx[dev].addr[buf_cur + 1]) {
         i2c->CONSET = I2CONSET_STA;
@@ -222,22 +234,24 @@ static void irq_handler(i2c_t dev)
 
     unsigned stat = i2c->STAT;
 
-    printf("<%x>\n", stat);
+    DEBUG("[i2c] STAT: %x\n", stat);
 
     switch (stat) {
-    case 0x00:
-        puts("Bus Error");
+    case 0x00: /* Bus Error */
+        DEBUG("[i2c] Bus Error\n");
+        _end_tx(dev, -EIO);
         break;
+
     case 0x08: /* A Start Condition is issued. */
     case 0x10: /* A repeated Start Condition is issued */
         ctx[dev].cur = ctx[dev].buf[ctx[dev].buf_cur];
         i2c->DAT  = ctx[dev].addr[ctx[dev].buf_cur];
         i2c->CONSET = I2CONSET_AA;
-        i2c->CONCLR = I2CONCLR_STAC | I2CONCLR_SIC;
+        i2c->CONCLR = I2CONCLR_STAC;
         break;
 
-    case 0x20:  /* Address NACK received */
-    case 0x48:
+    case 0x20:  /* Address NACK (write) */
+    case 0x48:  /* Address NACK (read)  */
         /* send STOP */
         i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
         _end_tx(dev, -ENXIO);
@@ -266,7 +280,6 @@ static void irq_handler(i2c_t dev)
         break;
 
     case 0x30: /* Data NACK */
-        puts("data NACK");
         i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
         _end_tx(dev, 0);
         break;
