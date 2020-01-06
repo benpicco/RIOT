@@ -57,15 +57,20 @@ static void I2C1_IRQHandler(void) __attribute__((interrupt("IRQ")));
 static void I2C2_IRQHandler(void) __attribute__((interrupt("IRQ")));
 #endif
 
+#define TRX_BUFS_MAX    (2)
+
 static struct i2c_ctx {
     i2c_t dev;
-    uint8_t addr;
     mutex_t lock;
     mutex_t tx_done;
-    uint8_t *buf;
+    uint8_t *buf[TRX_BUFS_MAX];
+    uint8_t *buf_end[TRX_BUFS_MAX];
     uint8_t *cur;
     uint8_t *end;
     int res;
+    uint8_t addr[TRX_BUFS_MAX];
+    uint8_t buf_num;
+    uint8_t buf_cur;
 } ctx[I2C_NUMOF];
 
 int i2c_acquire(i2c_t dev)
@@ -176,9 +181,26 @@ void i2c_init(i2c_t dev)
 
 static void _end_tx(i2c_t dev, unsigned res)
 {
-    puts("---");
     ctx[dev].res = res;
     mutex_unlock(&ctx[dev].tx_done);
+}
+
+static void _next_buffer(i2c_t dev)
+{
+    lpc23xx_i2c_t *i2c = i2c_config[dev].dev;
+    uint8_t buf_cur = ctx[dev].buf_cur;
+
+    puts("---");
+
+    /* if mode (read/write) changed, send START again */
+    if (ctx[dev].addr[buf_cur] != ctx[dev].addr[buf_cur + 1]) {
+        i2c->CONSET = I2CONSET_STA;
+    }
+
+    ++buf_cur;
+    ctx[dev].cur = ctx[dev].buf[buf_cur];
+    ctx[dev].end = ctx[dev].buf_end[buf_cur];
+    ctx[dev].buf_cur = buf_cur;
 }
 
 static void irq_handler(i2c_t dev)
@@ -195,9 +217,8 @@ static void irq_handler(i2c_t dev)
         break;
     case 0x08: /* A Start Condition is issued. */
     case 0x10: /* A repeated Start Condition is issued */
-        ctx[dev].cur = ctx[dev].buf;
-        ctx[dev].res = 0;
-        i2c->DAT  = ctx[dev].addr;
+        ctx[dev].cur = ctx[dev].buf[ctx[dev].buf_cur];
+        i2c->DAT  = ctx[dev].addr[ctx[dev].buf_cur];
         i2c->CONSET = I2CONSET_AA;
         i2c->CONCLR = I2CONCLR_STAC | I2CONCLR_SIC;
         break;
@@ -217,8 +238,13 @@ static void irq_handler(i2c_t dev)
     case 0x28: /* Data byte has been transmitted */
 
         if (ctx[dev].cur == ctx[dev].end) {
-            i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
-            _end_tx(dev, 0);
+            if (ctx[dev].buf_cur != ctx[dev].buf_num) {
+                i2c->CONSET = I2CONSET_AA;
+                _next_buffer(dev);
+            } else {
+                i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
+                _end_tx(dev, 0);
+            }
         } else {
             i2c->DAT = *ctx[dev].cur++;
             i2c->CONSET = I2CONSET_AA;
@@ -226,6 +252,7 @@ static void irq_handler(i2c_t dev)
         break;
 
     case 0x30: /* Data NACK */
+        puts("data NACK");
         i2c->CONSET = I2CONSET_STO | I2CONSET_AA;
         _end_tx(dev, 0);
         break;
@@ -252,8 +279,14 @@ static void irq_handler(i2c_t dev)
 
     case 0x58: /* Data received, NACK */
         *ctx[dev].cur = i2c->DAT;
-        i2c->CONSET = I2CONSET_AA | I2CONSET_STO;
-        _end_tx(dev, 0);
+
+        if (ctx[dev].buf_cur != ctx[dev].buf_num) {
+            i2c->CONSET = I2CONSET_AA;
+            _next_buffer(dev);
+        } else {
+            i2c->CONSET = I2CONSET_AA | I2CONSET_STO;
+            _end_tx(dev, 0);
+        }
         break;
 
     }
@@ -262,12 +295,18 @@ static void irq_handler(i2c_t dev)
     i2c->CONCLR = I2CONCLR_SIC;
 }
 
-static void _init_buffer(i2c_t dev, uint8_t *data, size_t len)
+static void _init_buffer(i2c_t dev, uint8_t idx, uint8_t addr,
+                         uint8_t *data, size_t len)
 {
-    ctx[dev].buf = data;
-    ctx[dev].cur = data;
-    ctx[dev].end = data + len;
-    ctx[dev].res = -ETIMEDOUT;
+    ctx[dev].addr[idx]    = addr;
+    ctx[dev].buf[idx]     = data;
+    ctx[dev].buf_end[idx] = data + len;
+
+    ctx[dev].buf_num = idx;
+
+    ctx[dev].buf_cur = 0;
+    ctx[dev].cur     = ctx[dev].buf[0];
+    ctx[dev].end     = ctx[dev].buf_end[0];
 }
 
 int i2c_read_bytes(i2c_t dev, uint16_t addr,
@@ -286,14 +325,12 @@ int i2c_read_bytes(i2c_t dev, uint16_t addr,
         return -ENOTSUP;
     }
 
-    _init_buffer(dev, data, len);
-    ctx[dev].addr = (addr << 1) | 1;
+    _init_buffer(dev, 0, 1 | (addr << 1), (void*) data, len);
 
     /* set Start flag */
     i2c->CONSET = I2CONSET_STA;
 
     mutex_lock(&ctx[dev].tx_done);
-
     return ctx[dev].res;
 }
 
@@ -313,14 +350,12 @@ int i2c_write_bytes(i2c_t dev, uint16_t addr, const void *data, size_t len,
         return -ENOTSUP;
     }
 
-    _init_buffer(dev, (void*) data, len);
-    ctx[dev].addr = addr << 1;
+    _init_buffer(dev, 0, addr << 1, (void*) data, len);
 
     /* set Start flag */
     i2c->CONSET = I2CONSET_STA;
 
     mutex_lock(&ctx[dev].tx_done);
-
     return ctx[dev].res;
 }
 
