@@ -1,0 +1,56 @@
+## CODEOWNERS for autoreview assigning in github
+
+# https://help.github.com/en/articles/about-code-owners#codeowners-syntax
+
+# Order is important; for each modified file, the last matching
+# pattern takes the most precedence.
+
+/boards/hamilton/                           @Hyungsin
+/boards/sam*-xpro/                          @dylad
+/boards/same54-xpro/                        @benpicco
+/boards/sensebox_samd21/                    @leandrolanzieri
+
+/core/                                      @kaspar030 @gebart
+
+/cpu/arm7_common/                           @kaspar030
+/cpu/atmega*/                               @kYc0o @roberthartung @maribu
+/cpu/cc2538/                                @hexluthor @smlng
+/cpu/cc26x0/                                @hexluthor @smlng
+/cpu/cc26x2_cc13x2/                         @hexluthor @smlng
+/cpu/cc26xx_cc13xx/                         @hexluthor @smlng
+/cpu/cortexm_common/                        @haukepetersen @thomaseichinger @DipSwitch
+/cpu/efm32/                                 @basilfx
+/cpu/esp*/                                  @gschorcht
+/cpu/kinetis/                               @gebart
+/cpu/lpc2387/                               @benpicco @maribu
+/cpu/mips*/                                 @kaspar030 @francois-berder
+/cpu/msp430*/                               @OlegHahm
+/cpu/sam0_common/                           @benpicco @dylad @keestux
+/cpu/samd21/                                @dylad @biboc
+/cpu/saml1x/                                @dylad
+/cpu/saml21/                                @dylad
+/cpu/stm32*/                                @aabadie @fjmolinas @DipSwitch @vincent-d
+
+/drivers/at86rf2xx/                         @daniel-k @gebart @Hyungsin @jia200x @smlng @miri64
+/drivers/dose/                              @jue89
+/drivers/mrf24j40/                          @bergzand
+/drivers/sx127x/                            @aabadie @jia200x
+
+/pkg/cryptoauthlib/                         @Einhornhool @PeterKietzmann
+/pkg/lua/                                   @jcarrano
+/pkg/lwip/                                  @miri64
+/pkg/micropython/                           @bergzand
+/pkg/openthread/                            @Hyungsin @jia200x
+/pkg/u8g2/                                  @basilfx
+
+/sys/net/                                   @miri64 @haukepetersen @PeterKietzmann @cgundogan
+/sys/usb/                                   @bergzand @dylad @aabadie
+/sys/xtimer/                                @kaspar030 @gebart @MichelRottleuthner
+/sys/net/application_layer/gcoap/           @haukepetersen @kb2ma
+/sys/net/application_layer/nanocoap/        @kaspar030 @haukepetersen
+/sys/net/gnrc/routing/rpl/                  @cgundogan @emmanuelsearch
+
+/tests/                                     @miri64 @MrKevinWeiss @smlng @leandrolanzieri @aabadie @MichelRottleuthner
+
+Kconfig                                     @leandrolanzieri
+*.md                                        @aabadie @jia200x
