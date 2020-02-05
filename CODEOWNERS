@@ -32,9 +32,15 @@
 /cpu/stm32*/                                @aabadie @fjmolinas @DipSwitch @vincent-d
 
 /drivers/at86rf2xx/                         @daniel-k @gebart @Hyungsin @jia200x @smlng @miri64
+/drivers/cc110x/                            @maribu
+/drivers/cc1xxx_common/                     @maribu
+/drivers/enc28j60/                          @haukepetersen
+/drivers/dcf77/                             @daexel
 /drivers/dose/                              @jue89
 /drivers/mrf24j40/                          @bergzand
 /drivers/sx127x/                            @aabadie @jia200x
+/drivers/ws281x/                            @maribu
+/drivers/xbee/                              @haukepetersen @miri64
 
 /pkg/cryptoauthlib/                         @Einhornhool @PeterKietzmann
 /pkg/lua/                                   @jcarrano
