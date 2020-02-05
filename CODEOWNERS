@@ -5,10 +5,17 @@
 # Order is important; for each modified file, the last matching
 # pattern takes the most precedence.
 
+/boards/common/silabs/                      @basilfx
+/boards/common/slwstk6000b/                 @basilfx
 /boards/hamilton/                           @Hyungsin
+/boards/ikea-tradfri/                       @basilfx
 /boards/sam*-xpro/                          @dylad
 /boards/same54-xpro/                        @benpicco
 /boards/sensebox_samd21/                    @leandrolanzieri
+/boards/slstk340*/                          @basilfx
+/boards/sltb001a/                           @basilfx
+/boards/slwstk6000b/                        @basilfx
+/boards/stk3*00/                            @basilfx
 
 /core/                                      @kaspar030 @gebart
 
@@ -38,6 +45,7 @@
 /drivers/dcf77/                             @daexel
 /drivers/dose/                              @jue89
 /drivers/mrf24j40/                          @bergzand
+/drivers/si70xx/                            @basilfx
 /drivers/sx127x/                            @aabadie @jia200x
 /drivers/ws281x/                            @maribu
 /drivers/xbee/                              @haukepetersen @miri64
@@ -45,9 +53,11 @@
 /pkg/cryptoauthlib/                         @Einhornhool @PeterKietzmann
 /pkg/lua/                                   @jcarrano
 /pkg/lwip/                                  @miri64
+/pkg/gecko_sdk/                             @basilfx
 /pkg/micropython/                           @bergzand
 /pkg/openthread/                            @Hyungsin @jia200x
 /pkg/u8g2/                                  @basilfx
+/pkg/ucglib/                                @basilfx
 
 /sys/net/                                   @miri64 @haukepetersen @PeterKietzmann @cgundogan
 /sys/usb/                                   @bergzand @dylad @aabadie
@@ -55,8 +65,10 @@
 /sys/net/application_layer/gcoap/           @haukepetersen @kb2ma
 /sys/net/application_layer/nanocoap/        @kaspar030 @haukepetersen
 /sys/net/gnrc/routing/rpl/                  @cgundogan @emmanuelsearch
+/sys/random/fortuna/                        @basilfx
 
 /tests/                                     @miri64 @MrKevinWeiss @smlng @leandrolanzieri @aabadie @MichelRottleuthner
+/tests/cpu_efm32_features/                  @basilfx
 
 Kconfig                                     @leandrolanzieri
 *.md                                        @aabadie @jia200x
