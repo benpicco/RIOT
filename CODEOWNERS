@@ -5,8 +5,10 @@
 # Order is important; for each modified file, the last matching
 # pattern takes the most precedence.
 
+/boards/common/esp*/                        @gschorcht
 /boards/common/silabs/                      @basilfx
 /boards/common/slwstk6000b/                 @basilfx
+/boards/esp*/                               @gschorcht
 /boards/hamilton/                           @Hyungsin
 /boards/ikea-tradfri/                       @basilfx
 /boards/sam*-xpro/                          @dylad
@@ -41,10 +43,14 @@
 /drivers/at86rf2xx/                         @daniel-k @gebart @Hyungsin @jia200x @smlng @miri64
 /drivers/cc110x/                            @maribu
 /drivers/cc1xxx_common/                     @maribu
+/drivers/ccs811/                            @gschorcht
 /drivers/enc28j60/                          @haukepetersen
 /drivers/dcf77/                             @daexel
 /drivers/dose/                              @jue89
+/drivers/itg320x/                           @gschorcht
 /drivers/mrf24j40/                          @bergzand
+/drivers/pca9685/                           @gschorcht
+/drivers/sht3x/                             @gschorcht
 /drivers/si70xx/                            @basilfx
 /drivers/sx127x/                            @aabadie @jia200x
 /drivers/ws281x/                            @maribu
