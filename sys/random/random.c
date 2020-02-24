@@ -39,6 +39,26 @@
 #define ENABLE_DEBUG (0)
 #include "debug.h"
 
+#define ROUND_UP_PTR(n) (void*)(4 + (~3 & ((intptr_t)(n) - 1)))
+
+static inline void copy_bytewise(void *dest, const void *src, size_t n)
+{
+    uint8_t *d = dest;
+    const uint8_t *s = src;
+
+    switch (n) {
+    case 3:
+        *d++ = *s++;
+        /* fall-through */
+    case 2:
+        *d++ = *s++;
+        /* fall-through */
+    case 1:
+        *d++ = *s++;
+        /* fall-through */
+    }
+}
+
 void auto_init_random(void)
 {
     uint32_t seed;
@@ -62,17 +82,40 @@ void auto_init_random(void)
 
 void random_bytes(uint8_t *target, size_t n)
 {
-    uint32_t random;
-    uint8_t *random_pos = (uint8_t*)&random;
-    unsigned _n = 0;
+    uint32_t tmp;
+    uint32_t *b32;
+    size_t unaligned;
 
-    while (n--) {
-        if (! (_n++ & 0x3)) {
-            random = random_uint32();
-            random_pos = (uint8_t *) &random;
-        }
-        *target++ = *random_pos++;
+    /* directly jump to fast path if destination buffer
+       is properly aligned */
+    if (!((intptr_t)target & 0x3)) {
+        b32 = (void*)target;
+        goto fast;
     }
+
+    b32 = ROUND_UP_PTR(target);
+    unaligned = (uintptr_t)b32 - (uintptr_t)target;
+
+    tmp = random_uint32();
+    if (n < unaligned) {
+        unaligned = n;
+    }
+
+    copy_bytewise(target, &tmp, unaligned);
+    n -= unaligned;
+
+fast:
+    while (n >= sizeof(uint32_t)) {
+        *b32++ = random_uint32();
+        n -= sizeof(uint32_t);
+    }
+
+    if (!n) {
+        return;
+    }
+
+    tmp = random_uint32();
+    copy_bytewise(b32, &tmp, n);
 }
 
 uint32_t random_uint32_range(uint32_t a, uint32_t b)
