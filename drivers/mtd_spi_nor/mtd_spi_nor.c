@@ -27,10 +27,10 @@
 #include "mtd.h"
 #if MODULE_XTIMER
 #include "xtimer.h"
-#include "timex.h"
 #else
 #include "thread.h"
 #endif
+#include "timex.h"
 #include "byteorder.h"
 #include "mtd_spi_nor.h"
 
