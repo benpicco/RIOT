@@ -53,6 +53,8 @@ static void *alarm_cb_arg;
 static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg);
 
 static void _rtt_alarm(void *arg) {
+    DEBUG("Alarm!");
+
     if (alarm_cb) {
         alarm_cb(arg);
     }
@@ -65,10 +67,10 @@ static void _rtt_overflow(void *arg) {
 
     DEBUG("%s(%u), set: %u, get: %u)\n", __func__, (unsigned)rtc_now, (unsigned)_set_offset, (unsigned)_get_offset);
 
-    DEBUG("adding %u s\n", _RTT(RTT_MAX_VALUE - _get_offset)/RTT_SECOND);
+    DEBUG("adding %u s\n", (RTT_MAX_VALUE - _get_offset)/RTT_SECOND);
 
-    rtc_now    += _RTT(RTT_MAX_VALUE - _get_offset)/RTT_SECOND + 1;
-    _set_offset = _RTT(RTT_MAX_VALUE - _get_offset)%RTT_SECOND;
+    rtc_now    += (RTT_MAX_VALUE - _get_offset)/RTT_SECOND + 1;
+    _set_offset = (RTT_MAX_VALUE - _get_offset)%RTT_SECOND;
     _get_offset = 0;
 
     printf("new _set_offset: %u\n", _set_offset);
@@ -102,11 +104,16 @@ int rtc_set_time(struct tm *time)
     return 0;
 }
 
+static inline uint32_t _rtt_now(uint32_t now)
+{
+    return rtc_now + _RTT(now - _get_offset) / RTT_SECOND;
+}
+
 int rtc_get_time(struct tm *time)
 {
 
     uint32_t now = rtt_get_counter();
-    uint32_t tmp = rtc_now + _RTT(now - _get_offset) / RTT_SECOND;
+    uint32_t tmp = _rtt_now(now);
 
     DEBUG("%s(%u, %u)\n", __func__, (unsigned)now, (unsigned)tmp);
 
@@ -124,8 +131,18 @@ int rtc_get_alarm(struct tm *time)
 
 static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg)
 {
-    alarm_cb = cb;
-    rtt_set_alarm(alarm, _rtt_alarm, arg);
+    alarm_cb     = cb;
+    alarm_cb_arg = arg;
+
+    uint32_t now = rtt_get_counter();
+    uint32_t alarm_tick = (alarm - _rtt_now(now)) / RTT_SECOND;
+    alarm_overflows = (alarm - _rtt_now(now)) / RTT_SECOND;
+
+    if (alarm_overflows == 0) {
+        rtt_set_alarm(alarm_tick, _rtt_alarm, arg);
+    } else {
+        rtt_clear_alarm();
+    }
 
     return 0;
 }
