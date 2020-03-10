@@ -27,7 +27,7 @@
 #include "periph/rtc.h"
 #include "periph/rtt.h"
 
-#define ENABLE_DEBUG (0)
+#define ENABLE_DEBUG (1)
 #include "debug.h"
 
 #define RTT_SECOND (RTT_FREQUENCY)
@@ -35,36 +35,20 @@
 #define RTT_HOUR   (RTT_MINUTE * 60UL)
 #define RTT_DAY    (RTT_HOUR   * 24UL)
 
-/* In .noinit so we don't reset the counter on reboot */
-static struct tm tm_now __attribute__((section(".noinit")));
+#define RTT_SECOND_MAX  (RTT_MAX_VALUE%RTT_FREQUENCY)
 
 static uint32_t alarm_time;
 static unsigned alarm_overflows;
+
+static uint32_t _get_offset;
+static uint32_t _set_offset = RTT_MAX_VALUE;
+
+static uint32_t rtc_now;
 
 static rtc_alarm_cb_t alarm_cb;
 static void *alarm_cb_arg;
 
 static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg);
-
-/* get the time it takes the RTT to overflow */
-static inline unsigned char _rtt_get_overflow(unsigned part)
-{
-    switch (part) {
-    case RTT_SECOND: /* round seconds to nearest int */
-        return (((part/2) + RTT_MAX_VALUE)/part) % 60;
-    case RTT_MINUTE:
-        return (RTT_MAX_VALUE/part) % 60;
-    case RTT_HOUR:
-        return (RTT_MAX_VALUE/part) % 24;
-    default:
-        return (RTT_MAX_VALUE/part);
-    }
-}
-
-#define RTT_SEC_MAX  _rtt_get_overflow(RTT_SECOND)
-#define RTT_MIN_MAX  _rtt_get_overflow(RTT_MINUTE)
-#define RTT_HOUR_MAX _rtt_get_overflow(RTT_HOUR)
-#define RTT_DAY_MAX  _rtt_get_overflow(RTT_DAY)
 
 static void _rtt_alarm(void *arg) {
     if (alarm_cb) {
@@ -77,10 +61,11 @@ static void _rtt_alarm(void *arg) {
 static void _rtt_overflow(void *arg) {
     (void) arg;
 
-    tm_now.tm_sec  += RTT_SEC_MAX;
-    tm_now.tm_min  += RTT_MIN_MAX;
-    tm_now.tm_hour += RTT_HOUR_MAX;
-    tm_now.tm_yday += RTT_DAY_MAX;
+    DEBUG("%s(%u, %u, %u)\n", __func__, (unsigned)rtc_now, (unsigned)_set_offset, (unsigned)_get_offset);
+
+    rtc_now    += (_set_offset - _get_offset)/RTT_SECOND;
+    _set_offset = (_set_offset - _get_offset)%RTT_SECOND;
+    _get_offset = 0;
 
     if (alarm_overflows && --alarm_overflows == 0) {
         _set_alarm(alarm_time, alarm_cb, alarm_cb_arg);
@@ -89,10 +74,6 @@ static void _rtt_overflow(void *arg) {
 
 void rtc_init(void)
 {
-    if (!rtc_tm_valid(&tm_now)) {
-        memset(&tm_now, 0, sizeof(tm_now));
-    }
-
     rtt_set_overflow_cb(_rtt_overflow, NULL);
 }
 
@@ -100,8 +81,13 @@ int rtc_set_time(struct tm *time)
 {
     rtc_tm_normalize(time);
 
-    rtt_set_counter(0);
-    tm_now = *time;
+    uint32_t now = rtt_get_counter();
+
+    DEBUG("%s(%u, %u)\n", __func__, (unsigned) now, (unsigned)rtc_now);
+
+    rtc_now    += rtc_mktime(time);
+    _get_offset = now;
+   _set_offset  = RTT_MAX_VALUE - now;
 
     if (alarm_cb) {
         _set_alarm(alarm_time, alarm_cb, alarm_cb_arg);
@@ -112,66 +98,37 @@ int rtc_set_time(struct tm *time)
 
 int rtc_get_time(struct tm *time)
 {
-    *time = tm_now;
-    time->tm_sec += rtt_get_counter()/RTT_SECOND;
-    rtc_tm_normalize(time);
+
+    uint32_t now = rtt_get_counter();
+    uint32_t tmp = rtc_now + (now - _get_offset) / RTT_SECOND;
+
+    DEBUG("%s(%u, %u)\n", __func__, (unsigned)now, (unsigned)tmp);
+
+    rtc_localtime(tmp, time);
 
     return 0;
 }
 
 int rtc_get_alarm(struct tm *time)
 {
-    *time = tm_now;
-    time->tm_sec += rtt_get_alarm()/RTT_SECOND;
-    rtc_tm_normalize(time);
+    rtc_localtime(alarm_time, time);
 
     return 0;
 }
 
-int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg)
+static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg)
 {
-    div_t d;
-    uint32_t now  = rtc_mktime(&tm_now);
-    uint32_t diff = alarm - now;
-
-    if (now > alarm) {
-        rtt_clear_alarm();
-        return -1;
-    }
-
     alarm_cb = cb;
-
-    /* How often does the RTT overflow till the alarm is reached? */
-    d = div(diff, RTT_SEC_MAX);
-    alarm_overflows = d.quot;
-    DEBUG("RTC: alarm will ring in %"PRIu32" ticks (%u overflows, %u ticks)\n",
-          diff * RTT_SECOND, alarm_overflows, d.rem * RTT_SECOND);
-
-    if (alarm_overflows == 0) {
-        rtt_set_alarm(d.rem * RTT_SECOND, _rtt_alarm, arg);
-    } else {
-        alarm_time   = alarm;
-        alarm_cb_arg = arg;
-    }
+    rtt_set_alarm(alarm, _rtt_alarm, arg);
 
     return 0;
 }
 
 int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
 {
-    uint32_t alarm, now;
+    alarm_time = rtc_mktime(time);
 
-    rtc_tm_normalize(time);
-    alarm = rtc_mktime(time);
-
-    /* reset the RTT counter to get maximum range */
-    now = rtt_get_counter()/RTT_SECOND;
-    rtt_set_counter(0);
-
-    tm_now.tm_sec += now;
-    rtc_tm_normalize(&tm_now);
-
-    return _set_alarm(alarm, cb, arg);
+    return _set_alarm(alarm_time, cb, arg);
 }
 
 void rtc_clear_alarm(void)

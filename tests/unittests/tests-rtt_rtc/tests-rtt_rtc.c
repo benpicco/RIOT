@@ -27,7 +27,7 @@ static void test_set_time(void)
         .tm_hour = 13,
         .tm_mday = 23,
         .tm_mon  =  5,
-        .tm_year = 84,
+        .tm_year = 120,
         .tm_wday = 0,
         .tm_yday = 0,
         .tm_isdst= 0,
