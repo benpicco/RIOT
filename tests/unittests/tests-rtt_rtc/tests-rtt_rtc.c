@@ -52,6 +52,13 @@ static void test_set_time(void)
     TEST_ASSERT_EQUAL_INT(t1.tm_min, now.tm_min);
     TEST_ASSERT_EQUAL_INT(t1.tm_hour, now.tm_hour);
     TEST_ASSERT_EQUAL_INT(0, rtc_tm_compare(&t1, &now));
+
+    rtt_add_ticks(60 * RTT_FREQUENCY);
+    t1.tm_min++;
+    rtc_get_time(&now);
+    TEST_ASSERT_EQUAL_INT(t1.tm_sec, now.tm_sec);
+    TEST_ASSERT_EQUAL_INT(t1.tm_min, now.tm_min);
+    TEST_ASSERT_EQUAL_INT(0, rtc_tm_compare(&t1, &now));
 }
 
 static void _alarm_cb(void *arg)
@@ -76,7 +83,7 @@ static void test_set_alarm(void)
         .tm_hour = 13,
         .tm_mday = 23,
         .tm_mon  =  5,
-        .tm_year = 84,
+        .tm_year = 120,
         .tm_wday = 0,
         .tm_yday = 0,
         .tm_isdst= 0,
@@ -94,8 +101,8 @@ static void test_set_alarm(void)
     TEST_ASSERT_EQUAL_INT(t1.tm_min, now.tm_min);
     TEST_ASSERT_EQUAL_INT(0, rtc_tm_compare(&t1, &now));
 
-    rtt_add_ticks(60*60 * RTT_FREQUENCY);
-    t1.tm_hour++;
+    rtt_add_ticks(24*60*60 * RTT_FREQUENCY);
+    t1.tm_mday++;
     rtc_get_time(&now);
     TEST_ASSERT_EQUAL_INT(t1.tm_sec, now.tm_sec);
     TEST_ASSERT_EQUAL_INT(t1.tm_min, now.tm_min);
@@ -112,7 +119,7 @@ static void test_set_alarm_short(void)
         .tm_hour = 13,
         .tm_mday = 23,
         .tm_mon  =  5,
-        .tm_year = 84,
+        .tm_year = 120,
         .tm_wday = 0,
         .tm_yday = 0,
         .tm_isdst= 0,
@@ -148,7 +155,7 @@ static void test_set_alarm_set_time(void)
         .tm_hour = 13,
         .tm_mday = 23,
         .tm_mon  =  5,
-        .tm_year = 84,
+        .tm_year = 120,
         .tm_wday = 0,
         .tm_yday = 0,
         .tm_isdst= 0,
@@ -210,6 +217,7 @@ Test *tests_rtt_rtt_tests(void)
 void tests_rtt_rtc(void)
 {
     rtc_init();
+    rtt_add_ticks(10);
     TESTS_RUN(tests_rtt_rtt_tests());
 }
 /** @} */
