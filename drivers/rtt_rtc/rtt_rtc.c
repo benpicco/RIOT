@@ -93,7 +93,7 @@ int rtc_set_time(struct tm *time)
 
     DEBUG("%s(%u, %u)\n", __func__, (unsigned) now, (unsigned)rtc_now);
 
-    rtc_now    += rtc_mktime(time);
+    rtc_now     = rtc_mktime(time);
     _get_offset = now;
    _set_offset  = RTT_MAX_VALUE - now;
 
