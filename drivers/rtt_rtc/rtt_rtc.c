@@ -58,13 +58,14 @@ static inline uint32_t _rtt_now(uint32_t now)
 }
 
 static void _rtt_alarm(void *arg) {
-    DEBUG("Alarm!");
+    DEBUG("Alarm!\n");
 
-    if (alarm_cb) {
-        alarm_cb(arg);
-    }
-
+    rtc_alarm_cb_t tmp = alarm_cb;
     rtc_clear_alarm();
+
+    if (tmp) {
+        tmp(arg);
+    }
 }
 
 static void _rtt_overflow(void *arg) {

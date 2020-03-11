@@ -185,6 +185,8 @@ static void test_set_alarm_set_time(void)
 
     TEST_ASSERT_EQUAL_INT(1, alarm.tm_isdst);
 
+    rtc_set_alarm(&alarm, _alarm_cb, &alarm);
+
     t1.tm_hour--;
     rtc_set_time(&t1);
     rtt_add_ticks(60*60 * RTT_FREQUENCY);
