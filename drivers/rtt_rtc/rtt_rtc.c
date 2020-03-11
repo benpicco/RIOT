@@ -39,24 +39,25 @@
 
 #define _RTT(n) ((n) & RTT_MAX_VALUE)
 
-static uint32_t alarm_time;
-static unsigned alarm_overflows;
+static uint32_t alarm_time;     /*< The RTC timestamp of the next alarm */
+static uint32_t rtc_now;        /*< The last time the RTT overflowed */
 
-static uint32_t _get_offset;
-static uint32_t _set_offset = RTT_MAX_VALUE;
+static uint32_t _get_offset;    /*< RTT ticks that don't count into the current period */
+static uint32_t _set_offset = RTT_MAX_VALUE;    /* RTT ticks that count into the current period */
 
-static uint32_t rtc_now;
-
-static rtc_alarm_cb_t alarm_cb;
-static void *alarm_cb_arg;
+static rtc_alarm_cb_t alarm_cb; /*< RTC alarm callback */
+static void *alarm_cb_arg;      /*< RTC alarm callback argument */
 
 static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg);
 
+/* convert RTT counter into RTC timestamp */
 static inline uint32_t _rtt_now(uint32_t now)
 {
     return rtc_now + _RTT(now - _get_offset) / RTT_SECOND;
 }
 
+/* we have to wrap the RTT alarm callback because we have to turn off
+   the RTT alarm again. */
 static void _rtt_alarm(void *arg) {
     DEBUG("Alarm!\n");
 
@@ -68,23 +69,22 @@ static void _rtt_alarm(void *arg) {
     }
 }
 
+/* The overflow callback increments the RTC counter by however much seconds have passed since
+   the last increment. */
 static void _rtt_overflow(void *arg) {
     (void) arg;
 
-//    DEBUG("%s(%u), set: %u, get: %u)\n", __func__, (unsigned)rtc_now, (unsigned)_set_offset, (unsigned)_get_offset);
-
-//    DEBUG("adding %u s\n", (RTT_MAX_VALUE - _get_offset)/RTT_SECOND);
-
+    /* Increment RTC timestamp by the time passed since the last period.
+       Add one second to make up for the second lost by the wrap-around. */
     rtc_now    += (RTT_MAX_VALUE - _get_offset)/RTT_SECOND + 1;
     _set_offset = (RTT_MAX_VALUE - _get_offset)%RTT_SECOND;
     _get_offset = 0;
 
-//    printf("new _set_offset: %u\n", _set_offset);
-
     if (alarm_cb) {
-        DEBUG("alarm in %u, max: %u\n", alarm_time - rtc_now, RTT_SECOND_MAX);
+        DEBUG("[%u] alarm in %u, max: %u\n", rtc_now, alarm_time - rtc_now, RTT_SECOND_MAX);
     }
 
+    /* If the alarm would occur in the current period, set the RTT alarm. */
     if (alarm_cb && (alarm_time - rtc_now <= RTT_SECOND_MAX)) {
         _set_alarm(alarm_time, alarm_cb, alarm_cb_arg);
     }
@@ -101,12 +101,11 @@ int rtc_set_time(struct tm *time)
 
     uint32_t now = rtt_get_counter();
 
-    DEBUG("%s(%u, %u)\n", __func__, (unsigned) now, (unsigned)rtc_now);
-
     rtc_now     = rtc_mktime(time);
     _get_offset = now;
    _set_offset  = RTT_MAX_VALUE - now;
 
+    /* update the RTT alarm if nececcary */
     if (alarm_cb) {
         _set_alarm(alarm_time, alarm_cb, alarm_cb_arg);
     }
@@ -119,8 +118,6 @@ int rtc_get_time(struct tm *time)
 
     uint32_t now = rtt_get_counter();
     uint32_t tmp = _rtt_now(now);
-
-    DEBUG("%s(%u, %u)\n", __func__, (unsigned)now, (unsigned)tmp);
 
     rtc_localtime(tmp, time);
 
@@ -143,7 +140,7 @@ static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg)
 
     DEBUG("%s(%u, %u)\n", __func__, alarm, _rtt_now(now));
     DEBUG("now: %u\n", now);
-    DEBUG("_get_offset: %u\n", _get_offset)
+    DEBUG("_get_offset: %u\n", _get_offset);
 
     if (alarm <= _rtt_now(now)) {
         return -1;
@@ -158,7 +155,6 @@ static int _set_alarm(uint32_t alarm, rtc_alarm_cb_t cb, void *arg)
 
     if (diff_sec <= secs_left) {
         DEBUG("set alarm in %u ticks\n", diff_sec * RTT_SECOND);
-        alarm_overflows = 0;
         rtt_set_alarm(now + diff_sec * RTT_SECOND, _rtt_alarm, arg);
     } else {
         rtt_clear_alarm();
@@ -179,7 +175,6 @@ void rtc_clear_alarm(void)
     rtt_clear_alarm();
 
     alarm_cb = NULL;
-    alarm_overflows = 0;
 }
 
 void rtc_poweron(void)
