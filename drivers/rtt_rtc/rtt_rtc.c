@@ -27,26 +27,23 @@
 #include "periph/rtc.h"
 #include "periph/rtt.h"
 
-#define ENABLE_DEBUG (1)
+#define ENABLE_DEBUG    (0)
 #include "debug.h"
 
-#define RTT_SECOND (RTT_FREQUENCY)
-#define RTT_MINUTE (RTT_SECOND * 60UL)
-#define RTT_HOUR   (RTT_MINUTE * 60UL)
-#define RTT_DAY    (RTT_HOUR   * 24UL)
+#define RTT_SECOND      (RTT_FREQUENCY)
 
-#define _RTT(n) ((n) & RTT_MAX_VALUE)
+#define _RTT(n)         ((n) & RTT_MAX_VALUE)
 
 #define RTT_SECOND_MAX  (RTT_MAX_VALUE/RTT_FREQUENCY)
 #define RTT_PERIOD_MAX  (RTT_SECOND_MAX * RTT_SECOND)
 
-#define TICKS(x)        ((x) * RTT_SECOND)
+#define TICKS(x)        (    (x) * RTT_SECOND)
 #define SECONDS(x)      (_RTT(x) / RTT_SECOND)
 
-static uint32_t alarm_time;     /*< The RTC timestamp of the next alarm */
-static uint32_t rtc_now;        /*< The last time the RTT overflowed */
+static uint32_t alarm_time;     /*< The RTC timestamp of the (user) RTC alarm */
+static uint32_t rtc_now;        /*< The RTC timestamp of the last RTT alarm */
 
-static uint32_t last_alarm;     /*< last time the RTC was updated */
+static uint32_t last_alarm;     /*< The RTT timestamp of the last alarm */
 
 static rtc_alarm_cb_t alarm_cb; /*< RTC alarm callback */
 static void *alarm_cb_arg;      /*< RTC alarm callback argument */
@@ -121,8 +118,8 @@ int rtc_set_time(struct tm *time)
     rtc_tm_normalize(time);
 
     uint32_t now = rtt_get_counter();
-    rtc_now      = rtc_mktime(time);
     last_alarm   = TICKS(SECONDS(now));
+    rtc_now      = rtc_mktime(time);
 
     /* update the RTT alarm if nececcary */
     if (alarm_cb) {
