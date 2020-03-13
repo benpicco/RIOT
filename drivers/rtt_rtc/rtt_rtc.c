@@ -121,6 +121,13 @@ static int _update_alarm(uint32_t now)
     }
 
     uint32_t next_alarm = TICKS(alarm_time - rtc_now);
+
+    // XXX
+    if (next_alarm == 0) {
+        _rtt_alarm(NULL);
+        return 0;
+    }
+
     _set_alarm(now, next_alarm);
 
     return 0;
