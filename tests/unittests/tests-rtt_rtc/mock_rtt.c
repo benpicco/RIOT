@@ -87,7 +87,7 @@ static void _tick(void)
     }
 }
 
-void rtt_add_ticks(uint32_t ticks)
+void rtt_add_ticks(uint64_t ticks)
 {
     while (ticks--) {
         _tick();

@@ -17,7 +17,7 @@
 #include "embUnit.h"
 #include "periph/rtc.h"
 
-void rtt_add_ticks(uint32_t ticks);
+void rtt_add_ticks(uint64_t ticks);
 
 static void test_set_time(void)
 {
@@ -101,7 +101,7 @@ static void test_set_alarm(void)
     TEST_ASSERT_EQUAL_INT(t1.tm_min, now.tm_min);
     TEST_ASSERT_EQUAL_INT(0, rtc_tm_compare(&t1, &now));
 
-    rtt_add_ticks(24*60*60 * RTT_FREQUENCY);
+    rtt_add_ticks(24*60*60UL * RTT_FREQUENCY);
     t1.tm_mday++;
     rtc_get_time(&now);
     TEST_ASSERT_EQUAL_INT(t1.tm_sec, now.tm_sec);
