@@ -35,13 +35,12 @@
 #define _RTT(n)         ((n) & RTT_MAX_VALUE)
 
 #define RTT_SECOND_MAX  (RTT_MAX_VALUE/RTT_FREQUENCY)
-#define RTT_PERIOD_MAX  (RTT_SECOND_MAX * RTT_SECOND)
 
 #define TICKS(x)        (    (x) * RTT_SECOND)
 #define SECONDS(x)      (_RTT(x) / RTT_SECOND)
 
 static uint32_t alarm_time;     /*< The RTC timestamp of the (user) RTC alarm */
-static uint32_t rtc_now;        /*< The RTC timestamp of the last RTT alarm */
+static uint32_t rtc_now;        /*< The RTC timestamp when the last RTT alarm triggered */
 
 static uint32_t last_alarm;     /*< The RTT timestamp of the last alarm */
 
@@ -70,20 +69,24 @@ static void _alarm_cb(void)
     cb(alarm_cb_arg);
 }
 
+/* calculate when the next alarm should happen */
 static int _update_alarm(uint32_t now)
 {
     uint32_t next_alarm;
 
     last_alarm = TICKS(SECONDS(now));
 
+    /* no alarm or alarm beyond this period */
     if ((alarm_cb == NULL)     ||
         (alarm_time < rtc_now) ||
         (alarm_time - rtc_now > RTT_SECOND_MAX)) {
         next_alarm = RTT_SECOND_MAX;
     } else {
+        /* alarm triggers in this period */
         next_alarm = alarm_time - rtc_now;
     }
 
+    /* alarm triggers NOW */
     if (next_alarm == 0) {
         next_alarm = RTT_SECOND_MAX;
         _alarm_cb();
@@ -94,6 +97,7 @@ static int _update_alarm(uint32_t now)
     return 0;
 }
 
+/* RTT alarm callback */
 static void _rtt_alarm(void *arg)
 {
     (void) arg;
@@ -107,7 +111,7 @@ static void _rtt_alarm(void *arg)
 void rtc_init(void)
 {
     last_alarm = rtt_get_counter();
-    _set_alarm(last_alarm, RTT_PERIOD_MAX);
+    _set_alarm(last_alarm, TICKS(RTT_SECOND_MAX));
 }
 
 int rtc_set_time(struct tm *time)
