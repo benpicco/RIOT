@@ -39,8 +39,10 @@
 #define TICKS(x)        (    (x) * RTT_SECOND)
 #define SECONDS(x)      (_RTT(x) / RTT_SECOND)
 
+#define _NOINIT         __attribute__((section(".noinit")))
+
 static uint32_t alarm_time;     /*< The RTC timestamp of the (user) RTC alarm */
-static uint32_t rtc_now;        /*< The RTC timestamp when the last RTT alarm triggered */
+static uint32_t rtc_now _NOINIT;/*< The RTC timestamp when the last RTT alarm triggered */
 
 static uint32_t last_alarm;     /*< The RTT timestamp of the last alarm */
 
@@ -57,16 +59,7 @@ static inline uint32_t _rtc_now(uint32_t now)
 
 static inline void _set_alarm(uint32_t now, uint32_t next_alarm)
 {
-    DEBUG("Next alarm in %"PRIu32" ticks (%"PRIu32")\n", next_alarm, _RTT(now + next_alarm));
     rtt_set_alarm(now + next_alarm, _rtt_alarm, NULL);
-}
-
-static void _alarm_cb(void)
-{
-    rtc_alarm_cb_t cb = alarm_cb;
-    alarm_cb = NULL;
-
-    cb(alarm_cb_arg);
 }
 
 /* calculate when the next alarm should happen */
@@ -89,7 +82,7 @@ static int _update_alarm(uint32_t now)
     /* alarm triggers NOW */
     if (next_alarm == 0) {
         next_alarm = RTT_SECOND_MAX;
-        _alarm_cb();
+        alarm_cb(alarm_cb_arg);
     }
 
     _set_alarm(now, TICKS(next_alarm));
@@ -97,7 +90,7 @@ static int _update_alarm(uint32_t now)
     return 0;
 }
 
-/* RTT alarm callback */
+/* the RTT alarm callback */
 static void _rtt_alarm(void *arg)
 {
     (void) arg;
@@ -132,10 +125,15 @@ int rtc_set_time(struct tm *time)
 
 int rtc_get_time(struct tm *time)
 {
-    uint32_t now = rtt_get_counter();
-    uint32_t tmp = _rtc_now(now);
+    uint32_t prev = rtc_now;
 
-    rtc_localtime(tmp, time);
+    /* repeat calculation if an alarm triggered in between */
+    do {
+        uint32_t now = rtt_get_counter();
+        uint32_t tmp = _rtc_now(now);
+
+        rtc_localtime(tmp, time);
+    } while (prev != rtc_now);
 
     return 0;
 }
