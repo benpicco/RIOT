@@ -58,7 +58,7 @@ static inline uint32_t _rtc_now(uint32_t now)
 
 static inline void _set_alarm(uint32_t now, uint32_t next_alarm)
 {
-    DEBUG("Next alarm in %u ticks (%u)\n", next_alarm, _RTT(now + next_alarm));
+    DEBUG("Next alarm in %"PRIu32" ticks (%"PRIu32")\n", next_alarm, _RTT(now + next_alarm));
     rtt_set_alarm(now + next_alarm, _rtt_alarm, NULL);
 }
 
@@ -68,12 +68,12 @@ static void _rtt_alarm(void *arg) {
     uint32_t next_alarm;
     uint32_t now = rtt_get_counter();
 
-    DEBUG("%u seconds (%u ticks) passed since last alarm\n", SECONDS(now - last_alarm), now - last_alarm);
+    DEBUG("%"PRIu32" seconds (%"PRIu32" ticks) passed since last alarm\n", SECONDS(now - last_alarm), now - last_alarm);
 
     rtc_now = _rtc_now(now);
     last_alarm = now;
 
-    DEBUG("[%u] now: %u\n", rtc_now, now);
+    DEBUG("[%"PRIu32"] now: %"PRIu32"\n", rtc_now, now);
 
     if (alarm_cb && (rtc_now == alarm_time)) {
         rtc_alarm_cb_t cb = alarm_cb;
@@ -150,8 +150,8 @@ int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
 {
     uint32_t now = rtt_get_counter();
     alarm_time   = rtc_mktime(time);
-    alarm_cb     = cb;
     alarm_cb_arg = arg;
+    alarm_cb     = cb;
 
     return _update_alarm(now);
 }
