@@ -62,75 +62,46 @@ static inline void _set_alarm(uint32_t now, uint32_t next_alarm)
     rtt_set_alarm(now + next_alarm, _rtt_alarm, NULL);
 }
 
-static void _rtt_alarm(void *arg)
+static void _alarm_cb(void)
 {
-    (void) arg;
+    rtc_alarm_cb_t cb = alarm_cb;
+    alarm_cb = NULL;
 
-    uint32_t next_alarm;
-    uint32_t now = rtt_get_counter();
-
-    DEBUG("%"PRIu32" seconds (%"PRIu32" ticks) passed since last alarm\n", SECONDS(now - last_alarm), now - last_alarm);
-
-    rtc_now = _rtc_now(now);
-    last_alarm = now;
-
-    DEBUG("[%"PRIu32"] now: %"PRIu32"\n", rtc_now, now);
-
-    if (alarm_cb && (rtc_now == alarm_time)) {
-        rtc_alarm_cb_t cb = alarm_cb;
-        alarm_cb = NULL;
-
-        cb(alarm_cb_arg);
-    }
-
-    if (alarm_cb && (alarm_time - rtc_now <= RTT_SECOND_MAX)) {
-        next_alarm = TICKS(alarm_time - rtc_now);
-    } else {
-        next_alarm = RTT_PERIOD_MAX;
-    }
-
-    _set_alarm(now, next_alarm);
-}
-
-static uint32_t _rtt_disable(void)
-{
-    uint32_t alarm = rtt_get_alarm();
-    rtt_clear_alarm();
-    return alarm;
-}
-
-static void _rtt_enable(uint32_t alarm)
-{
-    uint32_t now = rtt_get_counter();
-
-    if (now - alarm < RTT_SECOND) {
-        _rtt_alarm(NULL);
-    } else {
-        rtt_set_alarm(alarm, _rtt_alarm, NULL);
-    }
+    cb(alarm_cb_arg);
 }
 
 static int _update_alarm(uint32_t now)
 {
-    if (alarm_time < rtc_now) {
-        return -1;
+    uint32_t next_alarm;
+
+    last_alarm = TICKS(SECONDS(now));
+
+    if ((alarm_cb == NULL)     ||
+        (alarm_time < rtc_now) ||
+        (alarm_time - rtc_now > RTT_SECOND_MAX)) {
+        next_alarm = RTT_SECOND_MAX;
+    } else {
+        next_alarm = alarm_time - rtc_now;
     }
 
-    if (alarm_time - rtc_now > RTT_SECOND_MAX) {
-        return 0;
-    }
-
-    uint32_t next_alarm = TICKS(alarm_time - rtc_now);
-
-    // XXX
     if (next_alarm == 0) {
-        _rtt_alarm(NULL);
-        return 0;
+        next_alarm = RTT_SECOND_MAX;
+        _alarm_cb();
     }
 
-    _set_alarm(now, next_alarm);
+    _set_alarm(now, TICKS(next_alarm));
 
     return 0;
+}
+
+static void _rtt_alarm(void *arg)
+{
+    (void) arg;
+
+    uint32_t now = rtt_get_counter();
+    rtc_now = _rtc_now(now);
+
+    _update_alarm(now);
 }
 
 void rtc_init(void)
@@ -143,26 +114,22 @@ int rtc_set_time(struct tm *time)
 {
     rtc_tm_normalize(time);
 
+    /* disable alarm to prevent race condition */
+    rtt_clear_alarm();
+
     uint32_t now = rtt_get_counter();
-    last_alarm   = TICKS(SECONDS(now));
     rtc_now      = rtc_mktime(time);
 
-    /* update the RTT alarm if nececcary */
-    if (alarm_cb) {
-        _update_alarm(now);
-    }
+    /* calculate next wake-up period */
+    _update_alarm(now);
 
     return 0;
 }
 
 int rtc_get_time(struct tm *time)
 {
-    uint32_t _alarm = _rtt_disable();
-
     uint32_t now = rtt_get_counter();
     uint32_t tmp = _rtc_now(now);
-
-    _rtt_enable(_alarm);
 
     rtc_localtime(tmp, time);
 
@@ -178,10 +145,16 @@ int rtc_get_alarm(struct tm *time)
 
 int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
 {
+    /* disable alarm to prevent race condition */
+    rtt_clear_alarm();
+
     uint32_t now = rtt_get_counter();
+
     alarm_time   = rtc_mktime(time);
     alarm_cb_arg = arg;
     alarm_cb     = cb;
+
+    rtc_now      = _rtc_now(now);
 
     return _update_alarm(now);
 }
