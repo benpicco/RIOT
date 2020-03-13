@@ -62,7 +62,8 @@ static inline void _set_alarm(uint32_t now, uint32_t next_alarm)
     rtt_set_alarm(now + next_alarm, _rtt_alarm, NULL);
 }
 
-static void _rtt_alarm(void *arg) {
+static void _rtt_alarm(void *arg)
+{
     (void) arg;
 
     uint32_t next_alarm;
@@ -89,6 +90,24 @@ static void _rtt_alarm(void *arg) {
     }
 
     _set_alarm(now, next_alarm);
+}
+
+static uint32_t _rtt_disable(void)
+{
+    uint32_t alarm = rtt_get_alarm();
+    rtt_clear_alarm();
+    return alarm;
+}
+
+static void _rtt_enable(uint32_t alarm)
+{
+    uint32_t now = rtt_get_counter();
+
+    if (now - alarm < RTT_SECOND) {
+        _rtt_alarm(NULL);
+    } else {
+        rtt_set_alarm(alarm, _rtt_alarm, NULL);
+    }
 }
 
 static int _update_alarm(uint32_t now)
@@ -131,8 +150,12 @@ int rtc_set_time(struct tm *time)
 
 int rtc_get_time(struct tm *time)
 {
+    uint32_t _alarm = _rtt_disable();
+
     uint32_t now = rtt_get_counter();
     uint32_t tmp = _rtc_now(now);
+
+    _rtt_enable(_alarm);
 
     rtc_localtime(tmp, time);
 
@@ -158,7 +181,6 @@ int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
 
 void rtc_clear_alarm(void)
 {
-    rtt_clear_alarm();
     alarm_cb = NULL;
 }
 
