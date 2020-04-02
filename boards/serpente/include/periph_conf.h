@@ -153,6 +153,51 @@ static const uart_conf_t uart_config[] = {
 /** @} */
 
 /**
+ * @name    PWM configuration
+ * @{
+ */
+#define PWM_0_EN            1
+#define PWM_1_EN            0
+#define PWM_2_EN            1
+#define PWM_MAX_CHANNELS    3
+/* for compatibility with test application */
+#define PWM_0_CHANNELS      PWM_MAX_CHANNELS
+#define PWM_1_CHANNELS      PWM_MAX_CHANNELS
+#define PWM_2_CHANNELS      PWM_MAX_CHANNELS
+
+/* PWM device configuration */
+static const pwm_conf_t pwm_config[] = {
+#if PWM_0_EN
+    {TCC0, {
+        /* GPIO pin, MUX value, TCC channel */
+        { GPIO_PIN(PA, 22), GPIO_MUX_F, 4 },
+        { GPIO_PIN(PA, 19), GPIO_MUX_F, 3 },
+        { GPIO_PIN(PA, 23), GPIO_MUX_F, 5 },
+    }},
+#endif
+#if PWM_1_EN
+    {TCC3, {
+        /* GPIO pin, MUX value, TCC channel */
+        { GPIO_PIN(PA, 4), GPIO_MUX_F, 2 },
+        { GPIO_PIN(PA, 5), GPIO_MUX_F, 3 },
+        { GPIO_PIN(PA, 6), GPIO_MUX_F, 4 },
+    }}
+#endif
+#if PWM_2_EN
+    {TCC1, {
+        /* GPIO pin, MUX value, TCC channel */
+        { GPIO_PIN(PA, 7), GPIO_MUX_E, 1 },
+        { GPIO_PIN(PA, 8), GPIO_MUX_F, 2 },
+        { GPIO_PIN(PA, 9), GPIO_MUX_F, 3 },
+    }}
+#endif
+};
+
+/* number of devices that are actually defined */
+#define PWM_NUMOF           ARRAY_SIZE(pwm_config)
+/** @} */
+
+/**
  * @name SPI configuration
  * @{
  */
