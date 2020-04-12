@@ -21,6 +21,9 @@
 #include "cpu.h"
 #include "periph/dac.h"
 
+#include "periph/timer.h"
+extern int timer_set_periodic(tim_t tim, int channel, unsigned int value);
+
 int8_t dac_init(dac_t line)
 {
     (void) line;
@@ -50,4 +53,56 @@ void dac_poweroff(dac_t line)
 {
     /* The DAC is always on. */
     (void) line;
+}
+
+static bool dac_playing;
+static uint8_t cur;
+static uint8_t *buffers[2];
+static size_t buffer_len[2];
+
+static dac_cb_t dac_cb;
+static void *dac_cb_arg;
+
+static void _timer_cb(void *arg, int chan)
+{
+    (void) arg;
+    (void) chan;
+
+    static unsigned idx;
+
+    uint8_t *buf = buffers[cur];
+    size_t len   = buffer_len[cur];
+
+    DACR = buf[idx] << 6;
+
+    if (++idx >= len) {
+        idx = 0;
+        cur = !cur;
+
+        if (dac_cb) {
+            dac_cb(dac_cb_arg);
+        }
+    }
+}
+
+void dac_play(void *buf, size_t len, dac_cb_t cb, void *cb_arg)
+{
+    uint8_t idx = !cur;
+
+    buffers[idx]    = buf;
+    buffer_len[idx] = len;
+
+    if (dac_playing) {
+        return;
+    }
+
+    dac_cb = cb;
+    dac_cb_arg = cb_arg;
+
+    buffers[cur]    = buf;
+    buffer_len[cur] = len;
+
+    dac_playing = true;
+    timer_init(3, 2000000, _timer_cb, NULL);
+    timer_set_periodic(3, 0, 25); /* 8 kHz */
 }
