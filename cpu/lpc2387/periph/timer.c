@@ -38,6 +38,23 @@
  */
 static timer_isr_ctx_t isr_ctx[TIMER_NUMOF];
 
+static uint32_t _oneshot;
+
+static inline void set_oneshot(tim_t tim, int chan)
+{
+    _oneshot |= (1 << chan) << (4*tim);
+}
+
+static inline void clear_oneshot(tim_t tim, int chan)
+{
+    _oneshot &= ~((1 << chan) << (4*tim));
+}
+
+static inline bool is_oneshot(tim_t tim, int chan)
+{
+    return _oneshot & ((1 << chan) << (4*tim));
+}
+
 /**
  * @brief   Forward declarations for interrupt functions
  * @{
@@ -141,6 +158,9 @@ int timer_set_absolute(tim_t tim, int channel, unsigned int value)
     }
 
     lpc23xx_timer_t *dev = get_dev(tim);
+
+    set_oneshot(tim, channel);
+
     dev->MR[channel] = value;
     /* Match Interrupt */
     dev->MCR |= (1 << (channel * 3));
@@ -154,8 +174,12 @@ int timer_set_periodic(tim_t tim, int channel, unsigned int value)
     }
 
     lpc23xx_timer_t *dev = get_dev(tim);
+
+    clear_oneshot(tim, channel);
+
     /* reset the timer */
     dev->TCR = 1;
+
     dev->MR[channel] = value;
     /* Match Interrupt & Reset on Match */
     dev->MCR |= (3 << (channel * 3));
@@ -188,21 +212,19 @@ void timer_stop(tim_t tim)
 
 static inline void isr_handler(lpc23xx_timer_t *dev, int tim_num)
 {
-    dev->IR |= 1;
-    isr_ctx[tim_num].cb(isr_ctx[tim_num].arg, 0);
-    VICVectAddr = 0;
-
-#if 0
     for (unsigned i = 0; i < TIMER_CHAN_NUMOF; i++) {
-        if (dev->IR & (1 << i)) {
-            dev->IR |= (1 << i);
-//            dev->MCR &= ~(1 << (i * 3));
+        const uint32_t mask = (1 << i);
+
+        if (dev->IR & mask) {
+            dev->IR |= mask;
+            if (is_oneshot(tim_num, i)) {
+                dev->MCR &= ~(1 << (i * 3));
+            }
             isr_ctx[tim_num].cb(isr_ctx[tim_num].arg, i);
         }
     }
     /* we must not forget to acknowledge the handling of the interrupt */
     VICVectAddr = 0;
-#endif
 }
 
 void __attribute__((interrupt("IRQ"))) tim_isr_0(void)
