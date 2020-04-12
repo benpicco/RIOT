@@ -43,6 +43,15 @@ static uint8_t _gpio_isr_map[64]; /* only ports 0+2 can have ISRs */
 
 static void _gpio_configure(gpio_t pin, unsigned rising, unsigned falling);
 
+static inline int __isr_map_entry(unsigned port, unsigned pin)
+{
+    if (port) {
+        pin += 32;
+    }
+
+    return pin;
+}
+
 static int _isr_map_entry(gpio_t pin) {
     unsigned _pin = pin & 31;
     unsigned port = pin >> 5;
@@ -52,11 +61,7 @@ static int _isr_map_entry(gpio_t pin) {
         return -1;
     }
 
-    if (port) {
-        _pin += 32;
-    }
-
-    return _pin;
+    return __isr_map_entry(port, _pin);
 }
 #endif /* MODULE_PERIPH_GPIO_IRQ */
 
@@ -271,18 +276,22 @@ static void test_irq(int port, unsigned long f_mask, unsigned long r_mask)
 {
     /* Test each bit of rising and falling masks, if set trigger interrupt
      * on corresponding device */
-    unsigned bit = 0x1;
-    int n = 0;
-    while (bit) {
-        if ((r_mask & bit) | (f_mask & bit)) {
-            int _state_index = _gpio_isr_map[n + (port<<1)];
-            if (_state_index != 0xff) {
-                _gpio_states[_state_index].cb(_gpio_states[_state_index].arg);
-            }
+    unsigned long active_pins = f_mask | r_mask;
+
+    while (active_pins) {
+        /* we want the position of the first one bit, so N_bits - (N_zeros + 1) */
+        unsigned pin = 32 - __builtin_clz(active_pins) - 1;
+
+        /* get the index of the configured interrupt */
+        int _state_index = _gpio_isr_map[__isr_map_entry(port, pin)];
+
+        /* check if interrupt is configured */
+        if (_state_index != 0xff) {
+            _gpio_states[_state_index].cb(_gpio_states[_state_index].arg);
         }
 
-        bit <<= 1;
-        n++;
+        /* clear bit */
+        active_pins &= ~(1 << pin);
     }
 }
 
