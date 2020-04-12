@@ -21,6 +21,8 @@
 #include "cpu.h"
 #include "periph/dac.h"
 
+#define DAC_TIMER   (TIMER_NUMOF - 1)
+
 #include "periph/timer.h"
 extern int timer_set_periodic(tim_t tim, int channel, unsigned int value);
 
@@ -66,7 +68,6 @@ static void *dac_cb_arg;
 static void _timer_cb(void *arg, int chan)
 {
     (void) arg;
-    (void) chan;
 
     static unsigned idx;
 
@@ -78,6 +79,11 @@ static void _timer_cb(void *arg, int chan)
     if (++idx >= len) {
         idx = 0;
         cur = !cur;
+
+        if (buffer_len[cur] == 0) {
+            dac_playing = false;
+            timer_clear(DAC_TIMER, chan);
+        }
 
         if (dac_cb) {
             dac_cb(dac_cb_arg);
@@ -103,6 +109,12 @@ void dac_play(void *buf, size_t len, dac_cb_t cb, void *cb_arg)
     buffer_len[cur] = len;
 
     dac_playing = true;
-    timer_init(3, 2000000, _timer_cb, NULL);
-    timer_set_periodic(3, 0, 25); /* 8 kHz */
+    timer_init(DAC_TIMER, 2000000, _timer_cb, NULL);
+    timer_set_periodic(DAC_TIMER, 0, 25); /* 8 kHz */
+}
+
+void dac_stop(void)
+{
+    dac_play(NULL, 0, NULL, NULL);
+    dac_cb = NULL;
 }
