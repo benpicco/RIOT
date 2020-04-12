@@ -142,7 +142,23 @@ int timer_set_absolute(tim_t tim, int channel, unsigned int value)
 
     lpc23xx_timer_t *dev = get_dev(tim);
     dev->MR[channel] = value;
+    /* Match Interrupt */
     dev->MCR |= (1 << (channel * 3));
+    return 0;
+}
+
+int timer_set_periodic(tim_t tim, int channel, unsigned int value)
+{
+    if (((unsigned) tim >= TIMER_NUMOF) || ((unsigned) channel >= TIMER_CHAN_NUMOF)) {
+        return -1;
+    }
+
+    lpc23xx_timer_t *dev = get_dev(tim);
+    /* reset the timer */
+    dev->TCR = 1;
+    dev->MR[channel] = value;
+    /* Match Interrupt & Reset on Match */
+    dev->MCR |= (3 << (channel * 3));
     return 0;
 }
 
@@ -172,15 +188,21 @@ void timer_stop(tim_t tim)
 
 static inline void isr_handler(lpc23xx_timer_t *dev, int tim_num)
 {
+    dev->IR |= 1;
+    isr_ctx[tim_num].cb(isr_ctx[tim_num].arg, 0);
+    VICVectAddr = 0;
+
+#if 0
     for (unsigned i = 0; i < TIMER_CHAN_NUMOF; i++) {
         if (dev->IR & (1 << i)) {
             dev->IR |= (1 << i);
-            dev->MCR &= ~(1 << (i * 3));
+//            dev->MCR &= ~(1 << (i * 3));
             isr_ctx[tim_num].cb(isr_ctx[tim_num].arg, i);
         }
     }
     /* we must not forget to acknowledge the handling of the interrupt */
     VICVectAddr = 0;
+#endif
 }
 
 void __attribute__((interrupt("IRQ"))) tim_isr_0(void)
