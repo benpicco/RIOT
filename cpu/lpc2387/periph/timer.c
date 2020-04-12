@@ -210,19 +210,28 @@ void timer_stop(tim_t tim)
     get_dev(tim)->TCR = 0;
 }
 
+static inline void chan_handler(lpc23xx_timer_t *dev, unsigned tim_num, unsigned chan_num)
+{
+    const uint32_t mask = (1 << chan_num);
+
+    if ((dev->IR & mask) == 0) {
+        return;
+    }
+
+    dev->IR |= mask;
+    if (is_oneshot(tim_num, chan_num)) {
+        dev->MCR &= ~(1 << (chan_num * 3));
+    }
+
+    isr_ctx[tim_num].cb(isr_ctx[tim_num].arg, chan_num);
+}
+
 static inline void isr_handler(lpc23xx_timer_t *dev, int tim_num)
 {
-    for (unsigned i = 0; i < TIMER_CHAN_NUMOF; i++) {
-        const uint32_t mask = (1 << i);
-
-        if (dev->IR & mask) {
-            dev->IR |= mask;
-            if (is_oneshot(tim_num, i)) {
-                dev->MCR &= ~(1 << (i * 3));
-            }
-            isr_ctx[tim_num].cb(isr_ctx[tim_num].arg, i);
-        }
+    for (unsigned i = 0; i < TIMER_CHAN_NUMOF; ++i) {
+        chan_handler(dev, tim_num, i);
     }
+
     /* we must not forget to acknowledge the handling of the interrupt */
     VICVectAddr = 0;
 }
