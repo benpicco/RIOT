@@ -22,9 +22,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "board.h"
+#include "thread.h"
+
+#include "msg.h"
 #include "mutex.h"
 #include "periph/adc.h"
 #include "periph/dac.h"
+#include "periph/gpio.h"
 #include "periph/timer.h"
 #include "xtimer.h"
 
@@ -62,19 +67,21 @@ static int32_t isin(int32_t x)
 
     static const int qN = 13, qA= 12, qP= 15, qR= 2*qN-qP, qS= qN+qP+1-qA;
 
-    x= x<<(30-qN);          // shift to full s32 range (Q13->Q30)
+    x = x<<(30-qN);          // shift to full s32 range (Q13->Q30)
 
-    if( (x^(x<<1)) < 0)     // test for quadrant 1 or 2
-        x= (1<<31) - x;
+    if ((x^(x<<1)) < 0) {   // test for quadrant 1 or 2
+        x = (1<<31) - x;
+    }
 
-    x= x>>(30-qN);
+    x = x >> (30-qN);
 
-    return x * ( (3<<qP) - (x*x>>qR) ) >> qS;
+    return x * ((3<<qP) - (x*x>>qR)) >> qS;
 }
 
 static void _fill_buf(uint8_t b, unsigned iteration)
 {
-    uint8_t shift = 6 + (iteration & 0x7);
+    uint8_t shift = (iteration & 0xF);
+
     for (uint16_t i = 0; i < buf_size; ++i) {
         buf[b][i] = (isin(i << shift) + 4096) >> 5;
     }
@@ -91,26 +98,49 @@ static void _fill_buf(uint8_t b, unsigned iteration)
 }
 #endif
 
+static void play_blip(void)
+{
+    mutex_t lock = MUTEX_INIT_LOCKED;
+    uint8_t cur_buf = 0;
+
+    for (unsigned iteration = 0; iteration < 0x10; ++iteration) {
+        _fill_buf(cur_buf, iteration);
+        dac_play(buf[cur_buf], buf_size, (dac_cb_t) mutex_unlock, &lock);
+        mutex_lock(&lock);
+        cur_buf = !cur_buf;
+    }
+
+    dac_stop();
+}
+
+enum {
+    MSG_BTN0
+};
+
+static void btn_cb(void *ctx)
+{
+    kernel_pid_t pid = *(kernel_pid_t*) ctx;
+    msg_t m = {
+        .type = MSG_BTN0
+    };
+
+    puts("button pressed");
+
+    msg_send_int(&m, pid);
+}
+
 int main(void)
 {
-    unsigned iteration = 0;
-    uint8_t cur_buf = 0;
-    _fill_buf(cur_buf, iteration);
-
     adc_init(0);
     dac_init(0);
 
-    mutex_t lock = MUTEX_INIT_LOCKED;
-    dac_play(buf[cur_buf], buf_size, (dac_cb_t) mutex_unlock, &lock);
+    kernel_pid_t main_pid = thread_getpid();
+    gpio_init_int(BTN0_PIN, BTN0_MODE, BTN0_INT_FLANK, btn_cb, &main_pid);
 
-    puts("timer configued.");
-
-    while (1) {
-        mutex_lock(&lock);
-        cur_buf = !cur_buf;
-
-        _fill_buf(cur_buf, ++iteration);
-        dac_play(buf[cur_buf], buf_size, NULL, NULL);
+    msg_t m;
+    while (msg_receive(&m)) {
+        puts("message received");
+        play_blip();
     }
 
     return 0;
