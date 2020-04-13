@@ -40,6 +40,9 @@
 static uint8_t buf[2][DAC_BUF_SIZE];
 static kernel_pid_t audio_pid;
 
+#define AUDIO_QUEUE_SIZE     (3)
+static msg_t _audio_msg_queue[AUDIO_QUEUE_SIZE];
+
 enum {
     PLAY_BLIP,
     PLAY_SHORT_BLIP,
@@ -68,11 +71,14 @@ static int32_t isin(int32_t x)
     return x * ((3<<qP) - (x*x>>qR)) >> qS;
 }
 
-static void _fill_buf(uint8_t b, unsigned pitch)
+static void _play_sin_sample(mutex_t *lock, uint8_t b, uint8_t pitch)
 {
     for (uint16_t i = 0; i < DAC_BUF_SIZE; ++i) {
         buf[b][i] = (isin(i << pitch) + 4096) >> 5;
     }
+
+    dac_play(buf[b], DAC_BUF_SIZE, (dac_cb_t) mutex_unlock, lock);
+    mutex_lock(lock);
 }
 
 static void do_play_blip(uint8_t start, uint8_t end)
@@ -81,24 +87,35 @@ static void do_play_blip(uint8_t start, uint8_t end)
     uint8_t cur_buf = 0;
 
     for (unsigned i = start; i <= end; ++i) {
-        _fill_buf(cur_buf, i);
-        dac_play(buf[cur_buf], DAC_BUF_SIZE, (dac_cb_t) mutex_unlock, &lock);
-        mutex_lock(&lock);
+        _play_sin_sample(&lock, cur_buf, i);
         cur_buf = !cur_buf;
     }
+}
 
-    dac_stop();
+static void do_play_2_blip(void)
+{
+    mutex_t lock = MUTEX_INIT_LOCKED;
+    uint8_t cur_buf = 0;
+
+    for (int i = 0; i < 5; ++i) {
+        _play_sin_sample(&lock, cur_buf, 0x10);
+        cur_buf = !cur_buf;
+        _play_sin_sample(&lock, cur_buf, 0xA);
+        cur_buf = !cur_buf;
+    }
 }
 
 static char audio_stack[THREAD_STACKSIZE_DEFAULT];
 
 static void* audio_thread(void *ctx)
 {
+    msg_init_queue(_audio_msg_queue, AUDIO_QUEUE_SIZE);
+
     msg_t m;
     while (msg_receive(&m)) {
         switch (m.type) {
         case PLAY_BLIP:
-            do_play_blip(0, 16);
+            do_play_2_blip();
             break;
         case PLAY_SHORT_BLIP:
             do_play_blip(8, 16);
@@ -106,7 +123,6 @@ static void* audio_thread(void *ctx)
         case PLAY_GREETING:
 #if ENABLE_GREETING
             dac_play(hello_raw, hello_raw_len, NULL, NULL);
-            dac_stop();
 #endif
             break;
         }
