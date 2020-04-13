@@ -26,6 +26,8 @@
 #include "periph/adc.h"
 #include "periph/rtc.h"
 
+#include "fmt.h"
+#include "saul_reg.h"
 #include "shell.h"
 #include "shell_commands.h"
 #include "sound.h"
@@ -100,6 +102,26 @@ static void print_time_and_date(hd44780_t *dev, struct tm *now)
     print_num(dev, now->tm_year + 1900, 1);
 }
 
+static void print_temperature(hd44780_t *dev, saul_reg_t *tmp_sensor)
+{
+    phydat_t res;
+    char buffer[7];
+
+    if (tmp_sensor == NULL) {
+        return;
+    }
+
+    /* get data from temperature sensor */
+    saul_reg_read(tmp_sensor, &res);
+
+    /* format sensor data */
+    fmt_s16_dfp(buffer, res.val[0], res.scale);
+
+    hd44780_set_cursor(dev, 10, 0);
+    hd44780_print(dev, buffer);
+    hd44780_write(dev, 'C');
+}
+
 static inline void _led_display(uint8_t val)
 {
     FIO_PORTS[2].CLR = 0xFF;
@@ -142,6 +164,8 @@ static void* display_thread(void *ctx)
 
     xtimer_ticks32_t now = xtimer_now();
 
+    saul_reg_t *tmp_sensor = saul_reg_find_type(SAUL_SENSE_TEMP);
+
     uint8_t cooldown  = 0;
     uint8_t state = 0;
     for (unsigned i = 0; state < 7; ++i) {
@@ -175,6 +199,7 @@ static void* display_thread(void *ctx)
         default:
             rtc_get_time(&rtc_now);
             print_time_and_date(&dev, &rtc_now);
+            print_temperature(&dev, tmp_sensor);
         }
 
         if (cooldown) {
