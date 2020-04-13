@@ -34,7 +34,7 @@
 
 #include "blob/hello.raw.h"
 
-#define ENABLE_GREETING (0)
+#define ENABLE_GREETING (1)
 #define DAC_BUF_SIZE (2048)
 
 static uint8_t buf[2][DAC_BUF_SIZE];
