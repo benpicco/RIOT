@@ -77,15 +77,16 @@ static void _timer_cb(void *arg, int chan)
     DACR = buf[idx] << 6;
 
     if (++idx >= len) {
+        /* invalidate old buffer */
+        buffer_len[cur] = 0;
+
         idx = 0;
         cur = !cur;
 
         if (buffer_len[cur] == 0) {
             dac_playing = false;
             timer_clear(DAC_TIMER, chan);
-        }
-
-        if (dac_cb) {
+        } else if (dac_cb) {
             dac_cb(dac_cb_arg);
         }
     }
@@ -98,23 +99,14 @@ void dac_play(const void *buf, size_t len, dac_cb_t cb, void *cb_arg)
     buffers[idx]    = buf;
     buffer_len[idx] = len;
 
+    dac_cb = cb;
+    dac_cb_arg = cb_arg;
+
     if (dac_playing) {
         return;
     }
 
-    dac_cb = cb;
-    dac_cb_arg = cb_arg;
-
-    buffers[cur]    = buf;
-    buffer_len[cur] = len;
-
     dac_playing = true;
     timer_init(DAC_TIMER, 2000000, _timer_cb, NULL);
-    timer_set_periodic(DAC_TIMER, 0, 25); /* 8 kHz */
-}
-
-void dac_stop(void)
-{
-    dac_play(NULL, 0, NULL, NULL);
-    dac_cb = NULL;
+    timer_set_periodic(DAC_TIMER, 0, 25 + 5); /* 8 kHz */
 }
