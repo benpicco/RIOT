@@ -59,7 +59,7 @@ void dac_poweroff(dac_t line)
 
 static bool dac_playing;
 static uint8_t cur;
-static uint8_t *buffers[2];
+static const uint8_t *buffers[2];
 static size_t buffer_len[2];
 
 static dac_cb_t dac_cb;
@@ -71,7 +71,7 @@ static void _timer_cb(void *arg, int chan)
 
     static unsigned idx;
 
-    uint8_t *buf = buffers[cur];
+    const uint8_t *buf = buffers[cur];
     size_t len   = buffer_len[cur];
 
     DACR = buf[idx] << 6;
@@ -91,7 +91,7 @@ static void _timer_cb(void *arg, int chan)
     }
 }
 
-void dac_play(void *buf, size_t len, dac_cb_t cb, void *cb_arg)
+void dac_play(const void *buf, size_t len, dac_cb_t cb, void *cb_arg)
 {
     uint8_t idx = !cur;
 
