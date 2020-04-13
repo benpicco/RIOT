@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Freie Universität Berlin
+ * Copyright (C) 2020 Beuth Hochschule für Technik Berlin
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -11,9 +11,9 @@
  * @{
  *
  * @file
- * @brief       Peripheral timer test application
+ * @brief       DAC (audio) test application
  *
- * @author      Hauke Petersen <hauke.petersen@fu-berlin.de>
+ * @author      Benjamin Valentin <benpicco@beuth-hochschule.de>
  *
  * @}
  */
@@ -33,25 +33,7 @@
 #include "periph/timer.h"
 #include "xtimer.h"
 
-#if 0
-int32_t isin(int32_t x)
-{
-    int c, y;
-    static const int qN= 13, qA= 12, B=19900, C=3516;
-
-    c= x<<(30-qN);              // Semi-circle info into carry.
-    x -= 1<<qN;                 // sine -> cosine calc
-
-    x= x<<(31-qN);              // Mask with PI
-    x= x>>(31-qN);              // Note: SIGNED shift! (to qN)
-    x= x*x>>(2*qN-14);          // x=x^2 To Q14
-
-    y= B - (x*C>>14);           // B - x^2*C
-    y= (1<<qA)-(x*y>>16);       // A - x^2*(B-x^2*C)
-
-    return c>=0 ? y : -y;
-}
-#endif
+#include "blob/hello.raw.h"
 
 static const uint16_t buf_size = 2048;
 static uint8_t buf[2][2048];
@@ -78,33 +60,36 @@ static int32_t isin(int32_t x)
     return x * ((3<<qP) - (x*x>>qR)) >> qS;
 }
 
-static void _fill_buf(uint8_t b, unsigned iteration)
+static void blinky(void)
 {
-    uint8_t shift = (iteration & 0xF);
+    static uint8_t cur;
+    const uint8_t pattern[] = {
+        0x81, 0x42, 0x24, 0x18, 0x0
+    };
 
+    FIO_PORTS[2].CLR = 0xFF;
+    FIO_PORTS[2].SET = pattern[cur];
+
+    if (++cur >= sizeof(pattern)) {
+        cur = 0;
+    }
+}
+
+static void _fill_buf(uint8_t b, unsigned pitch)
+{
     for (uint16_t i = 0; i < buf_size; ++i) {
-        buf[b][i] = (isin(i << shift) + 4096) >> 5;
+        buf[b][i] = (isin(i << pitch) + 4096) >> 5;
     }
 }
-
-#if 0
-static void _fill_buf(uint8_t b, unsigned iteration)
-{
-    uint32_t t = iteration * buf_size;
-    for (uint16_t i = 0; i < buf_size; ++i, ++t) {
-        buf[b][i] = t * (( (t>>9) | (t>>13)) & 25 & (t>>6));
-    }
-
-}
-#endif
 
 static void play_blip(void)
 {
     mutex_t lock = MUTEX_INIT_LOCKED;
     uint8_t cur_buf = 0;
 
-    for (unsigned iteration = 0; iteration < 0x10; ++iteration) {
-        _fill_buf(cur_buf, iteration);
+    for (unsigned i = 0; i <= 0x10; ++i) {
+        blinky();
+        _fill_buf(cur_buf, i);
         dac_play(buf[cur_buf], buf_size, (dac_cb_t) mutex_unlock, &lock);
         mutex_lock(&lock);
         cur_buf = !cur_buf;
@@ -124,8 +109,6 @@ static void btn_cb(void *ctx)
         .type = MSG_BTN0
     };
 
-    puts("button pressed");
-
     msg_send_int(&m, pid);
 }
 
@@ -137,9 +120,13 @@ int main(void)
     kernel_pid_t main_pid = thread_getpid();
     gpio_init_int(BTN0_PIN, BTN0_MODE, BTN0_INT_FLANK, btn_cb, &main_pid);
 
+#if ENABLE_GREETING
+    dac_play(hello_raw, hello_raw_len, NULL, NULL);
+    dac_stop();
+#endif
+
     msg_t m;
     while (msg_receive(&m)) {
-        puts("message received");
         play_blip();
     }
 
