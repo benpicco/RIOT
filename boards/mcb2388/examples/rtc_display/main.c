@@ -27,6 +27,8 @@
 #include "periph/adc.h"
 #include "periph/rtc.h"
 
+#include "sound.h"
+
 #define FRAME_TIME (1000000/50)
 
 static void print_num(hd44780_t *dev, unsigned num, bool print)
@@ -70,7 +72,7 @@ static void input_date(hd44780_t *dev, struct tm *now, unsigned comp, bool blink
     hd44780_write(dev, '.');
     print_num(dev, now->tm_mon + 1, comp != 4 || blink);
     hd44780_write(dev, '.');
-    print_num(dev, now->tm_year, comp != 5 || blink);
+    print_num(dev, now->tm_year + 1900, comp != 5 || blink);
 
     hd44780_set_cursor(dev, 0, 1);
     hd44780_print(dev, "Datum eingeben");
@@ -88,10 +90,14 @@ int main(void)
     gpio_init(BTN0_PIN, BTN0_MODE);
 
     adc_init(0);
+    sound_init();
+
     struct tm rtc_now;
     rtc_get_time(&rtc_now);
 
     xtimer_ticks32_t now = xtimer_now();
+
+    sound_play_greeting();
 
     uint8_t cooldown  = 0;
     uint8_t component = 0;
@@ -120,7 +126,7 @@ int main(void)
             input_date(&dev, &rtc_now, component, blink);
             break;
         case 5:
-            rtc_now.tm_year = read_adc_knob(100) + 2000;
+            rtc_now.tm_year = read_adc_knob(100) + 100;
             input_date(&dev, &rtc_now, component, blink);
             break;
         }
@@ -132,10 +138,13 @@ int main(void)
         if (!gpio_read(BTN0_PIN) && !cooldown) {
             cooldown = 10;
             ++component;
+            sound_play_short_blip();
         }
 
         xtimer_periodic_wakeup(&now, FRAME_TIME);
     }
+
+    sound_play_blip();
 
     return 0;
 }
