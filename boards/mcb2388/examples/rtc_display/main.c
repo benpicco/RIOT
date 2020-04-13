@@ -100,6 +100,30 @@ static void print_time_and_date(hd44780_t *dev, struct tm *now)
     print_num(dev, now->tm_year + 1900, 1);
 }
 
+static inline void _led_display(uint8_t val)
+{
+    FIO_PORTS[2].CLR = 0xFF;
+    FIO_PORTS[2].SET = val;
+}
+
+/* show blink pattern on the LEDs */
+static void blinky(void)
+{
+    static uint8_t cur;
+    static int8_t inc = 1;
+    const uint8_t pattern[] = {
+        0x81, 0x42, 0x24, 0x18
+    };
+
+    _led_display(pattern[cur]);
+
+    if ((uint8_t)(cur + inc) >= sizeof(pattern)) {
+        inc = -inc;
+    }
+
+    cur += inc;
+}
+
 static void* display_thread(void *ctx)
 {
     hd44780_t dev;
@@ -170,6 +194,12 @@ static void* display_thread(void *ctx)
             if (state < 6) {
                 ++state;
             }
+        }
+
+        if (state > 5) {
+            _led_display(rtc_now.tm_sec);
+        } else if ((i & 0x7) == 0x7) {
+            blinky();
         }
 
         xtimer_periodic_wakeup(&now, FRAME_TIME);
