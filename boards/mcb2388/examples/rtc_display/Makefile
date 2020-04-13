@@ -17,6 +17,12 @@ FEATURES_REQUIRED += periph_dac
 FEATURES_REQUIRED += periph_timer
 BLOBS += hello.raw
 
+# modules needed for the shell
+USEMODULE += shell
+USEMODULE += shell_commands
+USEMODULE += ps
+USEMODULE += i2c_scan
+
 USEMODULE += xtimer
 
 include $(RIOTBASE)/Makefile.include
