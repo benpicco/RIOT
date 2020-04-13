@@ -116,6 +116,7 @@ static const adc_conf_t adc_config[] = {
  * @{
  */
 static const i2c_conf_t i2c_config[] = {
+#if 0
     {
         .dev        = I2C0,
         .speed      = I2C_SPEED_NORMAL,
@@ -125,6 +126,7 @@ static const i2c_conf_t i2c_config[] = {
         .pinsel_msk_sda = BIT22,        /* P0.27 */
         .pinsel_msk_scl = BIT24,        /* P0.28 */
     },
+#endif
     {
         .dev        = I2C1,
         .speed      = I2C_SPEED_NORMAL,
@@ -136,7 +138,7 @@ static const i2c_conf_t i2c_config[] = {
     },
 };
 
-#define I2C_NUMOF           (2)
+#define I2C_NUMOF           (1)
 /** @} */
 
 #ifdef __cplusplus
