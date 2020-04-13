@@ -131,7 +131,7 @@ void dac_poweroff(dac_t line);
 
 typedef void (*dac_cb_t)(void *arg);
 
-void dac_play(void *buf, size_t len, dac_cb_t cb, void *cb_arg);
+void dac_play(const void *buf, size_t len, dac_cb_t cb, void *cb_arg);
 
 #ifdef __cplusplus
 }
