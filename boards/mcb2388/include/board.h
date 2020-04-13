@@ -109,6 +109,17 @@ extern "C" {
                                             GPIO_PIN(1,26), GPIO_PIN(1,27), \
                                             GPIO_UNDEF,     GPIO_UNDEF,     \
                                             GPIO_UNDEF,     GPIO_UNDEF      }
+
+/**
+ * @name    Configuration for the AT86RF215 radio module
+ * @{
+ */
+#define AT86RF215_PARAM_SPI        SPI_DEV(1)
+#define AT86RF215_PARAM_SPI_CLK    SPI_CLK_1MHZ
+#define AT86RF215_PARAM_CS         GPIO_PIN(0, 6)
+#define AT86RF215_PARAM_INT        GPIO_PIN(0, 5)
+#define AT86RF215_PARAM_RESET      GPIO_PIN(0, 4)
+
 /** @} */
 
 #ifdef __cplusplus
