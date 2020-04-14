@@ -216,3 +216,40 @@ Am Ende wird die Uhrzeit der RTC auf dem Display angezeigt. Wenn ein `itg320x` T
 angeschlossen ist, zusätzlich auch die Temperatur.
 
 ## Flashen des Demo-Projekts auf dem Board
+
+Im Zip-Archiv findet sich ein `RIOT` Verzeichniss mit allen notwendigen Änderungen (in `cpu/lpc2387` und
+`boards/mcb2388`) sowie ein `demo` Verzeichniss, dass die Demo Anwendung beinhaltet.
+
+Das Erstellen der Firmware sowie das Flashen des Boards erfolgt über das RIOT Buildsystem.
+Voraussetzung dafür ist GNU `make` sowie `arm-none-eabi-gcc`.
+
+Das Flashen erfolgt nicht über ULINK-ME sondern über den COM0 Port.
+Dabei ist auf dir richtige Jumper-Konfiguration zu achten, insbesondere muss der ISP Jumper gesetzt sein.
+
+![Jumper-Konfiguration des `mcb2388`](jumper.jpg)	
+
+RIOT compiliert das notwendige `lpc2k_pgm` Tool selbst, hierfür ist auch ein Compiler für das Hostsystem
+notwendig.
+
+Um alle Abhängigkeiten auf einem Ubuntu / Debian System zu installieren, sollte ein
+
+```
+sudo apt install gcc-arm-none-eabi python3-serial
+```
+
+genügen.
+
+Die Anwendung lässt sich nun mit
+
+```
+make -C demo flash term
+```
+
+flashen. Im Anschluss wird automatisch ein Terminal gestartet.
+
+Standardmäßig wird `/dev/ttyUSB0` als Serielle Schnittstelle verwendet. Board und Port lassen sich auch
+explizit angeben:
+
+```
+make -C demo flash term BOARD=mcb2388 PORT=/dev/ttyUSB0
+```
