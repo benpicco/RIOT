@@ -167,7 +167,7 @@ int timer_set_absolute(tim_t tim, int channel, unsigned int value)
     return 0;
 }
 
-int timer_set_periodic(tim_t tim, int channel, unsigned int value)
+int timer_set_periodic(tim_t tim, int channel, unsigned int value, unsigned flags)
 {
     if (((unsigned) tim >= TIMER_NUMOF) || ((unsigned) channel >= TIMER_CHAN_NUMOF)) {
         return -1;
@@ -175,14 +175,19 @@ int timer_set_periodic(tim_t tim, int channel, unsigned int value)
 
     lpc23xx_timer_t *dev = get_dev(tim);
 
+    if (flags & TIM_FLAG_RESET_ON_SET) {
+        /* reset the timer */
+         dev->TCR = 1;
+    }
+
     clear_oneshot(tim, channel);
 
-    /* reset the timer */
-    dev->TCR = 1;
+    uint8_t cfg = (flags & TIM_FLAG_RESET_ON_MATCH)
+                ? 0x3   /* Match Interrupt & Reset on Match */
+                : 0x1;  /* Match Interrupt */
 
     dev->MR[channel] = value;
-    /* Match Interrupt & Reset on Match */
-    dev->MCR |= (3 << (channel * 3));
+    dev->MCR |= (cfg << (channel * 3));
     return 0;
 }
 
