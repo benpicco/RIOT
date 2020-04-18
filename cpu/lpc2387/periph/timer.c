@@ -25,6 +25,13 @@
 #include "periph_cpu.h"
 #include "periph/timer.h"
 
+typedef enum {
+    PCLK_DIV1 = 0b01,
+    PCLK_DIV2 = 0b10,
+    PCLK_DIV4 = 0b00,
+    PCLK_DIV8 = 0b11,
+} pclk_div_t;
+
 /**
  * @brief   Check the board config to make sure we do not exceed max number of
  *          timers
@@ -90,20 +97,20 @@ static inline lpc23xx_timer_t *get_dev(tim_t tim)
     }
 }
 
-static inline void pwr_clk_and_isr(tim_t tim)
+static inline void pwr_clk_and_isr(tim_t tim, pclk_div_t div)
 {
     switch (tim) {
         case 0:
             PCONP |= (1 << 1);
             PCLKSEL0 &= ~(0x03 << 2);
-            PCLKSEL0 |=  (0x01 << 2);
+            PCLKSEL0 |=  (div << 2);
             install_irq(TIMER0_INT, &tim_isr_0, 1);
             break;
 #if TIMER_NUMOF > 1
         case 1:
             PCONP |= (1 << 2);
             PCLKSEL0 &= ~(0x03 << 4);
-            PCLKSEL0 |=  (0x01 << 4);
+            PCLKSEL0 |=  (div << 4);
             install_irq(TIMER1_INT, &tim_isr_1, 1);
             break;
 #endif
@@ -111,7 +118,7 @@ static inline void pwr_clk_and_isr(tim_t tim)
         case 2:
             PCONP |= (1 << 22);
             PCLKSEL1 &= ~(0x03 << 12);
-            PCLKSEL1 |=  (0x01 << 12);
+            PCLKSEL1 |=  (div << 12);
             install_irq(TIMER2_INT, &tim_isr_2, 1);
             break;
 #endif
@@ -119,7 +126,7 @@ static inline void pwr_clk_and_isr(tim_t tim)
         case 3:
             PCONP |= (1 << 23);
             PCLKSEL1 &= ~(0x03 << 14);
-            PCLKSEL1 |=  (0x01 << 14);
+            PCLKSEL1 |=  (div << 14);
             install_irq(TIMER3_INT, &tim_isr_3, 1);
             break;
 #endif
@@ -140,7 +147,7 @@ int timer_init(tim_t tim, unsigned long freq, timer_cb_t cb, void *arg)
     isr_ctx[tim].cb = cb;
     isr_ctx[tim].arg = arg;
     /* enable power, config periph clock and install ISR vector */
-    pwr_clk_and_isr(tim);
+    pwr_clk_and_isr(tim, PCLK_DIV1);
     /* reset timer configuration (sets the timer to timer mode) */
     dev->TCR = 0;
     dev->CTCR = 0;
