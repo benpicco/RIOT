@@ -103,6 +103,42 @@ enum {
 int8_t dac_init(dac_t line);
 
 /**
+ * @brief   The callback that will be called when the end of the current sample buffer
+ *          has been reached.
+ *          Should be used to start filling the next sample buffer.
+ *
+ * @note    Will be called in interrupt context. Only use the callback to signal a
+ *          thread. Don't directly fill the sample buffer in the callback.
+ */
+typedef void (*dac_cb_t)(void *arg);
+
+/**
+ * @brief   A sample has a resolution of 8 bit
+ */
+#ifndef DAC_FLAG_8BIT
+#define DAC_FLAG_8BIT   (0x0)
+#endif
+
+/**
+ * @brief   A sample has a resolution of 16 bit
+ */
+#ifndef DAC_FLAG_16BIT
+#define DAC_FLAG_16BIT  (0x1)
+#endif
+
+/**
+ * @brief   Configuration for @ref dac_play
+ */
+typedef struct {
+    dac_t line;             /**< The DAC line */
+    uint8_t flags;          /**< Flags, e.g. resolution of the sample */
+    uint16_t sample_rate;   /**< Rate in Hz at which the Audio buffer
+                                 should be played */
+    dac_cb_t cb;            /**< Will be called when the next buffer can be queued */
+    void *cb_arg;           /**< Callback argument */
+} dac_cfg_t;
+
+/**
  * @brief   Write a value onto DAC Device on a given Channel
  *
  * The value is always given as 16-bit value and is internally scaled to the
@@ -129,6 +165,16 @@ void dac_poweron(dac_t line);
  */
 void dac_poweroff(dac_t line);
 
+/**
+ * @brief   Play a buffer of (audio) samples on a DAC.
+ *          A user defined callback can be provided that will be called when
+ *          the next buffer can be queued.
+ *
+ * @param[in] buf           A buffer with (audio) samples
+ * @param[in] len           Number of samples in the buffer
+ * @param[in] params        Playback parameters
+ */
+void dac_play(const void *buf, size_t len, const dac_cfg_t *params);
 
 #ifdef __cplusplus
 }
