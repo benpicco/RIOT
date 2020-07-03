@@ -82,6 +82,7 @@ PSEUDOMODULES += netdev_layer
 PSEUDOMODULES += netdev_register
 PSEUDOMODULES += netstats
 PSEUDOMODULES += netstats_l2
+PSEUDOMODULES += netstats_neighbor_%
 PSEUDOMODULES += netstats_ipv6
 PSEUDOMODULES += netstats_rpl
 PSEUDOMODULES += nimble

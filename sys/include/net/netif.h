@@ -38,6 +38,11 @@
 #include "list.h"
 #include "net/netopt.h"
 
+#ifdef MODULE_NETSTATS_NEIGHBOR
+#include "cib.h"
+#include "net/netstats.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,7 +66,13 @@ extern "C" {
  * @note All network interfaces should inherit from this structure.
  */
 typedef struct {
-    list_node_t node;  /**< Pointer to the next interface */
+    list_node_t node;                                       /**< Pointer to the next interface */
+#ifdef MODULE_NETSTATS_NEIGHBOR
+    cib_t stats_idx;                                        /**< CIB for the tx correlation */
+    netstats_nb_t *stats_queue[NETSTATS_NB_QUEUE_SIZE];     /**< send/callback mac association array */
+    uint32_t stats_queue_time_tx[NETSTATS_NB_QUEUE_SIZE];   /**< TX timestamp of stats_queue entries */
+    netstats_nb_t pstats[NETSTATS_NB_SIZE];                 /**< Per neighbor statistics array */
+#endif
 } netif_t;
 
 /**
