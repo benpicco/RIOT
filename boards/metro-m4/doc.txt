@@ -1,0 +1,28 @@
+/**
+@defgroup    boards_same54-xpro Microchip SAM E54 Xplained Pro
+@ingroup     boards
+@brief       Support for the Microchip SAM E54 Xplained Pro board.
+
+
+### Flash the board
+
+Use `BOARD=metro-m4` with the `make` command.<br/>
+Example with `default` application:
+```
+     make BOARD=metro-m4 -C examples/default flash
+```
+
+RIOT will automatically trigger a reset to the bootloader, but this only works if RIOT is still
+running on the board.
+If your application has crashed or got erased, `make flash` will not be able to trigger a bootloader reset.
+
+To manually enter the bootloader, quickly press the Reset button twice.
+You know you've successfully entered the bootloader when the LED begins flashing blue.
+
+Sometimes flashing fails and the board gets stuck in the bootloader.
+In this case, just run `make flash` again when the device is not busy anymore.
+
+### Accessing STDIO via UART
+
+STDIO of RIOT is directly available over the USB port.
+ */
