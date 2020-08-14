@@ -495,7 +495,7 @@ __attribute__((constructor)) static void startup(int argc, char **argv, char **e
 #endif
 #ifdef MODULE_SOCKET_ZEP
             case 'z':
-                _zep_params_setup(optarg, zeps++);
+                _zep_params_setup(strdup(optarg), zeps++);
                 break;
 #endif
 #ifdef MODULE_PERIPH_SPIDEV_LINUX
