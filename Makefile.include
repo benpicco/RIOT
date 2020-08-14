@@ -738,6 +738,7 @@ termdeps: $(TERMDEPS)
 term: $(TERMDEPS)
 	$(call check_cmd,$(TERMPROG),Terminal program)
 	$(TERMPROG) $(TERMFLAGS) $(TERMTEE)
+	$(POSTTERM)
 
 # Term without the pyterm added logging
 # PYTERMFLAGS must be exported for `jlink.sh term-rtt`.

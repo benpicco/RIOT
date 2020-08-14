@@ -129,10 +129,13 @@ host-tools:
 # define native specific targets to only run UHCP daemon when required
 ifneq (,$(filter native,$(BOARD)))
 ifneq (1,$(USE_DHCPV6))
-.PHONY: uhcpd-daemon
+.PHONY: uhcpd-daemon zep_dispatch
 
 uhcpd-daemon: host-tools
 	$(RIOTTOOLS)/uhcpd/bin/uhcpd $(TAP) $(IPV6_PREFIX) &
+
+zep_dispatch: host-tools
+	$(RIOTTOOLS)/zep_dispatch/bin/zep_dispatch ::1 $(ZEP_PORT_BASE) &
 endif
 endif
 

@@ -36,6 +36,11 @@ USEMODULE += netstats_rpl
 # development process:
 DEVELHELP ?= 1
 
+# set the ZEP port for native (reverse of the default border router configuration)
+ifneq (,$(filter socket_zep,$(USEMODULE)))
+  TERMFLAGS += -z [::1]:17754
+endif
+
 # Uncomment the following 2 lines to specify static link lokal IPv6 address
 # this might be useful for testing, in cases where you cannot or do not want to
 # run a shell with ifconfig to get the real link lokal address.
