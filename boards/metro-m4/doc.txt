@@ -3,6 +3,11 @@
 @ingroup     boards
 @brief       Support for the Microchip SAM E54 Xplained Pro board.
 
+### About the board
+
+![schematic](https://cdn-learn.adafruit.com/assets/assets/000/053/093/original/adafruit_products_schem.png)
+
+[Product Page](https://learn.adafruit.com/adafruit-metro-m4-express-featuring-atsamd51)
 
 ### Flash the board
 
