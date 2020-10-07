@@ -127,8 +127,11 @@ static inline int _edbg_get_eui64(const void *arg, eui64_t *addr)
  * @{
  */
 #define RFCTL1_PIN          GPIO_PIN(0, 9)
+/* Set DIG1 to FECTRL[1] */
 #define RFCTL1_FECTRL       (0x1)
+
 #define RFCTL2_PIN          GPIO_PIN(0, 12)
+/* Set DIG2 to FECTRL[2] */
 #define RFCTL2_FECTRL       (0x2)
 /** @} */
 
