@@ -25,13 +25,25 @@
 
 void board_antenna_config(uint8_t antenna)
 {
-    if (antenna == RFCTL_ANTENNA_EXT){
+    switch (antenna) {
+    case RFCTL_ANTENNA_EXT:
         gpio_set(RFCTL1_PIN);
         gpio_clear(RFCTL2_PIN);
-    }
-    else if (antenna == RFCTL_ANTENNA_BOARD){
+        break;
+    case RFCTL_ANTENNA_BOARD:
         gpio_clear(RFCTL1_PIN);
         gpio_set(RFCTL2_PIN);
+        break;
+    case RFCTL_ANTENNA_AUTO:
+        gpio_init_mux(RFCTL1_PIN, GPIO_MUX_F);
+        gpio_init_mux(RFCTL2_PIN, GPIO_MUX_F);
+
+        PM->APBCMASK.bit.RFCTRL_ = 1;
+
+        RFCTRL->FECFG.bit.F1CFG = RFCTL1_FECTRL;
+        RFCTRL->FECFG.bit.F2CFG = RFCTL2_FECTRL;
+
+        break;
     }
 }
 

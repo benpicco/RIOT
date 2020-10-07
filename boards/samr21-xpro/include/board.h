@@ -127,7 +127,9 @@ static inline int _edbg_get_eui64(const void *arg, eui64_t *addr)
  * @{
  */
 #define RFCTL1_PIN          GPIO_PIN(0, 9)
+#define RFCTL1_FECTRL       (0x1)
 #define RFCTL2_PIN          GPIO_PIN(0, 12)
+#define RFCTL2_FECTRL       (0x2)
 /** @} */
 
 /**
@@ -136,6 +138,7 @@ static inline int _edbg_get_eui64(const void *arg, eui64_t *addr)
 enum {
     RFCTL_ANTENNA_BOARD,
     RFCTL_ANTENNA_EXT,
+    RFCTL_ANTENNA_AUTO,
 };
 
 /**
@@ -143,7 +146,7 @@ enum {
  * @{
  */
 #ifndef RFCTL_ANTENNA_DEFAULT
-#define RFCTL_ANTENNA_DEFAULT      RFCTL_ANTENNA_BOARD
+#define RFCTL_ANTENNA_DEFAULT      RFCTL_ANTENNA_AUTO
 #endif
 /** @} */
 
