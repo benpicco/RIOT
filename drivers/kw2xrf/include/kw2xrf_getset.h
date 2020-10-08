@@ -95,7 +95,7 @@ void kw2xrf_set_pan(kw2xrf_t *dev, uint16_t pan);
  * @param[in] dev       kw2xrf device descriptor
  * @param[in] addr      short address
  */
-void kw2xrf_set_addr_short(kw2xrf_t *dev, uint16_t addr);
+void kw2xrf_set_addr_short(kw2xrf_t *dev, const uint8_t *addr);
 
 /**
  * @brief   Set long address of a given device
@@ -103,23 +103,23 @@ void kw2xrf_set_addr_short(kw2xrf_t *dev, uint16_t addr);
  * @param[in] dev       kw2xrf device descriptor
  * @param[in] addr      long address
  */
-void kw2xrf_set_addr_long(kw2xrf_t *dev, uint64_t addr);
+void kw2xrf_set_addr_long(kw2xrf_t *dev, const uint8_t *addr);
 
 /**
  * @brief   Get short address of a given device
  *
  * @param[in] dev       kw2xrf device descriptor
- * @return              current short address
+ * @param[out] addr     current short address
  */
-uint16_t kw2xrf_get_addr_short(kw2xrf_t *dev);
+void kw2xrf_get_addr_short(kw2xrf_t *dev, uint8_t *addr);
 
 /**
  * @brief   Get long address of a given device
  *
  * @param[in] dev       kw2xrf device descriptor
- * @return              current long address
+ * @param[out] addr     current long address
  */
-uint64_t kw2xrf_get_addr_long(kw2xrf_t *dev);
+void kw2xrf_get_addr_long(kw2xrf_t *dev, uint8_t *addr);
 
 /**
  * @brief   Get CCA threshold of a given device

@@ -252,14 +252,14 @@ int _get(netdev_t *netdev, netopt_t opt, void *value, size_t len)
             if (len < sizeof(uint16_t)) {
                 return -EOVERFLOW;
             }
-            *((uint16_t *)value) = kw2xrf_get_addr_short(dev);
+            kw2xrf_get_addr_short(dev, value);
             return sizeof(uint16_t);
 
         case NETOPT_ADDRESS_LONG:
             if (len < sizeof(uint64_t)) {
                 return -EOVERFLOW;
             }
-            *((uint64_t *)value) = kw2xrf_get_addr_long(dev);
+            kw2xrf_get_addr_long(dev, value);
             return sizeof(uint64_t);
 
         case NETOPT_STATE:
@@ -395,7 +395,7 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *value, size_t len)
                 res = -EOVERFLOW;
             }
             else {
-                kw2xrf_set_addr_short(dev, *((uint16_t *)value));
+                kw2xrf_set_addr_short(dev, value));
                 res = sizeof(uint16_t);
             }
             break;
@@ -405,7 +405,7 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *value, size_t len)
                 return -EOVERFLOW;
             }
             else {
-                kw2xrf_set_addr_long(dev, *((uint64_t *)value));
+                kw2xrf_set_addr_long(dev, value));
                 res = sizeof(uint64_t);
             }
             break;
