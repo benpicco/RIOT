@@ -51,7 +51,6 @@ typedef struct {
     lease_t parent;
     ipv6_addr_t pfx;
     uint8_t pfx_len;
-    uint8_t leased;
 } pfx_lease_t;
 
 /**
@@ -470,7 +469,7 @@ static void _schedule_t1_t2(void)
     _schedule_t2();
 }
 
-static void _take_prefix(pfx_lease_t *lease, dhcpv6_opt_iapfx_t *iapfx)
+static void _apply_prefix(pfx_lease_t *lease, dhcpv6_opt_iapfx_t *iapfx)
 {
     uint32_t valid = byteorder_ntohl(iapfx->valid);
     uint32_t pref = byteorder_ntohl(iapfx->pref);
@@ -526,17 +525,9 @@ static bool _handle_ia_pd(bool sched_t1, dhcpv6_opt_ia_pd_t *ia_pd, pfx_lease_t 
                 }
                 break;
             }
-            case DHCPV6_OPT_IAPFX: {
-                dhcpv6_opt_iapfx_t *this_iapfx = (dhcpv6_opt_iapfx_t *)ia_pd_opt;
-                if (sched_t1 && ((!lease->leased) ||
-                    ((this_iapfx->pfx_len == lease->pfx_len) &&
-                     ipv6_addr_match_prefix(&this_iapfx->pfx,
-                                            &lease->pfx) >= lease->pfx_len))) {
-                    /* apply the prefix */
-                    _take_prefix(lease, this_iapfx);
-                }
+            case DHCPV6_OPT_IAPFX:
+                _apply_prefix(lease, (dhcpv6_opt_iapfx_t *)ia_pd_opt);
                 break;
-            }
             default:
                 break;
         }
