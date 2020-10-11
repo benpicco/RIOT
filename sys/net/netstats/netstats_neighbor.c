@@ -307,10 +307,21 @@ static void netstats_nb_update_lqi(netstats_nb_t *stats, uint8_t lqi, bool fresh
 #endif
 }
 
-static void netstats_nb_incr_count_tx(netstats_nb_t *stats)
+static void netstats_nb_incr_count_tx(netstats_nb_t *stats, netstats_nb_result_t result)
 {
 #ifdef MODULE_NETSTATS_NEIGHBOR_COUNT
     stats->tx_count++;
+
+    /* gracefully handle overflow */
+    if (stats->tx_count == 0) {
+        stats->tx_count = ~stats->tx_count;
+        stats->tx_count = stats->tx_count >> 4;
+        stats->tx_fail  = stats->tx_fail  >> 4;
+    }
+
+    if (result != NETSTATS_NB_SUCCESS) {
+        stats->tx_fail++;
+    }
 #else
     (void)stats;
 #endif
@@ -348,8 +359,9 @@ netstats_nb_t *netstats_nb_update_tx(netif_t *dev, netstats_nb_result_t result, 
 
     netstats_nb_update_time(stats, result, now - time_tx, fresh);
     netstats_nb_update_etx(stats, result, transmissions, fresh);
+    netstats_nb_incr_count_tx(stats, result);
+
     netstats_nb_incr_freshness(stats);
-    netstats_nb_incr_count_tx(stats);
 
     return stats;
 }
@@ -367,9 +379,9 @@ netstats_nb_t *netstats_nb_update_rx(netif_t *dev, const uint8_t *l2_addr,
 
     netstats_nb_update_rssi(stats, rssi, fresh);
     netstats_nb_update_lqi(stats, lqi, fresh);
+    netstats_nb_incr_count_rx(stats);
 
     netstats_nb_incr_freshness(stats);
-    netstats_nb_incr_count_rx(stats);
 
     return stats;
 }

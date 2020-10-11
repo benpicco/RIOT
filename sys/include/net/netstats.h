@@ -95,6 +95,7 @@ typedef struct netstats_nb {
 #endif
 #ifdef MODULE_NETSTATS_NEIGHBOR_COUNT
     uint16_t tx_count;      /**< Number of sent frames to this peer */
+    uint16_t tx_fail;       /**< Number of sent frames that did not get ACKed */
     uint16_t rx_count;      /**< Number of received frames */
 #endif
     uint16_t last_updated;  /**< seconds timestamp of last update */
