@@ -1,0 +1,260 @@
+/*
+ * Copyright (c) 2020 ML!PA Consulting GmbH
+ *
+ * This file is subject to the terms and conditions of the GNU Lesser
+ * General Public License v2.1. See the file LICENSE in the top level
+ * directory for more details.
+ */
+
+/**
+ * @ingroup     tests
+ * @{
+ *
+ * @file
+ * @brief       Application for testing MTD implementations
+ *
+ * @author      Benjamin Valentin <benjamin.valentin@ml-pa.com>
+ *
+ * @}
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "od.h"
+#include "mtd.h"
+#include "shell.h"
+#include "board.h"
+
+#ifndef MTD_NUMOF
+#ifdef MTD_0
+#define MTD_NUMOF 1
+#else
+#define MTD_NUMOF 0
+#endif
+#endif
+
+static mtd_dev_t *_get_mtd_dev(unsigned idx)
+{
+    switch (idx) {
+#ifdef MTD_0
+    case 0: return MTD_0;
+#endif
+#ifdef MTD_1
+    case 1: return MTD_1;
+#endif
+#ifdef MTD_2
+    case 2: return MTD_2;
+#endif
+#ifdef MTD_3
+    case 3: return MTD_3;
+#endif
+    }
+
+    return NULL;
+}
+
+static mtd_dev_t *_get_dev(int argc, char **argv, bool *oob)
+{
+    if (argc < 2) {
+        printf("%s: please specify the MTD device\n", argv[0]);
+        *oob = true;
+        return NULL;
+    }
+
+    unsigned idx = atoi(argv[1]);
+
+    if (idx > MTD_NUMOF) {
+        printf("%s: invalid device: %s\n", argv[0], argv[1]);
+        *oob = true;
+        return NULL;
+    }
+
+    *oob = false;
+    return _get_mtd_dev(idx);
+}
+
+static uint64_t _get_size(mtd_dev_t *dev)
+{
+    return dev->sector_count * dev->pages_per_sector * dev->page_size;
+}
+
+static int cmd_read(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t addr, len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 4) {
+        printf("usage: %s <dev> <addr> <len>\n", argv[0]);
+        return -1;
+    }
+
+    addr = atoi(argv[2]);
+    len  = atoi(argv[3]);
+
+    void *buffer = malloc(len);
+    if (buffer == NULL) {
+        puts("out of memory");
+        return -1;
+    }
+
+    mtd_read(dev, buffer, addr, len);
+
+    od_hex_dump(buffer, len, 0);
+
+    free(buffer);
+
+    return 0;
+}
+
+static int cmd_erase(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t addr;
+    uint32_t len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 4) {
+        printf("usage: %s <dev> <addr> <len>\n", argv[0]);
+        return -1;
+    }
+
+    addr = atoi(argv[2]);
+    len  = atoi(argv[3]);
+
+    mtd_erase(dev, addr, len);
+
+    return 0;
+}
+
+static int cmd_write(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t addr, len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 4) {
+        printf("usage: %s <dev> <addr> <data>\n", argv[0]);
+        return -1;
+    }
+
+    addr = atoi(argv[2]);
+    len  = strlen(argv[3]);
+
+    mtd_write(dev, argv[3], addr, len);
+
+    return 0;
+}
+
+static void _print_info(mtd_dev_t *dev)
+{
+    printf("sectors: %lu\n", dev->sector_count);
+    printf("pages per sector: %lu\n", dev->pages_per_sector);
+    printf("page_size: %lu\n", dev->page_size);
+    printf("total: %lu\n", (unsigned long)_get_size(dev));
+}
+
+static int cmd_info(int argc, char **argv)
+{
+    if (argc < 2) {
+        for (int i = 0; i < MTD_NUMOF; ++i) {
+            printf(" -=[ MTD_%u ]=-\n", i);
+            _print_info(_get_mtd_dev(i));
+        }
+        return 0;
+    }
+
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+
+    if (oob) {
+        return -1;
+    }
+
+    _print_info(dev);
+
+    return 0;
+}
+
+static int cmd_power(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    enum mtd_power_state state;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 3) {
+        goto error;
+    }
+
+    if (strcmp(argv[2], "off") == 0) {
+        state = MTD_POWER_DOWN;
+    } else if (strcmp(argv[2], "on") == 0) {
+        state = MTD_POWER_UP;
+    } else {
+        goto error;
+    }
+
+    mtd_power(dev, state);
+
+    return 0;
+
+error:
+    printf("usage: %s <dev> <on|off>\n", argv[0]);
+    return -1;
+}
+
+static const shell_command_t shell_commands[] = {
+    { "info", "Print properties of the MTD device", cmd_info },
+    { "power", "Turn the MTD device on/off", cmd_power },
+    { "read", "Read a region of memory on the MTD device", cmd_read },
+    { "erase", "Erase a region of memory on the MTD device", cmd_erase },
+    { "write", "Write a region of memory on the MTD device", cmd_write },
+    { NULL, NULL, NULL }
+};
+
+int main(void)
+{
+    puts("Manual MTD test");
+
+    if (MTD_NUMOF == 0) {
+        puts("no MTD device present on the board.");
+    }
+
+    for (int i = 0; i < MTD_NUMOF; ++i) {
+        printf("init MTD_%u… ", i);
+
+        mtd_dev_t *dev = _get_mtd_dev(i);
+        int res = mtd_init(dev);
+        if (res) {
+            printf("error: 0x%x\n", res);
+            continue;
+        }
+
+        printf("OK (%lu kiB)\n", (unsigned long)(_get_size(dev) / 1024));
+        mtd_power(dev, MTD_POWER_UP);
+    }
+
+    /* run the shell */
+    char line_buf[SHELL_DEFAULT_BUFSIZE];
+    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+
+    return 0;
+}
