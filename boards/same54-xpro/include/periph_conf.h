@@ -251,7 +251,25 @@ static const spi_conf_t spi_config[] = {
         .tx_trigger = SERCOM6_DMAC_ID_TX,
         .rx_trigger = SERCOM6_DMAC_ID_RX,
 #endif
-    }
+    },
+#ifdef MODULE_PERIPH_SPI_ON_QSPI
+    {    /* QSPI */
+        .dev      = (void*)QSPI,
+        .miso_pin = GPIO_PIN(PA,  9),
+        .mosi_pin = GPIO_PIN(PA,  8),
+        .clk_pin  = GPIO_PIN(PB, 10),
+        .miso_mux = GPIO_MUX_H,
+        .mosi_mux = GPIO_MUX_H,
+        .clk_mux  = GPIO_MUX_H,
+        .miso_pad = SPI_PAD_MISO_3,
+        .mosi_pad = SPI_PAD_MOSI_0_SCK_1,
+        .gclk_src = SAM0_GCLK_MAIN,
+#ifdef MODULE_PERIPH_DMA
+        .tx_trigger = QSPI_DMAC_ID_TX,
+        .rx_trigger = QSPI_DMAC_ID_RX,
+#endif
+    },
+#endif
 };
 
 #define SPI_NUMOF           ARRAY_SIZE(spi_config)
