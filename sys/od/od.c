@@ -20,9 +20,9 @@
 
 #include "od.h"
 
-void od_hex_dump(const void *data, size_t data_len, uint8_t width)
+void od_hex_dump_ext(const void *data, size_t data_len, uint8_t width, uint32_t offset)
 {
-    print_str("00000000");
+    print_u32_hex(offset);
 
     if (width == 0) {
         width = OD_WIDTH_DEFAULT;
@@ -55,7 +55,7 @@ void od_hex_dump(const void *data, size_t data_len, uint8_t width)
             putchar('\n');
 
             if (i != (data_len - 1)) {
-                print_u32_hex((uint32_t)(i + 1));
+                print_u32_hex((uint32_t)(offset + i + 1));
             }
         }
     }

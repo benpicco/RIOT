@@ -43,8 +43,28 @@ extern "C" {
  * @param[in] data_len  Length in bytes of *data* to output.
  * @param[in] width     Number of bytes per line. If *width* is 0,
  *                      @ref OD_WIDTH_DEFAULT is assumed as a default value.
+ * @param[in] offset    Adds an offset to the printed memory addresses.
+ * @param[in] offset    If the origin of the data is an address in memory,
+ *                      this can be used to print the real addresses together
+ *                      with the data.
  */
-void od_hex_dump(const void *data, size_t data_len, uint8_t width);
+void od_hex_dump_ext(const void *data, size_t data_len, uint8_t width, uint32_t offset);
+
+/**
+ * @brief Dumps memory stored at *data* byte-wise up to *data_len* in
+ *        hexadecimal representation to stdout. If the pseudomodlue `od_string`
+          is used (`USEMODULE += od_string`) the ASCII representation of *data* is
+          also displayed.
+ *
+ * @param[in] data      Data to dump.
+ * @param[in] data_len  Length in bytes of *data* to output.
+ * @param[in] width     Number of bytes per line. If *width* is 0,
+ *                      @ref OD_WIDTH_DEFAULT is assumed as a default value.
+ */
+static inline void od_hex_dump(const void *data, size_t data_len, uint8_t width)
+{
+    od_hex_dump_ext(data, data_len, width, 0);
+}
 
 #ifdef __cplusplus
 }
