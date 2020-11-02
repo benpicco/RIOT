@@ -329,6 +329,87 @@ error:
     return -1;
 }
 
+static bool mem_is_all_set(const uint8_t *buf, uint8_t c, size_t n)
+{
+    for (const uint8_t *end = buf + n; buf != end; ++buf) {
+        if (*buf != c) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static int cmd_test(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t sector;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (dev->sector_count < 2) {
+        return -1;
+    }
+
+    if (argc > 2) {
+        sector = atoi(argv[2]);
+    } else {
+        sector = dev->sector_count - 2;
+    }
+
+    uint8_t *buffer = malloc(dev->page_size);
+
+    if (buffer == NULL) {
+        puts("out of memory");
+        return -1;
+    }
+
+    uint32_t page_0 = dev->pages_per_sector * sector;
+    uint32_t page_1 = dev->pages_per_sector * (sector + 1);
+    uint32_t page_size = dev->page_size;
+
+    puts("[START]");
+
+    /* write dummy data to sectors */
+    memset(buffer, 0x23, dev->page_size);
+    assert(mtd_write_page(dev, buffer, page_0, 0, page_size) == 0);
+    assert(mtd_write_page(dev, buffer, page_1, 0, page_size) == 0);
+
+    /* erase two sectors and check if they have been erase */
+    assert(mtd_erase_sector(dev, sector, 2) == 0);
+    assert(mtd_read_page(dev, buffer, page_0, 0, page_size) == 0);
+    assert(mem_is_all_set(buffer, 0xFF, page_size));
+    assert(mtd_read_page(dev, buffer, page_1, 0, page_size) == 0);
+    assert(mem_is_all_set(buffer, 0xFF, page_size));
+
+    /* write test data & read it back */
+    const char test_str[] = "0123456789";
+    uint32_t offset = 5;
+    assert(mtd_write_page(dev, test_str, page_0, offset, sizeof(test_str)) == 0);
+    assert(mtd_read_page(dev, buffer, page_0, offset, sizeof(test_str)) == 0);
+    assert(memcmp(test_str, buffer, sizeof(test_str)) == 0);
+
+    /* write across page boundary */
+    offset = page_size - sizeof(test_str) / 2;
+    assert(mtd_write_page(dev, test_str, page_0, offset, sizeof(test_str)) == 0);
+    assert(mtd_read_page(dev, buffer, page_0, offset, sizeof(test_str)) == 0);
+    assert(memcmp(test_str, buffer, sizeof(test_str)) == 0);
+
+    /* write across sector boundary */
+    offset = page_size - sizeof(test_str) / 2
+           + (dev->pages_per_sector - 1) * page_size;
+    assert(mtd_write_page(dev, test_str, page_0, offset, sizeof(test_str)) == 0);
+    assert(mtd_read_page(dev, buffer, page_0, offset, sizeof(test_str)) == 0);
+    assert(memcmp(test_str, buffer, sizeof(test_str)) == 0);
+
+    puts("[SUCCESS]");
+
+    return 0;
+}
+
 static const shell_command_t shell_commands[] = {
     { "info", "Print properties of the MTD device", cmd_info },
     { "power", "Turn the MTD device on/off", cmd_power },
@@ -338,6 +419,7 @@ static const shell_command_t shell_commands[] = {
     { "write_page", "Write a region of memory on the MTD device (pagewise addressing)", cmd_write_page },
     { "erase", "Erase a region of memory on the MTD device", cmd_erase },
     { "erase_sector", "Erase a sector of memory on the MTD device", cmd_erase_sector },
+    { "test", "Erase & write test data to the last two sectors", cmd_test },
     { NULL, NULL, NULL }
 };
 
