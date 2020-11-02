@@ -104,13 +104,17 @@ static int cmd_read(int argc, char **argv)
         return -1;
     }
 
-    mtd_read(dev, buffer, addr, len);
+    int res = mtd_read(dev, buffer, addr, len);
 
     od_hex_dump(buffer, len, 0);
 
     free(buffer);
 
-    return 0;
+    if (res) {
+        printf("error: %i\n", res);
+    }
+
+    return res;
 }
 
 static int cmd_erase(int argc, char **argv)
@@ -132,9 +136,13 @@ static int cmd_erase(int argc, char **argv)
     addr = atoi(argv[2]);
     len  = atoi(argv[3]);
 
-    mtd_erase(dev, addr, len);
+    int res = mtd_erase(dev, addr, len);
 
-    return 0;
+    if (res) {
+        printf("error: %i\n", res);
+    }
+
+    return res;
 }
 
 static int cmd_write(int argc, char **argv)
@@ -155,9 +163,13 @@ static int cmd_write(int argc, char **argv)
     addr = atoi(argv[2]);
     len  = strlen(argv[3]);
 
-    mtd_write(dev, argv[3], addr, len);
+    int res = mtd_write(dev, argv[3], addr, len);
 
-    return 0;
+    if (res) {
+        printf("error: %i\n", res);
+    }
+
+    return res;
 }
 
 static void _print_info(mtd_dev_t *dev)
@@ -244,7 +256,7 @@ int main(void)
         mtd_dev_t *dev = _get_mtd_dev(i);
         int res = mtd_init(dev);
         if (res) {
-            printf("error: 0x%x\n", res);
+            printf("error: %d\n", res);
             continue;
         }
 
