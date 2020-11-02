@@ -106,9 +106,102 @@ static int cmd_read(int argc, char **argv)
 
     int res = mtd_read(dev, buffer, addr, len);
 
-    od_hex_dump(buffer, len, 0);
+    od_hex_dump_ext(buffer, len, 0, addr);
 
     free(buffer);
+
+    if (res) {
+        printf("error: %i\n", res);
+    }
+
+    return res;
+}
+
+static int cmd_read_page(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t page, offset, len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 5) {
+        printf("usage: %s <dev> <page> <offset> <len>\n", argv[0]);
+        return -1;
+    }
+
+    page   = atoi(argv[2]);
+    offset = atoi(argv[3]);
+    len    = atoi(argv[4]);
+
+    void *buffer = malloc(len);
+    if (buffer == NULL) {
+        puts("out of memory");
+        return -1;
+    }
+
+    int res = mtd_read_page(dev, buffer, page, offset, len);
+
+    od_hex_dump_ext(buffer, len, 0, page * dev->page_size + offset);
+
+    free(buffer);
+
+    if (res) {
+        printf("error: %i\n", res);
+    }
+
+    return res;
+}
+
+static int cmd_write(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t addr, len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 4) {
+        printf("usage: %s <dev> <addr> <data>\n", argv[0]);
+        return -1;
+    }
+
+    addr = atoi(argv[2]);
+    len  = strlen(argv[3]);
+
+    int res = mtd_write(dev, argv[3], addr, len);
+
+    if (res) {
+        printf("error: %i\n", res);
+    }
+
+    return res;
+}
+
+static int cmd_write_page(int argc, char **argv)
+{
+    bool oob;
+    mtd_dev_t *dev = _get_dev(argc, argv, &oob);
+    uint32_t page, offset, len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 5) {
+        printf("usage: %s <dev> <page> <offset> <len>\n", argv[0]);
+        return -1;
+    }
+
+    page   = atoi(argv[2]);
+    offset = atoi(argv[3]);
+    len    = strlen(argv[4]);
+
+    int res = mtd_write_page(dev, argv[4], page, offset, len);
 
     if (res) {
         printf("error: %i\n", res);
@@ -145,25 +238,28 @@ static int cmd_erase(int argc, char **argv)
     return res;
 }
 
-static int cmd_write(int argc, char **argv)
+static int cmd_erase_sector(int argc, char **argv)
 {
     bool oob;
     mtd_dev_t *dev = _get_dev(argc, argv, &oob);
-    uint32_t addr, len;
+    uint32_t sector, count = 1;
 
     if (oob) {
         return -1;
     }
 
-    if (argc < 4) {
-        printf("usage: %s <dev> <addr> <data>\n", argv[0]);
+    if (argc < 3) {
+        printf("usage: %s <dev> <sector> [count]\n", argv[0]);
         return -1;
     }
 
-    addr = atoi(argv[2]);
-    len  = strlen(argv[3]);
+    sector = atoi(argv[2]);
 
-    int res = mtd_write(dev, argv[3], addr, len);
+    if (argc > 3) {
+        count = atoi(argv[3]);
+    }
+
+    int res = mtd_erase_sector(dev, sector, count);
 
     if (res) {
         printf("error: %i\n", res);
@@ -237,8 +333,11 @@ static const shell_command_t shell_commands[] = {
     { "info", "Print properties of the MTD device", cmd_info },
     { "power", "Turn the MTD device on/off", cmd_power },
     { "read", "Read a region of memory on the MTD device", cmd_read },
-    { "erase", "Erase a region of memory on the MTD device", cmd_erase },
+    { "read_page", "Read a region of memory on the MTD device (pagewise addressing)", cmd_read_page },
     { "write", "Write a region of memory on the MTD device", cmd_write },
+    { "write_page", "Write a region of memory on the MTD device (pagewise addressing)", cmd_write_page },
+    { "erase", "Erase a region of memory on the MTD device", cmd_erase },
+    { "erase_sector", "Erase a sector of memory on the MTD device", cmd_erase_sector },
     { NULL, NULL, NULL }
 };
 
