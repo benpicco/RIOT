@@ -254,16 +254,16 @@ static const spi_conf_t spi_config[] = {
     },
 #ifdef MODULE_PERIPH_SPI_ON_QSPI
     {    /* QSPI */
-        .dev      = (void*)QSPI,
-        .miso_pin = GPIO_PIN(PA,  9),
-        .mosi_pin = GPIO_PIN(PA,  8),
-        .clk_pin  = GPIO_PIN(PB, 10),
-        .miso_mux = GPIO_MUX_H,
-        .mosi_mux = GPIO_MUX_H,
-        .clk_mux  = GPIO_MUX_H,
-        .miso_pad = SPI_PAD_MISO_3,
-        .mosi_pad = SPI_PAD_MOSI_0_SCK_1,
-        .gclk_src = SAM0_GCLK_MAIN,
+        .dev      = (SercomSpi*)QSPI,
+        .miso_pin = SAM0_QSPI_PIN_DATA_1,
+        .mosi_pin = SAM0_QSPI_PIN_DATA_0,
+        .clk_pin  = SAM0_QSPI_PIN_CLK,
+        .miso_mux = SAM0_QSPI_MUX,
+        .mosi_mux = SAM0_QSPI_MUX,
+        .clk_mux  = SAM0_QSPI_MUX,
+        .miso_pad = SPI_PAD_MISO_0,         /* unused */
+        .mosi_pad = SPI_PAD_MOSI_0_SCK_1,   /* unused */
+        .gclk_src = SAM0_GCLK_MAIN,         /* unused */
 #ifdef MODULE_PERIPH_DMA
         .tx_trigger = QSPI_DMAC_ID_TX,
         .rx_trigger = QSPI_DMAC_ID_RX,

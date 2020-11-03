@@ -31,13 +31,13 @@ static const mtd_spi_nor_params_t _same54_nor_params = {
     .wait_32k_erase = 700 * US_PER_MS,
     .wait_sector_erase = 250 * US_PER_MS,
     .wait_chip_wake_up = 1 * US_PER_MS,
-    .clk = MHZ(54),
+    .clk  = MHZ(54),
     .flag = (SPI_NOR_F_SECT_4K | SPI_NOR_F_SECT_64K),
-    .spi = SPI_DEV(2),
+    .spi  = SPI_DEV(2),
     .mode = SPI_MODE_0,
-    .cs = GPIO_PIN(PB, 11),
-    .wp = GPIO_PIN(PA, 10),
-    .hold = GPIO_PIN(PA, 11),
+    .cs   = SAM0_QSPI_PIN_CS,
+    .wp   = SAM0_QSPI_PIN_DATA_2,
+    .hold = SAM0_QSPI_PIN_DATA_3,
     .addr_width = 4,
 };
 
