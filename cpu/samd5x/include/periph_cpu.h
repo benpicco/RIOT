@@ -125,6 +125,19 @@ static const gpio_t rtc_tamper_pins[RTC_NUM_OF_TAMPERS] = {
     GPIO_PIN(PC, 0), GPIO_PIN(PC, 1)
 };
 
+/**
+ * @brief   QSPI pins are fixed
+ * @{
+ */
+#define SAM0_QSPI_PIN_CLK       GPIO_PIN(PB, 10)    /**< Clock        */
+#define SAM0_QSPI_PIN_CS        GPIO_PIN(PB, 11)    /**< Chip Select  */
+#define SAM0_QSPI_PIN_DATA_0    GPIO_PIN(PA,  8)    /**< D0 / MOSI    */
+#define SAM0_QSPI_PIN_DATA_1    GPIO_PIN(PA,  9)    /**< D1 / MISO    */
+#define SAM0_QSPI_PIN_DATA_2    GPIO_PIN(PA, 10)    /**< D2 / WP      */
+#define SAM0_QSPI_PIN_DATA_3    GPIO_PIN(PA, 11)    /**< D3 / HOLD    */
+#define SAM0_QSPI_MUX           GPIO_MUX_H          /**< QSPI mux     */
+/** @} */
+
 #ifdef __cplusplus
 }
 #endif
