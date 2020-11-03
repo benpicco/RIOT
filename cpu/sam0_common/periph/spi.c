@@ -188,14 +188,18 @@ static void _init_qspi(spi_t bus)
 
 static void _qspi_acquire(spi_mode_t mode, spi_clk_t clk)
 {
+    /* SCK = MCK / (BAUD + 1) */
+    uint32_t baud = CLOCK_CORECLOCK > (2 * clk)
+                  ? (CLOCK_CORECLOCK + clk - 1) / clk - 1
+                  : 0;
+
+    /* bit order is reversed from SERCOM SPI */
     uint32_t _mode = (mode >> 1)
                    | (mode << 1);
     _mode &= 0x3;
 
     QSPI->CTRLA.bit.ENABLE = 1;
-
-    QSPI->BAUD.reg = QSPI_BAUD_BAUD((CLOCK_CORECLOCK + clk - 1) / clk)
-                   | _mode;
+    QSPI->BAUD.reg = QSPI_BAUD_BAUD(baud) | _mode;
 }
 
 static inline void _qspi_release(void)
