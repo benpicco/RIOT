@@ -188,10 +188,11 @@ static void _init_qspi(spi_t bus)
 
 static void _qspi_acquire(spi_mode_t mode, spi_clk_t clk)
 {
-    /* SCK = MCK / (BAUD + 1) */
+    /* datasheet says SCK = MCK / (BAUD + 1) */
+    /* but BAUD = 0 does not work, assume SCK = MCK / BAUD */
     uint32_t baud = CLOCK_CORECLOCK > (2 * clk)
-                  ? (CLOCK_CORECLOCK + clk - 1) / clk - 1
-                  : 0;
+                  ? (CLOCK_CORECLOCK + clk - 1) / clk
+                  : 1;
 
     /* bit order is reversed from SERCOM SPI */
     uint32_t _mode = (mode >> 1)
