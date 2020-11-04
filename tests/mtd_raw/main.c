@@ -104,6 +104,9 @@ static int cmd_read(int argc, char **argv)
         return -1;
     }
 
+    /* don't print random data if read fails */
+    memset(buffer, 0x3F, len);
+
     int res = mtd_read(dev, buffer, addr, len);
 
     od_hex_dump_ext(buffer, len, 0, addr);
