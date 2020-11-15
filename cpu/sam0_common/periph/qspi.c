@@ -55,7 +55,7 @@ static uint32_t _qspi_addrlen = QSPI_INSTRFRAME_ADDRLEN_24BITS;
  * @param size     the number of bytes to read or write.
  */
 static void _run_instruction(uint8_t command, uint32_t iframe, uint32_t addr,
-                             uint8_t *buffer, uint32_t size)
+                             void *buffer, uint32_t size)
 {
     QSPI->INSTRCTRL.bit.INSTR = command;
     QSPI->INSTRFRAME.reg = iframe;
@@ -97,9 +97,7 @@ ssize_t qspi_cmd_read(qspi_t bus, uint8_t command, void *response, size_t len)
                     | QSPI_INSTRFRAME_INSTREN
                     | (response != NULL ? QSPI_INSTRFRAME_DATAEN : 0);
 
-    samd0_cache_disable();
     _run_instruction(command, iframe, 0, response, len);
-    samd0_cache_enable();
 
     return len;
 }
@@ -109,14 +107,11 @@ ssize_t qspi_cmd_write(qspi_t bus, uint8_t command, const void *data, size_t len
     (void)bus;
 
     uint32_t iframe = QSPI_INSTRFRAME_WIDTH_SINGLE_BIT_SPI
-                    | _qspi_addrlen
                     | QSPI_INSTRFRAME_TFRTYPE_WRITE
                     | QSPI_INSTRFRAME_INSTREN
                     | (data != NULL ? QSPI_INSTRFRAME_DATAEN : 0);
 
-    samd0_cache_disable();
     _run_instruction(command, iframe, 0, (void *)data, len);
-    samd0_cache_enable();
 
     return len;
 }
@@ -134,9 +129,7 @@ ssize_t qspi_read(qspi_t bus, uint32_t addr, void *data, size_t len)
                     | QSPI_INSTRFRAME_INSTREN | QSPI_INSTRFRAME_ADDREN
                     | QSPI_INSTRFRAME_DATAEN  | QSPI_INSTRFRAME_DUMMYLEN(8);
 
-    samd0_cache_disable();
     _run_instruction(SFLASH_CMD_QUAD_READ, iframe, addr, data, len);
-    samd0_cache_enable();
 
     return len;
 }
@@ -164,9 +157,10 @@ ssize_t qspi_write(qspi_t bus, uint32_t addr, const void *data, size_t len)
                     | QSPI_INSTRFRAME_INSTREN | QSPI_INSTRFRAME_ADDREN
                     | QSPI_INSTRFRAME_DATAEN;
 
-    samd0_cache_disable();
     _run_instruction(SFLASH_CMD_QUAD_PAGE_PROGRAM, iframe, addr, (void *)data, len);
-    samd0_cache_enable();
+
+    /* invalidate cache */
+    CMCC->MAINT0.bit.INVALL = 1;
 
     return len;
 }
@@ -187,6 +181,58 @@ void qspi_release(qspi_t bus)
     mutex_unlock(&_qspi_mutex);
 
     QSPI->CTRLA.bit.ENABLE = 0;
+}
+
+void qspi_xip_mount(qspi_t bus)
+{
+    qspi_acquire(bus);
+
+    /* enable XIP mode on the flash */
+    const uint8_t xip_enable = 0xF7;
+    qspi_cmd_write(bus, SFLASH_CMD_WRITE_ENABLE, NULL, 0);
+    qspi_cmd_write(bus, 0x81, &xip_enable, 1);
+
+    /* TODO */
+
+    uint32_t iframe = QSPI_INSTRFRAME_CRMODE
+                    | QSPI_INSTRFRAME_TFRTYPE_READMEMORY
+                    | QSPI_INSTRFRAME_ADDREN
+                    | QSPI_INSTRFRAME_DATAEN
+                    | QSPI_INSTRFRAME_INSTREN
+                    | QSPI_INSTRFRAME_WIDTH_QUAD_OUTPUT
+                    | QSPI_INSTRFRAME_DUMMYLEN(8);
+
+    _run_instruction(SFLASH_CMD_QUAD_READ, iframe, 0, NULL, 0);
+}
+
+void qspi_xip_unmount(qspi_t bus)
+{
+//    const uint16_t xip_disable = 0xFF;
+
+    /* TODO: re-configure flash memory */
+
+//    qspi_cmd_write(bus, SFLASH_CMD_WRITE_ENABLE, NULL, 0);
+//    qspi_cmd_write(bus, 0x81, &xip_disable, 1);
+
+    uint16_t dummy = 0xFFFF;
+
+    qspi_cmd_write(bus, 0xFF, &dummy, sizeof(dummy));
+    qspi_cmd_write(bus, 0xFF, &dummy, sizeof(dummy));
+
+    /* reset enable */
+    qspi_cmd_write(bus, 0x66, NULL, 0);
+
+    /* reset memory */
+    qspi_cmd_write(bus, 0x99, NULL, 0);
+
+    qspi_release(bus);
+}
+
+const void *qspi_xip_mem(qspi_t bus)
+{
+    (void)bus;
+
+    return (const void*)QSPI_AHB;
 }
 
 void qspi_init(qspi_t bus)
