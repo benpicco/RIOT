@@ -285,6 +285,11 @@ static void _write_row(uint8_t *dst, const void *_data, size_t len, size_t chunk
     size_t next_chunk = chunk_size - ((uintptr_t)dst & (chunk_size - 1));
     next_chunk = next_chunk ? next_chunk : chunk_size;
 
+    /* Enable Automatic Write With Quad Word Granularity */
+#ifdef NVMCTRL_CTRLA_WMODE_AQW
+    _NVMCTRL->CTRLA.bit.WMODE = NVMCTRL_CTRLA_WMODE_AQW_Val;
+#endif
+
     while (len) {
         size_t chunk = MIN(len, next_chunk);
         next_chunk = chunk_size;
