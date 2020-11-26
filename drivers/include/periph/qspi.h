@@ -259,6 +259,42 @@ ssize_t qspi_write(qspi_t bus, uint32_t addr, const void *data, size_t len);
  */
 void qspi_erase(qspi_t bus, uint32_t address, qspi_erase_size_t size);
 
+/**
+ * @brief   Map the QSPI device to memory
+ *
+ *          This will acquire the QSPI device and map it to a region
+ *          in memory.
+ *          This memory can be read (and executed), but it can not
+ *          be written.
+ *
+ * @param[in] bus       QSPI device to mount
+ */
+void qspi_xip_mount(qspi_t bus);
+
+/**
+ * @brief   Unmap the QSPI device to memory
+ *
+ *          This will release the QSPI device and remove the memory
+ *          mapping.
+ *          Non-memory mapped operations (such as write) can be executed
+ *          again.
+ *
+ * @param[in] bus       QSPI device to unmount
+ */
+void qspi_xip_unmount(qspi_t bus);
+
+/**
+ * @brief   Get the start address of the memory mapped QSPI device
+ *
+ *          The contents of the QSPI memory will be mapped to this address
+ *          after calling @ref qspi_xip_mount
+ *
+ * @param[in] bus       QSPI device
+ *
+ * @return              The address the memory is mapped to
+ */
+const void *qspi_xip_mem(qspi_t bus);
+
 #ifdef __cplusplus
 }
 #endif
