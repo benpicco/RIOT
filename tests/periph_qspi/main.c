@@ -215,12 +215,78 @@ static int cmd_cfg(int argc, char **argv)
 
     return 0;
 }
+
+static int cmd_xip_mount(int argc, char **argv)
+{
+    bool oob;
+    qspi_t dev = _get_dev(argc, argv, &oob);
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 2) {
+        printf("usage: %s <dev>\n", argv[0]);
+        return -1;
+    }
+
+    qspi_xip_mount(dev);
+
+    return 0;
+}
+
+static int cmd_xip_unmount(int argc, char **argv)
+{
+    bool oob;
+    qspi_t dev = _get_dev(argc, argv, &oob);
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 2) {
+        printf("usage: %s <dev>\n", argv[0]);
+        return -1;
+    }
+
+    qspi_xip_unmount(dev);
+
+    return 0;
+}
+
+static int cmd_xip_read(int argc, char **argv)
+{
+    bool oob;
+    qspi_t dev = _get_dev(argc, argv, &oob);
+    uint32_t addr, len;
+
+    if (oob) {
+        return -1;
+    }
+
+    if (argc < 4) {
+        printf("usage: %s <dev> <addr> <len>\n", argv[0]);
+        return -1;
+    }
+
+    addr = atoi(argv[2]);
+    len  = atoi(argv[3]);
+
+    od_hex_dump((char*)qspi_xip_mem(dev) + addr, len, 0);
+
+    return 0;
+
+}
+
 static const shell_command_t shell_commands[] = {
     { "jedec", "Read JEDEC ID of the QSPI flash", cmd_jedec },
     { "init", "Configure the QSPI peripheral", cmd_cfg },
     { "read", "Read a region of memory on the QSPI flash", cmd_read },
     { "erase", "Erase a region of memory on the QSPI flash", cmd_erase },
     { "write", "Write a region of memory on the QSPI flash", cmd_write },
+    { "xip_mount", "Mount the Flash device in XIP mode", cmd_xip_mount },
+    { "xip_read", "Read a region of memory in XIP mode", cmd_xip_read },
+    { "xip_umount", "Disable XIP mode", cmd_xip_unmount },
     { NULL, NULL, NULL }
 };
 
