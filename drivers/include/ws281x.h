@@ -252,6 +252,20 @@ static inline void ws281x_write(ws281x_t *dev)
     ws281x_end_transmission(dev);
 }
 
+/**
+ * @brief   Sets all LEDs to the same color and writes that to the LED chain
+ *
+ * @param   dev     Device descriptor of the LED chain to modify
+ * @param   color   The new color to apply
+ */
+static inline void ws281x_set_all(ws281x_t *dev, color_rgb_t color)
+{
+    for (unsigned i = 0; i < dev->params.numof; ++i) {
+        ws281x_set(dev, i, color);
+    }
+    ws281x_write(dev);
+}
+
 #ifdef __cplusplus
 }
 #endif
