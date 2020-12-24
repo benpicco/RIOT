@@ -45,7 +45,7 @@ static void dds_cb(void *_dev, int channel)
     }
     else {
         size_t pos = dev->pos >> 8;
-        pwm_set(dev->pwm, dev->channel, dev->sample[pos]);
+        pwm_set(dev->pwm, dev->channel, dev->sample[pos] << 2);
         dev->pos += dev->step;
         timer_set(dev->timer, 0, dev->timeout);
         if ((dev->pos >> 8) >= dev->sample_len) {
