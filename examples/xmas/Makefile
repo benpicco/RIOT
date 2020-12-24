@@ -5,8 +5,8 @@ DEVELHELP ?= 1
 QUIET ?= 1
 
 USEMODULE += dds
-USEMODULE += shell
-USEMODULE += shell_commands
+# USEMODULE += shell
+# USEMODULE += shell_commands
 USEMODULE += ws281x
 
 include $(RIOTBASE)/Makefile.include

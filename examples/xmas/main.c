@@ -339,7 +339,9 @@ static void anim(void)
 {
     static uint8_t start = 0;
     for (uint8_t i = 0; i < ws281x.params.numof; i++) {
-        ws281x_set(&ws281x, i, colors[(start + i) % ARRAY_SIZE(colors)]);
+        color_rgb_t out;
+        color_rgb_shift(&colors[(start + i) % ARRAY_SIZE(colors)], &out, -3);
+        ws281x_set(&ws281x, i, out);
     }
     ws281x_write(&ws281x);
     start++;
@@ -367,6 +369,8 @@ static int music(const uint8_t *notes, size_t notes_len)
             pause(duration);
         }
     }
+
+    ws281x_set_all(&ws281x, (color_rgb_t){0, 0, 0});
 
     return 0;
 }
@@ -397,12 +401,17 @@ int main(void)
         return 1;
     }
 
-    sc_tree(0, NULL);
-    //pause(2048);
-    //sc_bells(0, NULL);
-
+#ifdef MODULE_SHELL
     char line_buf[SHELL_DEFAULT_BUFSIZE];
     shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+#else
+    while (1) {
+        sc_tree(0, NULL);
+        pause(2048);
+        sc_bells(0, NULL);
+        pause(2048);
+    }
+#endif
 
     return 0;
 }
