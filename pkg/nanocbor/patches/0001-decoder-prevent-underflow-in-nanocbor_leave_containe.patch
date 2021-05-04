@@ -1,0 +1,32 @@
+From 2d50da8502ba3346799882a6c650d78d8f493921 Mon Sep 17 00:00:00 2001
+From: Benjamin Valentin <benpicco@googlemail.com>
+Date: Tue, 4 May 2021 00:35:49 +0200
+Subject: [PATCH] decoder: prevent underflow in nanocbor_leave_container()
+
+For indefinite containers `remaining` is 0, meaning that a call to
+`nanocbor_leave_container()` will create an underflow.
+
+This causes `nanocbor_at_end()` to no longer being able to detect
+the end of the container.
+---
+ src/decoder.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/decoder.c b/src/decoder.c
+index a1ad65b..0d2da3e 100644
+--- a/src/decoder.c
++++ b/src/decoder.c
+@@ -322,7 +322,9 @@ int nanocbor_enter_map(nanocbor_value_t *it, nanocbor_value_t *map)
+ 
+ void nanocbor_leave_container(nanocbor_value_t *it, nanocbor_value_t *container)
+ {
+-    it->remaining--;
++    if (it->remaining) {
++        it->remaining--;
++    }
+     if (nanocbor_container_indefinite(container)) {
+         it->cur = container->cur + 1;
+     }
+-- 
+2.27.0
+
