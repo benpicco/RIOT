@@ -5,5 +5,6 @@ RIOT-2021.07-mlpa-0 - Merge Notes
 
  - cherry-pick 7ae42ee7b951ea7d94ae9d38288cd8e387b5d5d7 (sam0 ADC hack)
  - cherry-pick f51f3ab71780986f43437a52cc2f33f81449f236 (NanoCBOR nanocbor_leave_container() fix)
+ - cherry-pick aa0d1d3c5172cf68264d82277234598aa2bbe0eb (enable nib.c debug hack)
  - merged benpicco/cpu/sam0_common/flashpage_irq_disable
  - merged benpicco/driver/lis2dh12-cleanup
