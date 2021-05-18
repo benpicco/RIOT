@@ -203,6 +203,30 @@ static void test_set_alarm_set_time(void)
     TEST_ASSERT_EQUAL_INT(2, alarm.tm_isdst);
 }
 
+static void test_rtc_settimeofday(void)
+{
+	uint32_t s = 10, sec;
+	uint32_t us = 0, micro_sec;
+
+	rtc_settimeofday(s, us);
+	rtc_gettimeofday(&sec, &micro_sec);
+
+	TEST_ASSERT_EQUAL_INT(s, sec);
+	TEST_ASSERT_EQUAL_INT(us, micro_sec);
+
+	rtt_add_ticks(1LU * RTT_FREQUENCY);
+	s++;
+	rtc_gettimeofday(&sec, &micro_sec);
+	TEST_ASSERT_EQUAL_INT(s, sec);
+
+	rtt_add_ticks(0.000001 * RTT_FREQUENCY);
+	us = 0.000001 * RTT_FREQUENCY;
+	rtc_gettimeofday(&sec, &micro_sec);
+	TEST_ASSERT_EQUAL_INT(s, sec);
+	TEST_ASSERT_EQUAL_INT(us, micro_sec);
+
+}
+
 Test *tests_rtt_rtt_tests(void)
 {
     EMB_UNIT_TESTFIXTURES(fixtures) {
@@ -210,6 +234,7 @@ Test *tests_rtt_rtt_tests(void)
         new_TestFixture(test_set_alarm),
         new_TestFixture(test_set_alarm_short),
         new_TestFixture(test_set_alarm_set_time),
+		new_TestFixture(test_rtc_settimeofday),
     };
 
     EMB_UNIT_TESTCALLER(rtt_rtc_tests, NULL, NULL, fixtures);
