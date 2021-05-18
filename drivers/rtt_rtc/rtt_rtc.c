@@ -204,3 +204,28 @@ void rtc_poweroff(void)
 {
     rtt_poweroff();
 }
+
+int rtc_settimeofday(uint32_t s, uint32_t us)
+{
+	/* disable alarm to prevent race condition */
+	rtt_clear_alarm();
+	uint32_t now = s * RTT_SECOND
+			+ ((uint64_t)us * RTT_SECOND) / US_PER_SEC;
+	rtc_now      = s;
+	rtt_set_counter(now);
+	/* calculate next wake-up period */
+	_update_alarm(now);
+	return 0;
+}
+
+int rtc_gettimeofday(uint32_t *s, uint32_t *us)
+{
+	uint32_t prev = rtc_now;
+	/* repeat calculation if an alarm triggered in between */
+	do {
+		uint32_t now = rtt_get_counter();
+		*s  = _rtc_now(now);
+		*us = ((uint64_t)SUBSECONDS(now - last_alarm) * US_PER_SEC) / RTT_SECOND;
+	} while (prev != rtc_now);
+	return 0;
+}
