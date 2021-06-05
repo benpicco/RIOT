@@ -101,8 +101,9 @@ static void _configure_upstream_netif(gnrc_netif_t *upstream_netif)
 static void _configure_dhcpv6_client(void)
 {
     gnrc_netif_t *netif = NULL;
+    gnrc_netif_t *upstream = _find_upstream_netif();
     while ((netif = gnrc_netif_iter(netif))) {
-        if (gnrc_netif_is_6lo(netif)) {
+        if (netif != upstream) {
             dhcpv6_client_req_ia_pd(netif->pid, 64U);
         }
     }
