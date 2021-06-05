@@ -91,6 +91,11 @@ int l2util_eui64_from_addr(int dev_type, const uint8_t *addr, size_t addr_len,
             }
 #endif  /* defined(MODULE_NETDEV_ETH) || defined(MODULE_ESP_NOW) \
            defined(MODULE_NIMBLE_NETIF) */
+#if defined(MODULE_SLIPDEV)
+        case NETDEV_TYPE_SLIP:
+            memcpy(eui64, addr, addr_len);
+            return sizeof(eui64_t);
+#endif /* defined(MODULE_SLIPDEV) */
 #if defined(MODULE_NETDEV_IEEE802154) || defined(MODULE_XBEE)
         case NETDEV_TYPE_IEEE802154:
             switch (addr_len) {
@@ -288,6 +293,10 @@ int l2util_ndp_addr_len_from_l2ao(int dev_type,
             (void)opt;
             return 5; /* maximum length */
 #endif /* defined(MODULE_NRF24L01P_NG) */
+#if defined(MODULE_SLIPDEV)
+        case NETDEV_TYPE_SLIP:
+            return sizeof(eui64_t);
+#endif /* defined(MODULE_SLIPDEV) */
         default:
             (void)opt;
 #ifdef DEVELHELP
