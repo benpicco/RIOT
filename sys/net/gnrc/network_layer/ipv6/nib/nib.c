@@ -1490,6 +1490,62 @@ static inline bool _multihop_p6c(gnrc_netif_t *netif, _nib_abr_entry_t *abr)
 #define _multihop_p6c(netif, abr)   (false)
 #endif  /* CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C */
 
+static void _configure_subnets(gnrc_netif_t *upstream, const ipv6_addr_t *pfx,
+                               uint8_t pfx_len, uint8_t flags,
+                               uint32_t valid_ltime, uint32_t pref_ltime)
+{
+    if (!IS_USED(MODULE_GNRC_IPV6_NIB_SUBNETS)) {
+        return;
+    }
+
+    unsigned subnets = gnrc_netif_numof() - 1;
+    gnrc_netif_t *downstream = NULL;
+    uint8_t new_pfx_len;
+
+    if (subnets == 0) {
+        return;
+    }
+
+    new_pfx_len = pfx_len + 32 - __builtin_clz(subnets);
+
+    if (new_pfx_len > 64) {
+        DEBUG("nib: can't split /%u into %u subnets\n", pfx_len, subnets);
+        return;
+    }
+
+    while ((downstream = gnrc_netif_iter(downstream))) {
+        ipv6_addr_t new_pfx;
+
+        if (downstream == upstream) {
+            continue;
+        }
+
+        /* create subnet by adding interface index */
+        new_pfx.u64[0].u64 = byteorder_ntohll(pfx->u64[0]);
+        new_pfx.u64[0].u64 |= (uint64_t)subnets-- << (63 - pfx_len);
+        new_pfx.u64[0] = byteorder_htonll(new_pfx.u64[0].u64);
+
+        DEBUG("nib: configure prefix %s/%u on %u\n",
+              ipv6_addr_to_str(addr_str, &new_pfx, sizeof(addr_str)),
+              new_pfx_len, downstream->pid);
+
+        if (flags & NDP_OPT_PI_FLAGS_A) {
+            _auto_configure_addr(downstream, &new_pfx, new_pfx_len);
+        }
+
+        if (flags & NDP_OPT_PI_FLAGS_L) {
+            _nib_offl_entry_t *offl;
+            if ((offl = _nib_pl_add(downstream->pid, &new_pfx, new_pfx_len,
+                               valid_ltime, pref_ltime))) {
+                offl->flags |= _PFX_ON_LINK;
+                if (flags & NDP_OPT_PI_FLAGS_A) {
+                    offl->flags |= _PFX_SLAAC;
+                }
+            }
+        }
+    }
+}
+
 #if IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C)
 static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
                             const ndp_opt_pi_t *pio, _nib_abr_entry_t *abr)
@@ -1500,6 +1556,7 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
 {
     uint32_t valid_ltime;
     uint32_t pref_ltime;
+    uint32_t timeout = UINT32_MAX;
 
     valid_ltime = byteorder_ntohl(pio->valid_ltime);
     pref_ltime = byteorder_ntohl(pio->pref_ltime);
@@ -1560,10 +1617,14 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
             if (pio->flags & NDP_OPT_PI_FLAGS_A) {
                 pfx->flags |= _PFX_SLAAC;
             }
-            return _min(pref_ltime, valid_ltime);
+            timeout = _min(pref_ltime, valid_ltime);
         }
     }
-    return UINT32_MAX;
+
+    /* automatically configure subnets on downstream interfaces */
+    _configure_subnets(netif, &pio->prefix, pio->prefix_len,
+                       pio->flags, valid_ltime, pref_ltime);
+    return timeout;
 }
 
 /** @} */
