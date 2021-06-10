@@ -91,11 +91,6 @@ int l2util_eui64_from_addr(int dev_type, const uint8_t *addr, size_t addr_len,
             }
 #endif  /* defined(MODULE_NETDEV_ETH) || defined(MODULE_ESP_NOW) \
            defined(MODULE_NIMBLE_NETIF) */
-#if defined(MODULE_SLIPDEV)
-        case NETDEV_TYPE_SLIP:
-            memcpy(eui64, addr, addr_len);
-            return sizeof(eui64_t);
-#endif /* defined(MODULE_SLIPDEV) */
 #if defined(MODULE_NETDEV_IEEE802154) || defined(MODULE_XBEE)
         case NETDEV_TYPE_IEEE802154:
             switch (addr_len) {
@@ -128,6 +123,11 @@ int l2util_eui64_from_addr(int dev_type, const uint8_t *addr, size_t addr_len,
                 return -EINVAL;
             }
 #endif /* defined (MODULE_NRF24L01P_NG) */
+#if defined(MODULE_SLIPDEV)
+        case NETDEV_TYPE_SLIP:
+            memcpy(eui64, addr, addr_len);
+            return sizeof(eui64_t);
+#endif /* defined(MODULE_SLIPDEV) */
         default:
             (void)addr;
             (void)addr_len;
@@ -235,6 +235,11 @@ int l2util_ipv6_iid_to_addr(int dev_type, const eui64_t *iid, uint8_t *addr)
             memcpy(&addr[addr_len - 3], &iid->uint8[5], 3);
             return addr_len;
 #endif /* defined(MODULE_NRF24L01P_NG) */
+#if defined(MODULE_SLIPDEV)
+        case NETDEV_TYPE_SLIP:
+            memcpy(addr, iid, sizeof(eui64_t));
+            return sizeof(eui64_t);
+#endif /* defined(MODULE_SLIP) */
         default:
             (void)iid;
             (void)addr;
