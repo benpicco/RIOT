@@ -26,7 +26,7 @@
 
 #include "net/gnrc/netif/internal.h"
 
-#define ENABLE_DEBUG 1
+#define ENABLE_DEBUG 0
 #include "debug.h"
 
 static char addr_str[IPV6_ADDR_MAX_STR_LEN];
@@ -87,7 +87,6 @@ void gnrc_util_conf_prefix(gnrc_netif_t *netif, const ipv6_addr_t *pfx,
         LOG_WARNING("GNRC util: cannot get IID of netif %u\n", netif->pid);
         return;
     }
-    puts("get prefix");
     ipv6_addr_init_prefix(&addr, pfx, pfx_len);
     /* add address as tentative */
     if (gnrc_netif_ipv6_addr_add_internal(netif, &addr, pfx_len,
@@ -105,20 +104,17 @@ void gnrc_util_conf_prefix(gnrc_netif_t *netif, const ipv6_addr_t *pfx,
             pref = (pref > (UINT32_MAX / MS_PER_SEC)) ?
                          (UINT32_MAX - 1) : pref * MS_PER_SEC;
         }
-        puts("set PL");
         gnrc_ipv6_nib_pl_set(netif->pid, pfx, pfx_len, valid, pref);
         if (IS_USED(MODULE_GNRC_IPV6_NIB) &&
             IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_6LBR) &&
             IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C) &&
             gnrc_netif_is_6ln(netif)) {
             if (IS_USED(MODULE_GNRC_SIXLOWPAN_CTX)) {
-                puts("update cxt");
                 _update_6ctx(pfx, pfx_len, valid);
             }
             (void)gnrc_ipv6_nib_abr_add(&addr);
         }
         if (IS_USED(MODULE_GNRC_RPL)) {
-            puts("init rpl");
             gnrc_rpl_init(netif->pid);
             gnrc_rpl_instance_t *inst = gnrc_rpl_instance_get(
                     CONFIG_GNRC_RPL_DEFAULT_INSTANCE
