@@ -1502,6 +1502,12 @@ static void _configure_subnets(gnrc_netif_t *upstream, const ipv6_addr_t *pfx,
     gnrc_netif_t *downstream = NULL;
     uint8_t new_pfx_len;
 
+    /* Disable router advertisements on upstream interface. With this, the router
+     * does not confuse the upstream router to add the border router to its default
+     * router list.
+     */
+    gnrc_ipv6_nib_change_rtr_adv_iface(upstream, false);
+
     if (subnets == 0) {
         return;
     }
