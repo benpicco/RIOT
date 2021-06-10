@@ -1559,7 +1559,6 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
 {
     uint32_t valid_ltime;
     uint32_t pref_ltime;
-    uint32_t timeout = UINT32_MAX;
 
     valid_ltime = byteorder_ntohl(pio->valid_ltime);
     pref_ltime = byteorder_ntohl(pio->pref_ltime);
@@ -1620,11 +1619,10 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
             if (pio->flags & NDP_OPT_PI_FLAGS_A) {
                 pfx->flags |= _PFX_SLAAC;
             }
-            timeout = _min(pref_ltime, valid_ltime);
+            return _min(pref_ltime, valid_ltime);
         }
     }
-
-    return timeout;
+    return UINT32_MAX;
 }
 
 /** @} */
