@@ -24,6 +24,7 @@
 #include "net/gnrc/nettype.h"
 #include "net/gnrc/netif/internal.h"
 #include "net/gnrc/ipv6/nib.h"
+#include "net/gnrc/ipv6/util.h"
 #include "net/gnrc/ndp.h"
 #include "net/gnrc/pktqueue.h"
 #include "net/gnrc/sixlowpan/nd.h"
@@ -569,6 +570,61 @@ static void _handle_rtr_sol(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
 }
 #endif  /* CONFIG_GNRC_IPV6_NIB_ROUTER */
 
+static void _configure_subnets(gnrc_netif_t *upstream, const ndp_opt_pi_t *pio)
+{
+    if (!IS_USED(MODULE_GNRC_IPV6_NIB_SUBNETS)) {
+        return;
+    }
+
+    gnrc_netif_t *downstream = NULL;
+    const ipv6_addr_t *prefix = &pio->prefix;
+    uint32_t valid_ltime = byteorder_ntohl(pio->valid_ltime);
+    uint32_t pref_ltime = byteorder_ntohl(pio->pref_ltime);
+
+    /* create a subnet for each downstream interface */
+    unsigned subnets = gnrc_netif_numof() - 1;
+
+    const uint8_t prefix_len = pio->prefix_len;
+    uint8_t new_prefix_len;
+
+    /* Disable router advertisements on upstream interface. With this, the router
+     * does not confuse the upstream router to add the border router to its default
+     * router list.
+     */
+    gnrc_ipv6_nib_change_rtr_adv_iface(upstream, false);
+
+    if (subnets == 0) {
+        return;
+    }
+
+    new_prefix_len = prefix_len + 32 - __builtin_clz(subnets);
+
+    if (new_prefix_len > 64) {
+        DEBUG("nib: can't split /%u into %u subnets\n", prefix_len, subnets);
+        return;
+    }
+
+    while ((downstream = gnrc_netif_iter(downstream))) {
+        ipv6_addr_t new_prefix;
+
+        if (downstream == upstream) {
+            continue;
+        }
+
+        /* create subnet by adding interface index */
+        new_prefix.u64[0].u64 = byteorder_ntohll(prefix->u64[0]);
+        new_prefix.u64[0].u64 |= (uint64_t)subnets-- << (63 - prefix_len);
+        new_prefix.u64[0] = byteorder_htonll(new_prefix.u64[0].u64);
+
+        DEBUG("nib: configure prefix %s/%u on %u\n",
+              ipv6_addr_to_str(addr_str, &new_prefix, sizeof(addr_str)),
+              new_prefix_len, downstream->pid);
+
+        gnrc_util_conf_prefix(downstream, &new_prefix, new_prefix_len,
+                              valid_ltime, pref_ltime);
+    }
+}
+
 static inline uint32_t _min(uint32_t a, uint32_t b)
 {
     return (a < b) ? a : b;
@@ -746,6 +802,9 @@ static void _handle_rtr_adv(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
                                               (ndp_opt_pi_t *)opt);
 #endif  /* CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C */
                 next_timeout = _min(next_timeout, min_pfx_timeout);
+
+                /* automatically configure subnets on downstream interfaces */
+                _configure_subnets(netif, (ndp_opt_pi_t *)opt);
                 break;
             }
             /* ABRO was already secured in the option check above */
@@ -1490,68 +1549,6 @@ static inline bool _multihop_p6c(gnrc_netif_t *netif, _nib_abr_entry_t *abr)
 #define _multihop_p6c(netif, abr)   (false)
 #endif  /* CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C */
 
-static void _configure_subnets(gnrc_netif_t *upstream, const ipv6_addr_t *pfx,
-                               uint8_t pfx_len, uint8_t flags,
-                               uint32_t valid_ltime, uint32_t pref_ltime)
-{
-    if (!IS_USED(MODULE_GNRC_IPV6_NIB_SUBNETS)) {
-        return;
-    }
-
-    unsigned subnets = gnrc_netif_numof() - 1;
-    gnrc_netif_t *downstream = NULL;
-    uint8_t new_pfx_len;
-
-    /* Disable router advertisements on upstream interface. With this, the router
-     * does not confuse the upstream router to add the border router to its default
-     * router list.
-     */
-    gnrc_ipv6_nib_change_rtr_adv_iface(upstream, false);
-
-    if (subnets == 0) {
-        return;
-    }
-
-    new_pfx_len = pfx_len + 32 - __builtin_clz(subnets);
-
-    if (new_pfx_len > 64) {
-        DEBUG("nib: can't split /%u into %u subnets\n", pfx_len, subnets);
-        return;
-    }
-
-    while ((downstream = gnrc_netif_iter(downstream))) {
-        ipv6_addr_t new_pfx;
-
-        if (downstream == upstream) {
-            continue;
-        }
-
-        /* create subnet by adding interface index */
-        new_pfx.u64[0].u64 = byteorder_ntohll(pfx->u64[0]);
-        new_pfx.u64[0].u64 |= (uint64_t)subnets-- << (63 - pfx_len);
-        new_pfx.u64[0] = byteorder_htonll(new_pfx.u64[0].u64);
-
-        DEBUG("nib: configure prefix %s/%u on %u\n",
-              ipv6_addr_to_str(addr_str, &new_pfx, sizeof(addr_str)),
-              new_pfx_len, downstream->pid);
-
-        if (flags & NDP_OPT_PI_FLAGS_A) {
-            _auto_configure_addr(downstream, &new_pfx, new_pfx_len);
-        }
-
-        if (flags & NDP_OPT_PI_FLAGS_L) {
-            _nib_offl_entry_t *offl;
-            if ((offl = _nib_pl_add(downstream->pid, &new_pfx, new_pfx_len,
-                               valid_ltime, pref_ltime))) {
-                offl->flags |= _PFX_ON_LINK;
-                if (flags & NDP_OPT_PI_FLAGS_A) {
-                    offl->flags |= _PFX_SLAAC;
-                }
-            }
-        }
-    }
-}
-
 #if IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C)
 static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
                             const ndp_opt_pi_t *pio, _nib_abr_entry_t *abr)
@@ -1627,9 +1624,6 @@ static uint32_t _handle_pio(gnrc_netif_t *netif, const icmpv6_hdr_t *icmpv6,
         }
     }
 
-    /* automatically configure subnets on downstream interfaces */
-    _configure_subnets(netif, &pio->prefix, pio->prefix_len,
-                       pio->flags, valid_ltime, pref_ltime);
     return timeout;
 }
 
