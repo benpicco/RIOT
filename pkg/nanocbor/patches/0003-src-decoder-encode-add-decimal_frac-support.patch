@@ -1,0 +1,160 @@
+From fe1e8fe0e7d28b6bd5b5e95bf37ac46a0da91556 Mon Sep 17 00:00:00 2001
+From: Francisco Molina <femolina@uc.cl>
+Date: Wed, 21 Apr 2021 20:22:00 +0200
+Subject: [PATCH 3/6] src/decoder-encode: add decimal_frac support
+
+---
+ include/nanocbor/nanocbor.h    |  28 ++++++++++++++++++++++++++++
+ src/decoder.c                  |  23 +++++++++++++++++++++++
+ src/encoder.c                  |   9 +++++++++
+ tests/automated/test_decoder.c |   8 ++++++++
+ tests/encode/main.c            |   1 +
+ tests/encode/out.txt           | Bin 0 -> 300 bytes
+ 6 files changed, 69 insertions(+)
+ create mode 100644 tests/encode/out.txt
+
+diff --git a/include/nanocbor/nanocbor.h b/include/nanocbor/nanocbor.h
+index af994a8..016d2c5 100644
+--- a/include/nanocbor/nanocbor.h
++++ b/include/nanocbor/nanocbor.h
+@@ -294,6 +294,23 @@ int nanocbor_get_int16(nanocbor_value_t *cvalue, int16_t *value);
+  */
+ int nanocbor_get_int32(nanocbor_value_t *cvalue, int32_t *value);
+ 
++/**
++ * @brief Retrieve a decimal fraction from the stream as a int32_t mantisa and
++ *        int32_t exponent
++ *
++ * If the value at `cvalue` is greater than 32 bit, error is returned.
++ *
++ * The resulting @p value is undefined if the result is an error condition
++ *
++ * @param[in]   cvalue  CBOR value to decode from
++ * @param[out]  m       returned mantisa
++ * @param[out]  e       returned exponent
++ *
++ * @return              NANOCBOR_OK on success
++ * @return              negative on error
++ */
++int nanocbor_get_decimal_frac(nanocbor_value_t *cvalue, int32_t *e, int32_t *m);
++
+ /**
+  * @brief Retrieve a byte string from the stream
+  *
+@@ -712,6 +729,17 @@ int nanocbor_fmt_float(nanocbor_encoder_t *enc, float num);
+  */
+ int nanocbor_fmt_double(nanocbor_encoder_t *enc, double num);
+ 
++/**
++ * @brief Write a decimal fraction into the encoder buffer
++ *
++ * @param[in]   enc     Encoder context
++ * @param[in]   m       Mantisa
++ * @param[in]   e       Exponent
++ *
++ * @return              Number of bytes written
++ */
++int nanocbor_fmt_decimal_frac(nanocbor_encoder_t *enc, int32_t e, int32_t m);
++
+ /** @} */
+ 
+ #ifdef __cplusplus
+diff --git a/src/decoder.c b/src/decoder.c
+index a1ad65b..6e30fd1 100644
+--- a/src/decoder.c
++++ b/src/decoder.c
+@@ -239,6 +239,29 @@ int nanocbor_get_tag(nanocbor_value_t *cvalue, uint32_t *tag)
+     return res;
+ }
+ 
++int nanocbor_get_decimal_frac(nanocbor_value_t *cvalue, int32_t *e, int32_t *m)
++{
++    int res = NANOCBOR_NOT_FOUND;
++    uint32_t tag = UINT32_MAX;
++    if(nanocbor_get_tag(cvalue, &tag) == NANOCBOR_OK) {
++        if (tag == NANOCBOR_TAG_DEC_FRAC) {
++            nanocbor_value_t arr;
++            if (nanocbor_enter_array(cvalue, &arr) == NANOCBOR_OK) {
++                res = nanocbor_get_int32(&arr, e);
++                if (res >= 0) {
++                    res = nanocbor_get_int32(&arr, m);
++                    if (res >= 0) {
++                        res = NANOCBOR_OK;
++                    }
++                }
++                nanocbor_leave_container(cvalue, &arr);
++            }
++        }
++    }
++
++    return res;
++}
++
+ static int _get_str(nanocbor_value_t *cvalue, const uint8_t **buf, size_t *len, uint8_t type)
+ {
+     *len = 0;
+diff --git a/src/encoder.c b/src/encoder.c
+index 3b5abc5..6d954e1 100644
+--- a/src/encoder.c
++++ b/src/encoder.c
+@@ -346,3 +346,12 @@ int nanocbor_fmt_double(nanocbor_encoder_t *enc, double num)
+     }
+     return res;
+ }
++
++int nanocbor_fmt_decimal_frac(nanocbor_encoder_t *enc, int32_t e, int32_t m)
++{
++    int res =  nanocbor_fmt_tag(enc, NANOCBOR_TAG_DEC_FRAC);
++    res += nanocbor_fmt_array(enc, 2);
++    res += nanocbor_fmt_int(enc, e);
++    res += nanocbor_fmt_int(enc, m);
++    return res;
++}
+diff --git a/tests/automated/test_decoder.c b/tests/automated/test_decoder.c
+index 8ca5290..0382567 100644
+--- a/tests/automated/test_decoder.c
++++ b/tests/automated/test_decoder.c
+@@ -139,6 +139,14 @@ static void test_decode_basic(void)
+     nanocbor_decoder_init(&decoder, &byteval, sizeof(byteval));
+     CU_ASSERT_EQUAL(nanocbor_get_int32(&decoder, &intval), 1);
+     CU_ASSERT_EQUAL(5, intval);
++
++    const uint8_t decimal_frac[] = { 0xC4, 0x82, 0x21, 0x19, 0x6a, 0xb3 };
++    int32_t m;
++    int32_t e;
++    nanocbor_decoder_init(&decoder, decimal_frac, sizeof(decimal_frac));
++    CU_ASSERT_EQUAL(nanocbor_get_decimal_frac(&decoder, &e, &m), 0);
++    CU_ASSERT_EQUAL(e, -2);
++    CU_ASSERT_EQUAL(m, 27315);
+ }
+ 
+ const test_t tests_decoder[] = {
+diff --git a/tests/encode/main.c b/tests/encode/main.c
+index 5f13902..767f7c4 100644
+--- a/tests/encode/main.c
++++ b/tests/encode/main.c
+@@ -27,6 +27,7 @@ static void _encode(nanocbor_encoder_t *enc)
+     nanocbor_fmt_float(enc, 0.34);
+     nanocbor_put_bstr(enc, (uint8_t*)"bytez", sizeof("bytez"));
+     nanocbor_fmt_null(enc);
++    nanocbor_fmt_decimal_frac(enc, -2, 27315);
+     nanocbor_fmt_end_indefinite(enc);
+ }
+ 
+diff --git a/tests/encode/out.txt b/tests/encode/out.txt
+new file mode 100644
+index 0000000000000000000000000000000000000000..15a5d744f8fd1c5bebfbd10f92181aba200bf762
+GIT binary patch
+literal 300
+zcmYk0F-`+96hukK0VoJ4=pDgcd+jv^C8wbAE_M<r3R1EZ2?Y`tp@5oGa3cZ*1>u`0
+zz}M(&{%B_OLnhZ`i;iUBdzgsda}lFOHE2P?$i7AglrBNDBL-jNEv~@@yrEM6i2gY{
+zT*f7wFQ<6K@2g_li8*2tF`-3ou?|<^rA=z3JfalY(OH@b-Tr<1`*tA`57Zse6vN~D
+z=42~#elP3!@c6754F{Vrc)RT<(<Oq)>}Eb@*)OK^@#n?M(cNXc>eKq*<MrXRL}k8)
+HS5Mn-F@IW=
+
+literal 0
+HcmV?d00001
+
+-- 
+2.25.1
+

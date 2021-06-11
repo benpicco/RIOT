@@ -1,0 +1,26 @@
+From 736c519b5bbeb7484285f4472f6d9c13f7647b16 Mon Sep 17 00:00:00 2001
+From: Francisco Molina <femolina@uc.cl>
+Date: Thu, 22 Apr 2021 12:15:36 +0200
+Subject: [PATCH 5/6] include/nanocbor: fix nanocbor_get_tag ret value
+
+---
+ include/nanocbor/nanocbor.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/include/nanocbor/nanocbor.h b/include/nanocbor/nanocbor.h
+index b9a87f7..bc6cd7e 100644
+--- a/include/nanocbor/nanocbor.h
++++ b/include/nanocbor/nanocbor.h
+@@ -412,8 +412,7 @@ void nanocbor_leave_container(nanocbor_value_t *it, nanocbor_value_t *container)
+  * @param[in]   cvalue  CBOR value to decode from
+  * @param[out]  tag     returned tag as positive integer
+  *
+- * @return              number of bytes read
+- * @return              negative on error
++ * @return              NANOCBOR_OK on success
+  */
+ int nanocbor_get_tag(nanocbor_value_t *cvalue, uint32_t *tag);
+ 
+-- 
+2.25.1
+

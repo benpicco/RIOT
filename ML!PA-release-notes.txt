@@ -8,3 +8,4 @@ RIOT-2021.07-mlpa-0 - Merge Notes
  - cherry-pick aa0d1d3c5172cf68264d82277234598aa2bbe0eb (enable nib.c debug hack)
  - merged benpicco/cpu/sam0_common/flashpage_irq_disable
  - merged benpicco/driver/lis2dh12-cleanup
+ - added patches for nanocbor
