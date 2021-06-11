@@ -1,4 +1,4 @@
-RIOT-2021.07-mlpa-0 - Merge Notes
+RIOT-2021.07-mlpa-1 - Merge Notes
 ==========================
 
  - based on 2021.07-devel-200-g36b05b20c6
@@ -9,3 +9,5 @@ RIOT-2021.07-mlpa-0 - Merge Notes
  - merged benpicco/cpu/sam0_common/flashpage_irq_disable
  - merged benpicco/driver/lis2dh12-cleanup
  - added patches for nanocbor
+ - cherry-pick f2953b602fc8ec29435f8a4b197cdb6a6764ac0d (pull request #16347 from benpicco/drivers/rtt_rtc-rtc_get_time_ms)
+ - changes in coap need by the time synch application made by mariem, need to be discussed, found in  sys/net/gcoap.c

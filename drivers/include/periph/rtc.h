@@ -208,6 +208,26 @@ void rtc_localtime(uint32_t time, struct tm *t);
  */
 bool rtc_tm_valid(const struct tm *t);
 
+/**
+ * @brief set time im seconds and mocroseconds.
+ *
+ * @param[in] s      The number of seconds.
+ * @param[in] us      The number of micro seconds.
+ *
+ * @return            true
+ */
+int rtc_settimeofday(uint32_t s, uint32_t us);
+
+/**
+ * @brief get time im seconds and mocroseconds.
+ *
+ * @param[out] s      The number of seconds.
+ * @param[out] us      The number of micro seconds.
+ *
+ * @return            true
+ */
+int rtc_gettimeofday(uint32_t *s, uint32_t *us);
+
 #ifdef __cplusplus
 }
 #endif
