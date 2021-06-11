@@ -35,6 +35,23 @@ DEVELHELP ?= 1
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+# Enables DTLS-secured CoAP messaging
+GCOAP_ENABLE_DTLS ?= 1
+ifeq (1,$(GCOAP_ENABLE_DTLS))
+	# Required by DTLS. Currently, only tinyDTLS is supported by sock_dtls.
+	USEPKG += tinydtls
+	USEMODULE += tinydtls_sock_dtls
+	USEMODULE += gcoap_dtls
+	# tinydtls needs crypto secure PRNG
+	USEMODULE += prng_sha1prng
+
+	CFLAGS += -DCONFIG_GCOAP_ENABLE_DTLS=1
+	# Maximum number of DTLS sessions
+	CFLAGS += -DDTLS_PEER_MAX=1
+	# increase main stack
+	CFLAGS += -DTHREAD_STACKSIZE_MAIN=2*THREAD_STACKSIZE_DEFAULT
+endif
+
 include $(RIOTBASE)/Makefile.include
 
 # For now this goes after the inclusion of Makefile.include so Kconfig symbols
