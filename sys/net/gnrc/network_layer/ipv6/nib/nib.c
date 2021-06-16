@@ -594,6 +594,7 @@ static void _configure_subnets(gnrc_netif_t *upstream, const ndp_opt_pi_t *pio)
     }
 
     gnrc_netif_t *downstream = NULL;
+    gnrc_pktsnip_t *ext_opts = NULL;
     const ipv6_addr_t *prefix = &pio->prefix;
     uint32_t valid_ltime = byteorder_ntohl(pio->valid_ltime);
     uint32_t pref_ltime = byteorder_ntohl(pio->pref_ltime);
@@ -639,7 +640,38 @@ static void _configure_subnets(gnrc_netif_t *upstream, const ndp_opt_pi_t *pio)
 
         gnrc_util_conf_prefix(downstream, &new_prefix, new_prefix_len,
                               valid_ltime, pref_ltime);
+
+        /* add route information option with new subnet */
+        ext_opts = gnrc_ndp_opt_ri_build(&new_prefix, new_prefix_len, valid_ltime,
+                   NDP_OPT_RI_FLAGS_PRF_NONE, ext_opts);
+        if (ext_opts == NULL) {
+            DEBUG("nib: No space left in packet buffer. Not adding RIO\n");
+        }
     }
+
+    /* find source address */
+    const ipv6_addr_t *tgt = NULL;
+    for (unsigned i = 0; i < CONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF; i++) {
+        if (upstream->ipv6.addrs_flags[i] != GNRC_NETIF_IPV6_ADDRS_FLAGS_STATE_VALID) {
+            continue;
+        }
+        if (ipv6_addr_is_multicast(&upstream->ipv6.addrs[i])) {
+            continue;
+        }
+        if (tgt == NULL || ipv6_addr_is_link_local(&upstream->ipv6.addrs[i])) {
+            tgt = &upstream->ipv6.addrs[i];
+        }
+    }
+
+    if (tgt == NULL) {
+        DEBUG("nib: can't find source address for neighbor advertisement on %u\n",
+              upstream->pid);
+        gnrc_pktbuf_release(ext_opts);
+        return;
+    }
+
+    /* inform upstream about new downstream routes */
+    gnrc_ndp_nbr_adv_send(tgt, upstream, &ipv6_addr_unspecified, false, ext_opts);
 }
 
 static inline uint32_t _min(uint32_t a, uint32_t b)
