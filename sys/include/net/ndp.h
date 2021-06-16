@@ -109,10 +109,10 @@ extern "C" {
  * @name    Flags for route information option
  */
 #define NDP_OPT_RI_FLAGS_MASK       (0x18)
-#define NDP_OPT_PI_FLAGS_PRF_NONE   (0x10)  /**< ignore preference */
-#define NDP_OPT_PI_FLAGS_PRF_NEG    (0x18)  /**< negative preference */
-#define NDP_OPT_PI_FLAGS_PRF_ZERO   (0x0)   /**< zero preference */
-#define NDP_OPT_PI_FLAGS_PRF_POS    (0x8)   /**< positive preference */
+#define NDP_OPT_RI_FLAGS_PRF_NONE   (0x10)  /**< ignore preference */
+#define NDP_OPT_RI_FLAGS_PRF_NEG    (0x18)  /**< negative preference */
+#define NDP_OPT_RI_FLAGS_PRF_ZERO   (0x0)   /**< zero preference */
+#define NDP_OPT_RI_FLAGS_PRF_POS    (0x8)   /**< positive preference */
 /** @} */
 
 /**
