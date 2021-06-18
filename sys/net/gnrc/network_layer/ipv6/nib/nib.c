@@ -1082,7 +1082,7 @@ static void _handle_nbr_sol(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
     }
 #endif  /* CONFIG_GNRC_IPV6_NIB_SLAAC */
     if (ipv6_addr_is_unspecified(&ipv6->src)) {
-        gnrc_ndp_nbr_adv_send(&nbr_sol->tgt, tgt_netif, &ipv6->src, false, NULL);
+        gnrc_ndp_nbr_adv_send(&nbr_sol->tgt, netif, &ipv6->src, false, NULL);
     }
     else {
         gnrc_pktsnip_t *reply_aro = NULL;
@@ -1128,10 +1128,10 @@ static void _handle_nbr_sol(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
         reply_aro = _copy_and_handle_aro(netif, ipv6, nbr_sol, aro, sl2ao);
         /* check if target address is anycast */
         if (netif->ipv6.addrs_flags[tgt_idx] & GNRC_NETIF_IPV6_ADDRS_FLAGS_ANYCAST) {
-            _send_delayed_nbr_adv(tgt_netif, &nbr_sol->tgt, ipv6, reply_aro);
+            _send_delayed_nbr_adv(netif, &nbr_sol->tgt, ipv6, reply_aro);
         }
         else {
-            gnrc_ndp_nbr_adv_send(&nbr_sol->tgt, tgt_netif, &ipv6->src,
+            gnrc_ndp_nbr_adv_send(&nbr_sol->tgt, netif, &ipv6->src,
                                   ipv6_addr_is_multicast(&ipv6->dst),
                                   reply_aro);
         }
