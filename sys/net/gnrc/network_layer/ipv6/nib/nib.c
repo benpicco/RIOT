@@ -641,6 +641,9 @@ static void _configure_subnets(gnrc_netif_t *upstream, const ndp_opt_pi_t *pio)
         gnrc_util_conf_prefix(downstream, &new_prefix, new_prefix_len,
                               valid_ltime, pref_ltime);
 
+        /* start advertising subnet */
+        gnrc_ipv6_nib_change_rtr_adv_iface(downstream, true);
+
         /* add route information option with new subnet */
         ext_opts = gnrc_ndp_opt_ri_build(&new_prefix, new_prefix_len, valid_ltime,
                    NDP_OPT_RI_FLAGS_PRF_NONE, ext_opts);
