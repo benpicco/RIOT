@@ -37,6 +37,9 @@ USEMODULE += netstats_rpl
 # USEMODULE += sock_dns              # include DNS client
 # USEMODULE += gnrc_ipv6_nib_dns     # include RDNSS option handling
 
+# Enable handling of the Route Information Option
+USEMODULE += gnrc_ipv6_nib_rio
+
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:
