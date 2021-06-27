@@ -37,14 +37,21 @@ else ifeq (1, $(SLIP))
   CFLAGS += -DCONFIG_GNRC_DHCPV6_CLIENT_6LBR_UPSTREAM=5
 else
   USEMODULE += ethos
-  CFLAGS += -DCONFIG_GNRC_DHCPV6_CLIENT_6LBR_UPSTREAM=7
+  CFLAGS += -DCONFIG_GNRC_DHCPV6_CLIENT_6LBR_UPSTREAM=6
 endif
 
 CFLAGS += -DSLIPDEV_PARAM_UART=UART_DEV\(1\)
 CFLAGS += -DETHOS_UART=UART_DEV\(1\)
 CFLAGS += -DETHOS_BAUDRATE=115200
-CFLAGS += -DNETDEV_TAP_MAX=2
 
+# leaf nodes only have a single interface
+ifeq (1, $(LEAF))
+  APPLICATION := $(APPLICATION)_leaf
+else
+  CFLAGS += -DNETDEV_TAP_MAX=2
+endif
+
+# gateway gets prefix via DHCPv6
 ifeq (1, $(GATEWAY))
   APPLICATION := $(APPLICATION)_gateway
 
@@ -53,7 +60,6 @@ ifeq (1, $(GATEWAY))
 else
   USEMODULE += gnrc_ipv6_nib_subnets
 endif
-
 
 # Optionally include DNS support. This includes resolution of names at an
 # upstream DNS server and the handling of RDNSS options in Router Advertisements
