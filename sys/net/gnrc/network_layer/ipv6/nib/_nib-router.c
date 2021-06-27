@@ -235,7 +235,7 @@ static gnrc_pktsnip_t *_build_final_ext_opts(gnrc_netif_t *netif)
                                                           entry->valid_until,
                                                           NDP_OPT_RI_FLAGS_PRF_NONE,
                                                           ext_opts);
-            if (snip == NULL) {
+            if (snip != NULL) {
                 ext_opts = snip;
             } else {
                 DEBUG_PUTS("nib: can't add RIO to RA - out of memory");
