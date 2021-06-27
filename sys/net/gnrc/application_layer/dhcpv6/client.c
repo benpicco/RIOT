@@ -84,6 +84,17 @@ void dhcpv6_client_conf_prefix(unsigned iface, const ipv6_addr_t *pfx,
 {
     gnrc_netif_t *netif = gnrc_netif_get_by_pid(iface);
     gnrc_util_conf_prefix(netif, pfx, pfx_len, valid, pref);
+
+    /* start advertising subnet */
+    gnrc_ipv6_nib_change_rtr_adv_iface(netif, true);
+}
+
+void dhcpv6_client_conf_done(unsigned iface)
+{
+    gnrc_netif_t *netif = gnrc_netif_get_by_pid(iface);
+
+    /* inform upstream about subnets */
+    gnrc_ipv6_nib_change_rtr_adv_iface(netif, false);
 }
 
 uint32_t dhcpv6_client_prefix_valid_until(unsigned netif,
