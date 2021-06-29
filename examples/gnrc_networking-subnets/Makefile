@@ -12,7 +12,6 @@ USEMODULE += auto_init_gnrc_netif
 # Activate ICMPv6 error messages
 USEMODULE += gnrc_icmpv6_error
 # Specify the mandatory networking modules for IPv6 and UDP
-USEMODULE += gnrc_ipv6_router_default
 USEMODULE += gnrc_udp
 # This application dumps received packets to STDIO using the pktdump module
 USEMODULE += gnrc_pktdump
@@ -47,7 +46,9 @@ CFLAGS += -DETHOS_BAUDRATE=115200
 # leaf nodes only have a single interface
 ifeq (1, $(LEAF))
   APPLICATION := $(APPLICATION)_leaf
+  USEMODULE += gnrc_ipv6_default
 else
+  USEMODULE += gnrc_ipv6_router_default
   CFLAGS += -DNETDEV_TAP_MAX=2
 endif
 
@@ -57,7 +58,7 @@ ifeq (1, $(GATEWAY))
 
   USEMODULE += gnrc_netdev_default
   USEMODULE += gnrc_dhcpv6_client_simple_pd
-else
+else ifneq (1, $(LEAF))
   USEMODULE += gnrc_ipv6_nib_subnets
 endif
 
