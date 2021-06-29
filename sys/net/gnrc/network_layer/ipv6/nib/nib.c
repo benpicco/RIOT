@@ -666,11 +666,8 @@ static void _configure_subnets(gnrc_netif_t *upstream, const ndp_opt_pi_t *pio)
         }
     }
 
-    /* Disable router advertisements on upstream interface. With this, the router
-     * does not confuse the upstream router to add the border router to its default
-     * router list.
-     */
-    gnrc_ipv6_nib_change_rtr_adv_iface(upstream, false);
+    /* inform upstream hosts about the subnet(s) that we now manage */
+    gnrc_ipv6_nib_change_rtr_adv_rio_iface(upstream, true);
 }
 
 static inline uint32_t _min(uint32_t a, uint32_t b)
