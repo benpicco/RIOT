@@ -189,6 +189,17 @@ static gnrc_pktsnip_t *_build_ext_opts(gnrc_netif_t *netif,
             if ((ext_opts = _offl_to_pio(pfx, ext_opts)) == NULL) {
                 return NULL;
             }
+        } else if ((netif->flags & GNRC_NETIF_FLAGS_IPV6_RTR_ADV_RIO) &&
+                   (pfx->flags & _PFX_ON_LINK)) {
+                DEBUG("nib: adding downstream subnet as RIO\n");
+                if (ext_opts = gnrc_ndp_opt_ri_build(&pfx->pfx,
+                                                     pfx->pfx_len,
+                                                     pfx->valid_until,
+                                                     NDP_OPT_RI_FLAGS_PRF_NONE,
+                                                     ext_opts)) == NULL) {
+                    return NULL;
+                }
+            }
         }
     }
     ltime = (gnrc_netif_is_6lbr(netif)) ?
@@ -205,45 +216,26 @@ static gnrc_pktsnip_t *_build_ext_opts(gnrc_netif_t *netif,
 #else   /* CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C */
     (void)abr;
     while ((pfx = _nib_offl_iter(pfx))) {
-        if ((pfx->mode & _PL) && (_nib_onl_get_if(pfx->next_hop) == id)) {
+        if (!(pfx->mode & _PL)) {
+            continue;
+        }
+        if (_nib_onl_get_if(pfx->next_hop) == id) {
             if ((ext_opts = _offl_to_pio(pfx, ext_opts)) == NULL) {
+                return NULL;
+            }
+        } else if ((netif->flags & GNRC_NETIF_FLAGS_IPV6_RTR_ADV_RIO) &&
+                   (pfx->flags & _PFX_ON_LINK)) {
+            DEBUG("nib: adding downstream subnet as RIO\n");
+            if ((ext_opts = gnrc_ndp_opt_ri_build(&pfx->pfx,
+                                                  pfx->pfx_len,
+                                                  pfx->valid_until,
+                                                  NDP_OPT_RI_FLAGS_PRF_NONE,
+                                                  ext_opts)) == NULL) {
                 return NULL;
             }
         }
     }
 #endif  /* CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C */
-    return ext_opts;
-}
-
-static gnrc_pktsnip_t *_build_final_ext_opts(gnrc_netif_t *netif)
-{
-    gnrc_pktsnip_t *ext_opts = NULL;
-    _nib_offl_entry_t *entry = NULL;
-
-    DEBUG("nib: sending final RA on interface %u\n", netif->pid);
-    while ((entry = _nib_offl_iter(entry))) {
-
-        unsigned id = netif->pid;
-        if (_nib_onl_get_if(entry->next_hop) == id) {
-            continue;
-        }
-
-        if ((entry->mode & _PL) && (entry->flags & _PFX_ON_LINK)) {
-            DEBUG("nib: adding downstream subnet to RA\n");
-            gnrc_pktsnip_t *snip  = gnrc_ndp_opt_ri_build(&entry->pfx,
-                                                          entry->pfx_len,
-                                                          entry->valid_until,
-                                                          NDP_OPT_RI_FLAGS_PRF_NONE,
-                                                          ext_opts);
-            if (snip != NULL) {
-                ext_opts = snip;
-            } else {
-                DEBUG_PUTS("nib: can't add RIO to RA - out of memory");
-                break;
-            }
-        }
-    }
-
     return ext_opts;
 }
 
@@ -260,9 +252,7 @@ static void _snd_ra(gnrc_netif_t *netif, const ipv6_addr_t *dst,
 {
     gnrc_pktsnip_t *ext_opts = NULL;
 
-    if (final) {
-        ext_opts = _build_final_ext_opts(netif);
-    } else {
+    if (!final) {
         ext_opts = _build_ext_opts(netif, abr);
     }
 

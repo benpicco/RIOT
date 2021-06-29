@@ -453,6 +453,20 @@ void gnrc_ipv6_nib_change_rtr_adv_iface(gnrc_netif_t *netif, bool enable)
     }
     gnrc_netif_release(netif);
 }
+
+void gnrc_ipv6_nib_change_rtr_adv_rio_iface(gnrc_netif_t *netif, bool enable)
+{
+    gnrc_netif_acquire(netif);
+    if (enable) {
+        netif->flags |= GNRC_NETIF_FLAGS_IPV6_RTR_ADV_RIO;
+    }
+    else {
+        netif->flags &= ~GNRC_NETIF_FLAGS_IPV6_RTR_ADV_RIO;
+    }
+    gnrc_netif_release(netif);
+
+    gnrc_ipv6_nib_change_rtr_adv_iface(netif, enable);
+}
 #endif  /* CONFIG_GNRC_IPV6_NIB_ROUTER */
 
 /*

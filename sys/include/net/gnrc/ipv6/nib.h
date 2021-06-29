@@ -391,11 +391,28 @@ void gnrc_ipv6_nib_handle_timer_event(void *ctx, uint16_t type);
  *                      router.
  */
 void gnrc_ipv6_nib_change_rtr_adv_iface(gnrc_netif_t *netif, bool enable);
+
+/**
+ * @brief   Changes the state if an interface advertises itself as a router
+ *          with downstream networks on other interfaces
+ *
+ * @param[in] netif     The interface for which the state should be changed.
+ * @param[in] enable    `true`, to enable advertising the interface as a router
+ *                      with additional downstream routes.
+ *                      `false`, to disable advertising the interface as a
+ *                      router.
+ */
+void gnrc_ipv6_nib_change_rtr_adv_rio_iface(gnrc_netif_t *netif, bool enable);
 #else
 /**
  * @brief   Optimization to NOP for non-routers
  */
 #define gnrc_ipv6_nib_change_rtr_adv_iface(netif, enable) \
+    (void)netif; (void)enable
+/**
+ * @brief   Optimization to NOP for non-routers
+ */
+#define gnrc_ipv6_nib_change_rtr_adv_rio_iface(netif, enable) \
     (void)netif; (void)enable
 #endif
 

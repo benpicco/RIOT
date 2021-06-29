@@ -136,6 +136,12 @@ enum {
 #define GNRC_NETIF_FLAGS_6LO                       (0x00002000U)
 
 /**
+ * @brief   Include Route Information Option about other networks managed by
+ *          this router Router Advertisements.
+ */
+#define GNRC_NETIF_FLAGS_IPV6_RTR_ADV_RIO          (0x00004000U)
+
+/**
  * @brief   Network interface is configured in raw mode
  */
 #define GNRC_NETIF_FLAGS_RAWMODE                   (0x00010000U)
