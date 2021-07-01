@@ -17,6 +17,7 @@
 #include "embUnit.h"
 #include "periph/rtc.h"
 #include "periph/rtt.h"
+#include "timex.h"
 
 void rtt_add_ticks(uint64_t ticks);
 
@@ -206,7 +207,7 @@ static void test_set_alarm_set_time(void)
 static void test_rtc_settimeofday(void)
 {
 	uint32_t s = 10, sec;
-	uint32_t us = 0, micro_sec;
+	uint32_t us = US_PER_SEC / 8, micro_sec;
 
 	rtc_settimeofday(s, us);
 	rtc_gettimeofday(&sec, &micro_sec);
@@ -219,8 +220,8 @@ static void test_rtc_settimeofday(void)
 	rtc_gettimeofday(&sec, &micro_sec);
 	TEST_ASSERT_EQUAL_INT(s, sec);
 
-	rtt_add_ticks(0.000001 * RTT_FREQUENCY);
-	us = 0.000001 * RTT_FREQUENCY;
+	rtt_add_ticks(RTT_FREQUENCY / 4);
+	us += US_PER_SEC / 4;
 	rtc_gettimeofday(&sec, &micro_sec);
 	TEST_ASSERT_EQUAL_INT(s, sec);
 	TEST_ASSERT_EQUAL_INT(us, micro_sec);
