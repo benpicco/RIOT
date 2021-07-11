@@ -57,12 +57,41 @@ extern "C" {
 #define SX126X_PARAM_REGULATOR              SX126X_REG_MODE_DCDC
 #endif
 
-#define SX126X_PARAMS             { .spi = SX126X_PARAM_SPI,      \
-                                    .nss_pin = SX126X_PARAM_SPI_NSS,  \
+#ifndef SX126X_PARAM_SET_RF_MODE_CB
+#define SX126X_PARAM_SET_RF_MODE_CB         NULL
+#endif
+
+#ifndef SX126X_PARAM_TYPE
+#    if IS_USED(MODULE_SX1261)
+#        define SX126X_PARAM_TYPE SX126X_TYPE_SX1261
+#    elif IS_USED(MODULE_SX1262)
+#        define SX126X_PARAM_TYPE SX126X_TYPE_SX1262
+#    elif IS_USED(MODULE_SX1268)
+#        define SX126X_PARAM_TYPE SX126X_TYPE_SX1268
+#    elif IS_USED(MODULE_LLCC68)
+#        define SX126X_PARAM_TYPE SX126X_TYPE_LLCC68
+#    elif IS_USED(MODULE_SX126X_STM32WL)
+#        define SX126X_PARAM_TYPE SX126X_TYPE_STM32WL
+#    else
+#        error "You should select at least one of the SX126x variants."
+#    endif
+#endif
+
+#if IS_USED(MODULE_SX126X_RF_SWITCH)
+#define SX126X_SET_RF_MODE  .set_rf_mode = SX126X_PARAM_SET_RF_MODE_CB
+#else
+#define SX126X_SET_RF_MODE
+#endif
+
+#define SX126X_PARAMS             { .spi = SX126X_PARAM_SPI,            \
+                                    .nss_pin = SX126X_PARAM_SPI_NSS,    \
                                     .reset_pin = SX126X_PARAM_RESET,    \
                                     .busy_pin = SX126X_PARAM_BUSY,      \
                                     .dio1_pin = SX126X_PARAM_DIO1,      \
-                                    .regulator = SX126X_PARAM_REGULATOR }
+                                    .type     = SX126X_PARAM_TYPE,      \
+                                    .regulator = SX126X_PARAM_REGULATOR, \
+                                    SX126X_SET_RF_MODE }
+
 /**@}*/
 
 /**

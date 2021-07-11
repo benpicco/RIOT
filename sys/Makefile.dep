@@ -6,8 +6,7 @@ ifneq (,$(filter arduino,$(USEMODULE)))
   FEATURES_REQUIRED += cpp
   FEATURES_REQUIRED += periph_gpio
   FEATURES_REQUIRED += periph_uart
-  SKETCH_MODULE ?= arduino_sketches
-  USEMODULE += $(SKETCH_MODULE)
+  USEMODULE += arduino_sketches
   USEMODULE += fmt
   USEMODULE += ztimer_usec
   USEMODULE += ztimer_msec
@@ -102,6 +101,9 @@ ifneq (,$(filter dhcpv6_client,$(USEMODULE)))
   USEMODULE += event
   USEMODULE += random
   USEMODULE += xtimer
+  ifneq (,$(filter sock_dns,$(USEMODULE)))
+    USEMODULE += dhcpv6_client_dns
+  endif
 endif
 
 ifneq (,$(filter fuzzing,$(USEMODULE)))
@@ -499,6 +501,15 @@ ifneq (,$(filter l2filter_%,$(USEMODULE)))
   USEMODULE += l2filter
 endif
 
+ifneq (,$(filter gcoap_dtls,$(USEMODULE)))
+  USEMODULE += gcoap
+  USEMODULE += dsm
+  USEMODULE += sock_async_event
+  USEMODULE += sock_dtls
+  USEMODULE += event_thread
+  USEMODULE += event_timeout
+endif
+
 ifneq (,$(filter gcoap,$(USEMODULE)))
   USEMODULE += nanocoap
   USEMODULE += sock_async_event
@@ -649,16 +660,6 @@ ifneq (,$(filter suit,$(USEMODULE)))
   ifeq (,$(filter libcose_crypt_%,$(USEMODULE)))
     USEMODULE += libcose_crypt_c25519
   endif
-
-  # tests/suit_manifest has some mock implementations,
-  # only add the non-mock dependencies if not building that test.
-  ifeq (,$(filter suit_transport_mock,$(USEMODULE)))
-    # SUIT depends on riotboot support and some extra riotboot modules
-    FEATURES_REQUIRED += riotboot
-    USEMODULE += riotboot_slot
-    USEMODULE += riotboot_flashwrite
-    USEMODULE += riotboot_flashwrite_verify_sha256
-  endif
 endif
 
 ifneq (,$(filter suit_transport_%, $(USEMODULE)))
@@ -671,6 +672,13 @@ endif
 
 ifneq (,$(filter suit_storage_%, $(USEMODULE)))
   USEMODULE += suit_storage
+endif
+
+ifneq (,$(filter suit_storage_flashwrite, $(USEMODULE)))
+  FEATURES_REQUIRED += riotboot
+  USEMODULE += riotboot_slot
+  USEMODULE += riotboot_flashwrite
+  USEMODULE += riotboot_flashwrite_verify_sha256
 endif
 
 ifneq (,$(filter suit_%,$(USEMODULE)))
