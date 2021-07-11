@@ -13,6 +13,10 @@
  * @author      Benjamin Valentin <benjamin.valentin@ml-pa.com>
  */
 
+#ifndef GNRC_NETIF_NUM_MAX
+#define GNRC_NETIF_NUM_MAX  (2)
+#endif
+
 #include "net/gnrc/netif.h"
 #ifdef MODULE_SOCK_DNS
 #include "net/sock/dns.h"
@@ -63,4 +67,59 @@ int gnrc_netif_parse_hostname(const char *hostname, ipv6_addr_t *addr,
 
     return 0;
 }
+
+#if IS_USED(MODULE_GNRC_NETIF_BUS)
+static void _subscribe(gnrc_netif_t *netif, msg_bus_entry_t *entry)
+{
+    msg_bus_t *bus = gnrc_netif_get_bus(netif, GNRC_NETIF_BUS_IPV6);
+
+    msg_bus_attach(bus, entry);
+    msg_bus_subscribe(entry, GNRC_IPV6_EVENT_ADDR_VALID);
+}
+
+static void _unsubscribe(gnrc_netif_t *netif, msg_bus_entry_t *entry)
+{
+    msg_bus_t *bus = gnrc_netif_get_bus(netif, GNRC_NETIF_BUS_IPV6);
+    msg_bus_detach(bus, entry);
+}
+
+int gnrc_netif_wait_for_prefix(gnrc_netif_t *netif, unsigned timeout_us)
+{
+    msg_bus_entry_t subs[GNRC_NETIF_NUM_MAX];
+    int res = 0;
+    msg_t m;
+
+    /* subscribe to all interfaces */
+    if (netif) {
+        _subscribe(netif, &subs[0]);
+    } else {
+        unsigned count = 0;
+        while ((netif = gnrc_netif_iter(netif)) && count < ARRAY_SIZE(subs)) {
+            _subscribe(netif, &subs[count++]);
+        }
+        netif = NULL;
+    }
+
+    /* wait for prefix */
+    do {
+        if (xtimer_msg_receive_timeout(&m, timeout_us) < 0) {
+            res = -ETIMEDOUT;
+            goto out;
+        }
+    } while (ipv6_addr_is_link_local(m.content.ptr));
+
+out:
+    /* unsubscribe from interface bus */
+    if (netif) {
+        _unsubscribe(netif, &subs[0]);
+    } else {
+        unsigned count = 0;
+        while ((netif = gnrc_netif_iter(netif)) && count < ARRAY_SIZE(subs)) {
+            _unsubscribe(netif, &subs[count++]);
+        }
+    }
+
+    return res;
+}
+#endif /* IS_USED(MODULE_GNRC_NETIF_BUS) */
 /** @} */

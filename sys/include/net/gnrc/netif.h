@@ -672,6 +672,22 @@ static inline msg_bus_t* gnrc_netif_get_bus(gnrc_netif_t *netif,
 int gnrc_netif_parse_hostname(const char *hostname, ipv6_addr_t *addr,
                               gnrc_netif_t **netif);
 
+#if IS_USED(MODULE_GNRC_NETIF_BUS) || DOXYGEN
+/**
+ * @brief   Wait for a global prefix to be available on one or any
+ *          interface. This usually implies a default route.
+ *
+ *          Requires the @ref gnrc_netif_bus module
+ *
+ * @param[in]   netif       Interface to observe, may be NULL to wait for
+ *                          any interface.
+ * @param[in]   timeout_us  Timeout in µs to wait for a global prefix
+ *
+ * @return  0 on success, error otherwise
+ */
+int gnrc_netif_wait_for_prefix(gnrc_netif_t *netif, unsigned timeout_us);
+#endif
+
 #ifdef __cplusplus
 }
 #endif
