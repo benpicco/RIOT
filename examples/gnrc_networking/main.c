@@ -23,6 +23,8 @@
 #include "shell.h"
 #include "msg.h"
 
+#include "net/gcoap_helper.h"
+
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
@@ -33,12 +35,47 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+static char coap_thread_stack[THREAD_STACKSIZE_DEFAULT];
+static void *coap_thread(void *ctx)
+{
+    (void)ctx;
+
+    if (gnrc_netif_wait_for_prefix(NULL, 5 * US_PER_SEC)) {
+        puts("got no prefix\n");
+        return NULL;
+    }
+
+    uint32_t delay_us = 100 * US_PER_MS;
+    while (true) {
+        char respone[64];
+        size_t len = sizeof(respone);
+        if (coap_get("fdea:dbee:f::1", "/time", false, respone, &len) > 0) {
+            puts(respone);
+
+            /* hack to control interval from CoAP sever */
+            if (len > strlen(respone)) {
+                memcpy(&delay_us, &respone[len-4], sizeof(delay_us));
+            }
+        } else {
+            puts("can't perform GET request");
+        }
+
+        xtimer_usleep(delay_us);
+    }
+
+    return NULL;
+}
+
 int main(void)
 {
     /* we need a message queue for the thread running the shell in order to
      * receive potentially fast incoming networking packets */
     msg_init_queue(_main_msg_queue, MAIN_QUEUE_SIZE);
     puts("RIOT network stack example application");
+
+    thread_create(coap_thread_stack, sizeof(coap_thread_stack),
+                  THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+                  coap_thread, NULL, "CoAP");
 
     /* start shell */
     puts("All up, running the shell now");

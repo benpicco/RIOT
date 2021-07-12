@@ -24,6 +24,9 @@ USEMODULE += ps
 USEMODULE += netstats_l2
 USEMODULE += netstats_ipv6
 
+USEMODULE += gcoap
+USEMODULE += gnrc_netif_bus
+
 CFLAGS += -DDEBUG_ASSERT_VERBOSE=1
 CFLAGS += -DCONFIG_GNRC_IPV6_NIB_NUMOF=16
 CFLAGS += -DCONFIG_GNRC_IPV6_NIB_ADV_ROUTER=0
@@ -42,6 +45,7 @@ endif
 CFLAGS += -DSLIPDEV_PARAM_UART=UART_DEV\(1\)
 CFLAGS += -DETHOS_UART=UART_DEV\(1\)
 CFLAGS += -DETHOS_BAUDRATE=115200
+
 
 # leaf nodes only have a single interface
 ifeq (1, $(LEAF))
