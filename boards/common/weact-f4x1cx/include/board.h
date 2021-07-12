@@ -28,6 +28,16 @@ extern "C" {
 #include "mtd.h"
 #include "periph_cpu.h"
 
+#define ETHOS_PARAMS            { .uart = UART_DEV(0),   \
+                                  .baudrate = 115200 }, \
+                                { .uart = UART_DEV(1),   \
+                                  .baudrate = 115200 }
+
+#define SLIPDEV_PARAMS          { .uart = UART_DEV(0),   \
+                                  .baudrate = SLIPDEV_PARAM_BAUDRATE }, \
+                                { .uart = UART_DEV(1),   \
+                                  .baudrate = SLIPDEV_PARAM_BAUDRATE }
+
 /**
  * @name    xtimer configuration
  * @{
