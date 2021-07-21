@@ -825,7 +825,7 @@ static void _send_delayed_nbr_adv(const gnrc_netif_t *netif,
     uint8_t reply_flags = NDP_NBR_ADV_FLAGS_S;
 
     nce = _nib_onl_get(tgt, netif->pid);
-    if ((nce == NULL) || !(nce->mode & _NC)) {
+    if (nce == NULL) {
         /* usually this should be the case, but when NCE is full, just
          * ignore the sending. Other nodes in this anycast group are
          * then preferred */
@@ -1116,8 +1116,7 @@ static void _handle_nbr_adv(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
         gnrc_netif_release(tgt_netif);
     }
 #endif  /* CONFIG_GNRC_IPV6_NIB_SLAAC */
-    if (((nce = _nib_onl_get(&nbr_adv->tgt, netif->pid)) != NULL) &&
-        (nce->mode & _NC)) {
+    if ((nce = _nib_onl_get(&nbr_adv->tgt, netif->pid)) != NULL) {
 #if IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_ARSM)
         bool tl2ao_avail = false;
 #endif  /* CONFIG_GNRC_IPV6_NIB_ARSM */
