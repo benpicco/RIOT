@@ -222,7 +222,7 @@ _nib_onl_entry_t *_nib_onl_get(const ipv6_addr_t *addr, unsigned iface)
     for (unsigned i = 0; i < CONFIG_GNRC_IPV6_NIB_NUMOF; i++) {
         _nib_onl_entry_t *node = &_nodes[i];
 
-        if ((node->mode != _EMPTY) &&
+        if ((node->mode != _NC) &&
             /* either requested or current interface undefined or
              * interfaces equal */
             ((_nib_onl_get_if(node) == 0) || (iface == 0) ||
