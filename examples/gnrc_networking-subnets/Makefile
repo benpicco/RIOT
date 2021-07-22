@@ -26,7 +26,6 @@ USEMODULE += netstats_ipv6
 
 CFLAGS += -DDEBUG_ASSERT_VERBOSE=1
 CFLAGS += -DCONFIG_GNRC_IPV6_NIB_NUMOF=16
-CFLAGS += -DCONFIG_GNRC_IPV6_NIB_ADV_ROUTER=0
 CFLAGS += -DCONFIG_GNRC_IPV6_NIB_RIO_IN_LAST_RA=1
 
 ifeq (native, $(BOARD))
@@ -60,6 +59,7 @@ ifeq (1, $(GATEWAY))
   USEMODULE += gnrc_netdev_default
   USEMODULE += gnrc_dhcpv6_client_simple_pd
 else ifneq (1, $(LEAF))
+  CFLAGS += -DCONFIG_GNRC_IPV6_NIB_ADV_ROUTER=0
   USEMODULE += gnrc_ipv6_nib_subnets
 endif
 
