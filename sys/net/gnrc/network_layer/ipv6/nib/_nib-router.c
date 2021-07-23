@@ -231,6 +231,8 @@ static gnrc_pktsnip_t *_build_final_ext_opts(gnrc_netif_t *netif)
     }
 
     DEBUG("nib: sending final RA on interface %u\n", netif->pid);
+
+    uint32_t now = evtimer_now_msec();
     while ((entry = _nib_offl_iter(entry))) {
 
         unsigned id = netif->pid;
@@ -240,9 +242,11 @@ static gnrc_pktsnip_t *_build_final_ext_opts(gnrc_netif_t *netif)
 
         if ((entry->mode & _PL) && (entry->flags & _PFX_ON_LINK)) {
             DEBUG("nib: adding downstream subnet to RA\n");
+            uint32_t valid_ltime = (entry->valid_until == UINT32_MAX) ? UINT32_MAX :
+                                   ((entry->valid_until - now) / MS_PER_SEC);
             gnrc_pktsnip_t *snip  = gnrc_ndp_opt_ri_build(&entry->pfx,
                                                           entry->pfx_len,
-                                                          entry->valid_until,
+                                                          valid_ltime,
                                                           NDP_OPT_RI_FLAGS_PRF_NONE,
                                                           ext_opts);
             if (snip != NULL) {
