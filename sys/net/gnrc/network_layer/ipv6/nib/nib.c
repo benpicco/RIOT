@@ -645,7 +645,7 @@ static void _configure_subnets(gnrc_netif_t *upstream, const ndp_opt_pi_t *pio)
      * 2. Includes Route Information Option in last router advertisement to
      *    inform upstream router about downstream subnets.
      */
-    gnrc_ipv6_nib_change_rtr_adv_iface(upstream, false);
+    _snd_rtr_advs(upstream, &ipv6_addr_all_nodes_link_local, true);
 }
 
 static inline uint32_t _min(uint32_t a, uint32_t b)
