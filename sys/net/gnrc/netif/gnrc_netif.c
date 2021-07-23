@@ -1019,7 +1019,7 @@ static int _create_candidate_set(const gnrc_netif_t *netif,
     /* currently this implementation supports only addresses as source address
      * candidates assigned to this interface. Thus we assume all addresses to be
      * on interface @p netif */
-    (void) dst;
+    bool ll_prefer = ipv6_addr_is_link_local(dst);
     for (int i = 0; i < CONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF; i++) {
         const ipv6_addr_t *tmp = &(netif->ipv6.addrs[i]);
 
@@ -1046,6 +1046,10 @@ static int _create_candidate_set(const gnrc_netif_t *netif,
         /* Check if we only want link local addresses */
         if (ll_only && !ipv6_addr_is_link_local(tmp)) {
             continue;
+        }
+        /* prefer link-local source for link-local destination */
+        if (ll_prefer && ipv6_addr_is_link_local(tmp)) {
+            res = i;
         }
         /* "For all multicast and link-local destination addresses, the set of
          *  candidate source addresses MUST only include addresses assigned to
