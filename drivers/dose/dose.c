@@ -60,6 +60,15 @@ static uint16_t crc16_update(uint16_t crc, uint8_t octet)
     return crc;
 }
 
+static void _init_standby(dose_t *ctx, const dose_params_t *params)
+{
+    ctx->standby_pin = params->standby_pin;
+    if (gpio_is_valid(ctx->standby_pin) &&
+        gpio_init(ctx->standby_pin, GPIO_OUT)) {
+        gpio_clear(ctx->standby_pin);
+    }
+}
+
 static void _init_sense(dose_t *ctx, const dose_params_t *params)
 {
 #ifdef MODULE_PERIPH_UART_RXSTART_IRQ
@@ -517,6 +526,29 @@ static int _get(netdev_t *dev, netopt_t opt, void *value, size_t max_len)
     return 0;
 }
 
+static int _set_state(dose_t *ctx, netopt_state_t state)
+{
+    if (!gpio_is_valid(ctx->standby_pin)) {
+        return -ENOTSUP;
+    }
+
+    switch (state) {
+    case NETOPT_STATE_STANDBY:
+    case NETOPT_STATE_SLEEP:
+        gpio_set(ctx->standby_pin);
+        uart_poweroff(ctx->uart);
+        return sizeof(netopt_state_t);
+    case NETOPT_STATE_IDLE:
+        uart_poweron(ctx->uart);
+        gpio_clear(ctx->standby_pin);
+        return sizeof(netopt_state_t);
+    default:
+        break;
+    }
+
+    return -ENOTSUP;
+}
+
 static int _set(netdev_t *dev, netopt_t opt, const void *value, size_t len)
 {
     dose_t *ctx = container_of(dev, dose_t, netdev);
@@ -539,6 +571,9 @@ static int _set(netdev_t *dev, netopt_t opt, const void *value, size_t len)
                 CLRBIT(ctx->opts, DOSE_OPT_PROMISCUOUS);
             }
             return sizeof(netopt_enable_t);
+        case NETOPT_STATE:
+            assert(len <= sizeof(netopt_state_t));
+            return _set_state(ctx, *((const netopt_state_t *)value));
         default:
             return netdev_eth_set(dev, opt, value, len);
     }
@@ -585,6 +620,7 @@ void dose_setup(dose_t *ctx, const dose_params_t *params, uint8_t index)
     uart_init(ctx->uart, params->baudrate, _isr_uart, (void *) ctx);
 
     _init_sense(ctx, params);
+    _init_standby(ctx, params);
 
     netdev_register(&ctx->netdev, NETDEV_DOSE, index);
 
