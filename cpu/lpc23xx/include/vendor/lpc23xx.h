@@ -15,26 +15,9 @@
 #ifndef LPC23XX_VENDOR_H
 #define LPC23XX_VENDOR_H
 
-#include <stdint.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief   Type for 32-bit registers
- */
-#define REG32       volatile uint32_t
-
-/**
- * @brief   Type for 16-bit registers
- */
-#define REG16       volatile uint16_t
-
-/**
- * @brief   Type for 8-bit registers
- */
-#define REG8        volatile uint8_t
 
 /* Vectored Interrupt Controller (VIC) */
 #define VIC_BASE_ADDR   0xFFFFF000
@@ -517,24 +500,6 @@ are for LPC24xx only. */
 
 #define EMC_STA_EXT_WAIT  (*(volatile unsigned long *)(EMC_BASE_ADDR + 0x880))
 
-/**
- * @brief   Generic timer register map
- */
-typedef struct {
-    REG32   IR;             /**< interrupt register */
-    REG32   TCR;            /**< timer control register */
-    REG32   TC;             /**< timer counter */
-    REG32   PR;             /**< prescale register */
-    REG32   PC;             /**< prescale counter */
-    REG32   MCR;            /**< match control register */
-    REG32   MR[4];          /**< match registers 1-4 */
-    REG32   CCR;            /**< capture control register */
-    REG32   CR[4];          /**< capture register 1-4 */
-    REG32   EMR;            /**< external match register */
-    REG32   reserved[12];   /**< reserved */
-    REG32   CTCR;           /**< count control register */
-} lpc23xx_timer_t;
-
 /* Timer 0 */
 #define TMR0_BASE_ADDR      0xE0004000
 #define TMR0                ((lpc23xx_timer_t *)TMR0_BASE_ADDR)
@@ -669,34 +634,6 @@ typedef struct {
 #define PWM1LER         (*(volatile unsigned long *)(PWM1_BASE_ADDR + 0x50))
 #define PWM1CTCR        (*(volatile unsigned long *)(PWM1_BASE_ADDR + 0x70))
 
-/**
- * @brief   Generic UART register map
- */
-typedef struct {
-    union {
-        REG32   RBR;            /**< Receiver Buffer Register  */
-        REG32   THR;            /**< Transmit Holding Register */
-        REG8    DLL;            /**< Divisor Latch LSB         */
-    };
-    union {
-        REG32   IER;            /**< Interrupt Enable Register */
-        REG8    DLM;            /**< Divisor Latch MSB         */
-    };
-    union {
-        REG32   IIR;            /**< Interrupt ID Register     */
-        REG32   FCR;            /**< FIFO Control Register     */
-    };
-    REG32   LCR;                /**< Line Control Register     */
-    REG32   MCR;                /**< Modem Control Register    */
-    REG32   LSR;                /**< Line Status Register      */
-    REG32   MSR;                /**< Modem Status Register     */
-    REG32   SCR;                /**< Scratch Pad Register      */
-    REG32   ACR;                /**< Auto-baud Control Register*/
-    REG32   ICR;                /**< IrDA Control Register     */
-    REG32   FDR;                /**< Fractional Divider        */
-    REG32   reserved;           /**< unused                    */
-    REG8    TER;                /**< Transmit Enable Register  */
-} lpc23xx_uart_t;
 
 /* Universal Asynchronous Receiver Transmitter 0 (UART0) */
 #define UART0_BASE_ADDR     0xE000C000
@@ -771,18 +708,6 @@ typedef struct {
 #define U3FDR          (*(volatile unsigned long *)(UART3_BASE_ADDR + 0x28))
 #define U3TER          (*(volatile unsigned long *)(UART3_BASE_ADDR + 0x30))
 
-/**
- * @brief   Generic I2C register map
- */
-typedef struct {
-    REG32   CONSET;         /**< Control Set Register       */
-    REG32   STAT;           /**< Status Register            */
-    REG32   DAT;            /**< Data Register              */
-    REG32   ADR;            /**< Slave Address Register     */
-    REG32   SCLH;           /**< Duty Cycle High Half Word  */
-    REG32   SCLL;           /**< Duty Cycle Low Half Word   */
-    REG32   CONCLR;         /**< Control Clear Register     */
-} lpc23xx_i2c_t;
 
 /* I2C Control Set Register */
 #define I2CONSET_AA             0x00000004  /**< Assert acknowledge */
@@ -837,22 +762,6 @@ typedef struct {
 #define S0SPDR         (*(volatile unsigned long *)(SPI0_BASE_ADDR + 0x08))
 #define S0SPCCR        (*(volatile unsigned long *)(SPI0_BASE_ADDR + 0x0C))
 #define S0SPINT        (*(volatile unsigned long *)(SPI0_BASE_ADDR + 0x1C))
-
-/**
- * @brief   Generic SPI register map
- */
-typedef struct {
-    REG32 CR0;              /**< Control Register 0                 */
-    REG32 CR1;              /**< Control Register 1                 */
-    REG32 DR;               /**< Data Register                      */
-    REG32 SR;               /**< Status Register                    */
-    REG32 CPSR;             /**< Clock Prescale Register            */
-    REG32 IMSC;             /**< Interrupt Mask Set/Clear Register  */
-    REG32 RIS;              /**< Raw Interrupt Status Register      */
-    REG32 MIS;              /**< Masked Interrupt Status Register   */
-    REG32 ICR;              /**< Interrupt Clear Register           */
-    REG32 DMACR;            /**< DMA Control Register               */
-} lpc23xx_spi_t;
 
 /* SSP0 Controller */
 #define SSP0_BASE_ADDR      0xE0068000
