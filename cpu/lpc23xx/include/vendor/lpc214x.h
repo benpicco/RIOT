@@ -14,6 +14,34 @@
 extern "C" {
 #endif
 
+/**
+ * @brief   Interrupt Table
+ * @{
+ */
+#define WDT_INT         0
+#define ARM_CORE0_INT   2
+#define ARM_CORE1_INT   3
+#define TIMER0_INT      4
+#define TIMER1_INT      5
+#define UART0_INT       6
+#define UART1_INT       7
+#define PWM0_1_INT      8
+#define I2C0_INT        9
+#define SPI0_INT        10
+#define SSP1_INT        11
+#define PLL_INT         12
+#define RTC_INT         13
+#define EINT0_INT       14
+#define EINT1_INT       15
+#define EINT2_INT       16
+#define EINT3_INT       17
+#define ADC0_INT        18
+#define I2C1_INT        19
+#define BOD_INT         20
+#define ADC1_INT        21
+#define USB_INT         22
+/** @} */
+
 /* Vectored Interrupt Controller (VIC) */
 #define VICIRQStatus    (*((volatile unsigned long *) 0xFFFFF000))
 #define VICFIQStatus    (*((volatile unsigned long *) 0xFFFFF004))
@@ -123,7 +151,7 @@ extern "C" {
 #define EXTPOLAR        (*((volatile unsigned char *) 0xE01FC14C))
 
 /* Reset */
-#define RSID            (*((volatile unsigned char *) 0xE01FC180))
+#define RSIR            (*((volatile unsigned char *) 0xE01FC180))
 
 /* Code Security / Debugging */
 #define CSPR            (*((volatile unsigned char *) 0xE01FC184))
@@ -271,32 +299,34 @@ extern "C" {
 #define SSPICR          (*((volatile unsigned char *) 0xE0068020))
 
 /* Real Time Clock */
-#define ILR             (*((volatile unsigned char *) 0xE0024000))
-#define CTC             (*((volatile unsigned short*) 0xE0024004))
-#define CCR             (*((volatile unsigned char *) 0xE0024008))
-#define CIIR            (*((volatile unsigned char *) 0xE002400C))
-#define AMR             (*((volatile unsigned char *) 0xE0024010))
-#define CTIME0          (*((volatile unsigned long *) 0xE0024014))
-#define CTIME1          (*((volatile unsigned long *) 0xE0024018))
-#define CTIME2          (*((volatile unsigned long *) 0xE002401C))
-#define SEC             (*((volatile unsigned char *) 0xE0024020))
-#define MIN             (*((volatile unsigned char *) 0xE0024024))
-#define HOUR            (*((volatile unsigned char *) 0xE0024028))
-#define DOM             (*((volatile unsigned char *) 0xE002402C))
-#define DOW             (*((volatile unsigned char *) 0xE0024030))
-#define DOY             (*((volatile unsigned short*) 0xE0024034))
-#define MONTH           (*((volatile unsigned char *) 0xE0024038))
-#define YEAR            (*((volatile unsigned short*) 0xE002403C))
-#define ALSEC           (*((volatile unsigned char *) 0xE0024060))
-#define ALMIN           (*((volatile unsigned char *) 0xE0024064))
-#define ALHOUR          (*((volatile unsigned char *) 0xE0024068))
-#define ALDOM           (*((volatile unsigned char *) 0xE002406C))
-#define ALDOW           (*((volatile unsigned char *) 0xE0024070))
-#define ALDOY           (*((volatile unsigned short*) 0xE0024074))
-#define ALMON           (*((volatile unsigned char *) 0xE0024078))
-#define ALYEAR          (*((volatile unsigned short*) 0xE002407C))
-#define PREINT          (*((volatile unsigned short*) 0xE0024080))
-#define PREFRAC         (*((volatile unsigned short*) 0xE0024084))
+#define RTC_BASE_ADDR       0xE0024000
+#define RTC_ILR         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x00))
+#define RTC_CTC         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x04))
+#define RTC_CCR         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x08))
+#define RTC_CIIR        (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x0C))
+#define RTC_AMR         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x10))
+#define RTC_CTIME0      (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x14))
+#define RTC_CTIME1      (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x18))
+#define RTC_CTIME2      (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x1C))
+#define RTC_SEC         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x20))
+#define RTC_MIN         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x24))
+#define RTC_HOUR        (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x28))
+#define RTC_DOM         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x2C))
+#define RTC_DOW         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x30))
+#define RTC_DOY         (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x34))
+#define RTC_MONTH       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x38))
+#define RTC_YEAR        (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x3C))
+#define RTC_CISS        (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x40))
+#define RTC_ALSEC       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x60))
+#define RTC_ALMIN       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x64))
+#define RTC_ALHOUR      (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x68))
+#define RTC_ALDOM       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x6C))
+#define RTC_ALDOW       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x70))
+#define RTC_ALDOY       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x74))
+#define RTC_ALMON       (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x78))
+#define RTC_ALYEAR      (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x7C))
+#define RTC_PREINT      (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x80))
+#define RTC_PREFRAC     (*(volatile unsigned long *)(RTC_BASE_ADDR + 0x84))
 
 /* A/D Converter 0 (AD0) */
 #define AD0CR           (*((volatile unsigned long *) 0xE0034000))

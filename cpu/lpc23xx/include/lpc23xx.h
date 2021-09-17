@@ -11,7 +11,13 @@
 #ifndef LPC23XX_H
 #define LPC23XX_H
 
+#if defined(CPU_FAM_LPC214X)
+#include "vendor/lpc214x.h"
+#elif defined(CPU_FAM_LPC23XX)
 #include "vendor/lpc23xx.h"
+#else
+#error "Unsupported CPU"
+#endif
 #include "arm7_common.h"
 #include "bitarithm.h"
 
@@ -162,6 +168,16 @@ extern "C" {
 #define TXCR3          0x38
 #define TXEMR          0x3C
 #define TXCTCR         0x70
+/** @} */
+
+/**
+ * @brief   Reset source identification
+ * @{
+ */
+#define RSIR_POR       (BIT0)
+#define RSIR_EXTR      (BIT1)
+#define RSIR_WDTR      (BIT2)
+#define RSIR_BODR      (BIT3)
 /** @} */
 /** @} */
 

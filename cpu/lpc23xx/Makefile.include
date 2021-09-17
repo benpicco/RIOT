@@ -1,1 +1,7 @@
+ifneq (,$(filter lpc214%,$(CPU_MODEL)))
+  CFLAGS += -DCPU_FAM_LPC214X
+else ifneq (,$(filter lpc23%,$(CPU_MODEL)))
+  CFLAGS += -DCPU_FAM_LPC23XX
+endif
+
 include $(RIOTCPU)/arm7_common/Makefile.include
