@@ -88,6 +88,7 @@ extern "C" {
 #define VICVectCntl15   (*((volatile unsigned long *) 0xFFFFF23C))
 
 /* Pin Connect Block */
+#define PINSEL_BASE_ADDR    0xE002C000
 #define PINSEL0         (*((volatile unsigned long *) 0xE002C000))
 #define PINSEL1         (*((volatile unsigned long *) 0xE002C004))
 #define PINSEL2         (*((volatile unsigned long *) 0xE002C014))
@@ -109,6 +110,8 @@ extern "C" {
 #define IO1SET          (*((volatile unsigned long *) 0xE0028014))
 #define IO1DIR          (*((volatile unsigned long *) 0xE0028018))
 #define IO1CLR          (*((volatile unsigned long *) 0xE002801C))
+
+#define FIO_BASE_ADDR       0x3FFFC000
 #define FIO0DIR         (*((volatile unsigned long *) 0x3FFFC000))
 #define FIO0MASK        (*((volatile unsigned long *) 0x3FFFC010))
 #define FIO0PIN         (*((volatile unsigned long *) 0x3FFFC014))
@@ -367,6 +370,7 @@ extern "C" {
 #define WDTC            (*((volatile unsigned long *) 0xE0000004))
 #define WDFEED          (*((volatile unsigned char *) 0xE0000008))
 #define WDTV            (*((volatile unsigned long *) 0xE000000C))
+#define WDCLKSEL        (*((volatile unsigned long *)(0xE0000010)) /* XXX */
 
 /* USB Controller */
 #define USBIntSt        (*((volatile unsigned long *) 0xE01FC1C0))
