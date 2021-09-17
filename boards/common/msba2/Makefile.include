@@ -8,6 +8,9 @@ PROGRAMMER ?= lpc2k_pgm
 
 PROGRAMMERS_SUPPORTED += lpc2k_pgm
 
+export JLINK_SPEED=1000
+export JLINK_IF=JTAG
+
 # when using miniterm set RTS and DTR lines to 0, otherwise the board is reset
 MINITERMFLAGS += --rts 0 --dtr 0
 
