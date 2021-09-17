@@ -68,17 +68,28 @@ static inline uint8_t _uart_num(lpc23xx_uart_t* uart)
         return 0;
     case UART1_BASE_ADDR:
         return 1;
+#ifdef UART2_BASE_ADDR
     case UART2_BASE_ADDR:
         return 2;
+#endif
+#ifdef UART3_BASE_ADDR
     case UART3_BASE_ADDR:
         return 3;
+#endif
     }
 
     return 0;
 }
 
 static const uint8_t _uart_int[] = {
-    UART0_INT, UART1_INT, UART2_INT, UART3_INT
+    UART0_INT,
+    UART1_INT,
+#ifdef UART2_INT
+    UART2_INT,
+#endif
+#ifdef UART3_INT
+    UART3_INT,
+#endif
 };
 
 static irq_fun_t _uart_isr[UART_NUMOF] = {
