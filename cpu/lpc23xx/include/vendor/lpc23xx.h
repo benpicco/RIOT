@@ -421,10 +421,10 @@ Reset, and Code Security/Debugging */
 #define MEMMAP         (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x040))
 
 /* Phase Locked Loop (PLL) */
-#define PLLCON         (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x080))
-#define PLLCFG         (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x084))
-#define PLLSTAT        (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x088))
-#define PLLFEED        (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x08C))
+#define PLL0CON        (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x080))
+#define PLL0CFG        (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x084))
+#define PLL0STAT       (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x088))
+#define PLL0FEED       (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x08C))
 
 /* Power Control */
 #define PCON           (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x0C0))

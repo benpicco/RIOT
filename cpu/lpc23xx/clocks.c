@@ -35,8 +35,8 @@
  */
 static inline void pllfeed(void)
 {
-    PLLFEED = 0xAA;
-    PLLFEED = 0x55;
+    PLL0FEED = 0xAA;
+    PLL0FEED = 0x55;
 }
 
 /**
@@ -53,16 +53,16 @@ void cpu_init_mam(void)
 void cpu_init_pll(void)
 {
     /* Disconnect PLL */
-    PLLCON &= ~0x0002;
+    PLL0CON &= ~0x0002;
     pllfeed();
 
-    while (PLLSTAT & BIT25) {}          /* wait until PLL is disconnected before
+    while (PLL0STAT & BIT25) {}          /* wait until PLL is disconnected before
                                          * disabling - deadlock otherwise */
     /* Disable PLL */
-    PLLCON &= ~0x0001;
+    PLL0CON &= ~0x0001;
     pllfeed();
 
-    while (PLLSTAT & BIT24) {}          /* wait until PLL is disabled */
+    while (PLL0STAT & BIT24) {}          /* wait until PLL is disabled */
 
     SCS |= 0x10;                        /* main OSC between 15MHz and 24MHz (more stable in tests) */
     SCS |= 0x20;                        /* Enable main OSC */
@@ -79,25 +79,25 @@ void cpu_init_pll(void)
 
     /* Setting Multiplier and Divider values */
     /* Fcco = (2 * Fin *  M)/ N = 288 MHz */
-    PLLCFG = PLLCFG_M(F_CCO/(XTAL_HZ)) | PLLCFG_N(2);
+    PLL0CFG = PLLCFG_M(F_CCO/(XTAL_HZ)) | PLLCFG_N(2);
     pllfeed();
 
     /* Enabling the PLL */
-    PLLCON = 0x0001;
+    PLL0CON = 0x0001;
     pllfeed();
 
     /* Set clock divider to 4 (value+1) */
     CCLKCFG = CL_CPU_DIV - 1;           /* Fcpu = 72 MHz */
 
     /* Wait for the PLL to lock to set frequency */
-    while (!(PLLSTAT & BIT26)) {}
+    while (!(PLL0STAT & BIT26)) {}
 
     /* Connect the PLL as the clock source */
-    PLLCON = 0x0003;
+    PLL0CON = 0x0003;
     pllfeed();
 
     /* Check connect bit status */
-    while (!(PLLSTAT & BIT25)) {}
+    while (!(PLL0STAT & BIT25)) {}
 }
 
 static void watchdog_init(void)
