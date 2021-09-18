@@ -128,6 +128,11 @@ extern "C" {
 #define MAMTIM          (*((volatile unsigned char *) 0xE01FC004))
 #define MEMMAP          (*((volatile unsigned char *) 0xE01FC040))
 
+/* PLL Status register bits */
+#define PLLSTAT_PLLE    BIT8
+#define PLLSTAT_PLLC    BIT9
+#define PLLSTAT_PLOCK   BIT10
+
 /* Phase Locked Loop 0 (PLL0) */
 #define PLL0CON         (*((volatile unsigned char *) 0xE01FC080))
 #define PLL0CFG         (*((volatile unsigned char *) 0xE01FC084))
@@ -370,7 +375,6 @@ extern "C" {
 #define WDTC            (*((volatile unsigned long *) 0xE0000004))
 #define WDFEED          (*((volatile unsigned char *) 0xE0000008))
 #define WDTV            (*((volatile unsigned long *) 0xE000000C))
-#define WDCLKSEL        (*((volatile unsigned long *)(0xE0000010)) /* XXX */
 
 /* USB Controller */
 #define USBIntSt        (*((volatile unsigned long *) 0xE01FC1C0))

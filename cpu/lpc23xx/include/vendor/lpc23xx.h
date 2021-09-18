@@ -420,6 +420,11 @@ Reset, and Code Security/Debugging */
 #define MAMTIM         (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x004))
 #define MEMMAP         (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x040))
 
+/* PLL Status register bits */
+#define PLLSTAT_PLLE    BIT24
+#define PLLSTAT_PLLC    BIT25
+#define PLLSTAT_PLOCK   BIT26
+
 /* Phase Locked Loop (PLL) */
 #define PLL0CON        (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x080))
 #define PLL0CFG        (*(volatile unsigned long *)(SCB_BASE_ADDR + 0x084))

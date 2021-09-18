@@ -82,7 +82,9 @@ bool cpu_backup_ram_is_initialized(void);
 /**
  * @brief   The CPU has RAM that is retained in the deepest sleep mode.
  */
+#ifdef CPU_FAM_LPC23XX
 #define CPU_HAS_BACKUP_RAM  (1)
+#endif
 
 #ifdef __cplusplus
 }
