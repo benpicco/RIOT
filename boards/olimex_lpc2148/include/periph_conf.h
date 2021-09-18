@@ -54,16 +54,16 @@ static const uart_conf_t uart_config[] = {
         .irq_prio_rx = 6,
         .pinsel_rx   = 0,
         .pinsel_tx   = 0,
-        .pinsel_msk_rx = BIT4,
-        .pinsel_msk_tx = BIT6,
+        .pinsel_msk_rx = BIT2,
+        .pinsel_msk_tx = BIT0,
     },
     {
         .dev = UART1,
         .irq_prio_rx = 6,
         .pinsel_rx   = 1,
         .pinsel_tx   = 0,
-        .pinsel_msk_rx = BIT0,
-        .pinsel_msk_tx = BIT30,
+        .pinsel_msk_rx = BIT18,
+        .pinsel_msk_tx = BIT16,
     }
 };
 
