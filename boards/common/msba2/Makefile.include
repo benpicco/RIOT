@@ -7,6 +7,7 @@ PORT_DARWIN ?= /dev/tty.usbserial-ARM
 PROGRAMMER ?= lpc2k_pgm
 
 PROGRAMMERS_SUPPORTED += lpc2k_pgm
+PROGRAMMERS_SUPPORTED += jlink
 
 export JLINK_SPEED=1000
 export JLINK_IF=JTAG
