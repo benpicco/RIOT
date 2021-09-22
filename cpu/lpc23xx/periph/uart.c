@@ -147,28 +147,20 @@ static const uint8_t div_table[] = {
     DIV_MUL(14,15),  /* 1.96875 */
 };
 
-int uart_init(uart_t dev, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
+static uint8_t _cclk_div(uint8_t idx)
 {
-    if (dev >= UART_NUMOF) {
-        return UART_NODEV;
+#ifdef VPBDIV
+    (void)idx;
+    switch (VPBDIV) {
+    default:
+    case VPBDIV_4:
+        return 4;
+    case VPBDIV_2:
+        return 2;
+    case VPBDIV_1:
+        return 1;
     }
-
-    const uart_conf_t *cfg = &uart_config[dev];
-    lpc23xx_uart_t *uart = cfg->dev;
-    const uint8_t idx = _uart_num(uart);
-
-    /* configure RX & TX pins */
-    *(&PINSEL0 + cfg->pinsel_rx) |= cfg->pinsel_msk_rx;
-    *(&PINSEL0 + cfg->pinsel_tx) |= cfg->pinsel_msk_tx;
-
-    uart_poweron(dev);
-
-    /* save interrupt context */
-    _rx_cb[dev]  = rx_cb;
-    _cb_arg[dev] = arg;
-
-    uart->LCR = 0x80;       /* DLAB = 1 */
-
+#else
     /* set UART PCLK to CCLK/8 */
     switch (idx) {
     case 0:
@@ -184,13 +176,39 @@ int uart_init(uart_t dev, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
         PCLKSEL1 |= BIT18 + BIT19;
         break;
     }
+    return 8;
+#endif
+}
+
+int uart_init(uart_t dev, uint32_t baudrate, uart_rx_cb_t rx_cb, void *arg)
+{
+    if (dev >= UART_NUMOF) {
+        return UART_NODEV;
+    }
+
+    const uart_conf_t *cfg = &uart_config[dev];
+    lpc23xx_uart_t *uart = cfg->dev;
+    const uint8_t idx = _uart_num(uart);
+    const uint8_t div = _cclk_div(idx);
+
+    /* configure RX & TX pins */
+    *(&PINSEL0 + cfg->pinsel_rx) |= cfg->pinsel_msk_rx;
+    *(&PINSEL0 + cfg->pinsel_tx) |= cfg->pinsel_msk_tx;
+
+    uart_poweron(dev);
+
+    /* save interrupt context */
+    _rx_cb[dev]  = rx_cb;
+    _cb_arg[dev] = arg;
+
+    uart->LCR = 0x80;       /* DLAB = 1 */
 
     /* PCLK = CCLK/8; DL = PCLK / (16 * F_Baud) */
-    uint16_t dl = CLOCK_CORECLOCK / (8 * 16 * baudrate);
+    uint16_t dl = CLOCK_CORECLOCK / (div * 16 * baudrate);
     /* 16 * DIVADDVAL / MULVAL = PCLK / (DL * F_Baud) - 16 */
     /* frac = 16 * DIVADDVAL / MULVAL                      */
     /* multiply everything by 2 for increased accuracy     */
-    uint8_t frac = 2 * CLOCK_CORECLOCK / (8 * dl) / baudrate - 32;
+    uint8_t frac = 2 * CLOCK_CORECLOCK / (div * dl) / baudrate - 32;
 
     uart->FDR = div_table[frac];
     uart->DLM = dl >> 8;
