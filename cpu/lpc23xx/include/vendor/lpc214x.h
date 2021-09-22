@@ -18,6 +18,8 @@ extern "C" {
  * @brief   Interrupt Table
  * @{
  */
+#define VIC_SIZE       16
+
 #define WDT_INT         0
 #define ARM_CORE0_INT   2
 #define ARM_CORE1_INT   3
@@ -43,6 +45,7 @@ extern "C" {
 /** @} */
 
 /* Vectored Interrupt Controller (VIC) */
+#define VIC_BASE_ADDR   0xFFFFF000
 #define VICIRQStatus    (*((volatile unsigned long *) 0xFFFFF000))
 #define VICFIQStatus    (*((volatile unsigned long *) 0xFFFFF004))
 #define VICRawIntr      (*((volatile unsigned long *) 0xFFFFF008))

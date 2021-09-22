@@ -23,6 +23,8 @@ extern "C" {
  * @brief   Interrupt Table
  * @{
  */
+#define VIC_SIZE       32
+
 #define WDT_INT         0
 #define SWI_INT         1
 #define ARM_CORE0_INT   2

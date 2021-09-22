@@ -68,8 +68,6 @@ void cpu_clock_scale(uint32_t source, uint32_t target, uint32_t *prescale)
 ** Returned value:      true or false, return false if IntNum is out of range
 **
 ******************************************************************************/
-#define VIC_BASE_ADDR   0xFFFFF000
-
 bool install_irq(int IntNumber, void (*HandlerAddr)(void), int Priority)
 {
     VICIntEnClr = 1 << IntNumber;   /* Disable Interrupt */

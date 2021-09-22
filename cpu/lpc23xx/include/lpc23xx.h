@@ -45,8 +45,6 @@ extern "C" {
 #define F_RC_OSCILLATOR         4000000                             ///< Frequency of internal RC oscillator
 #define F_RTC_OSCILLATOR        32767                               ///< Frequency of RTC oscillator
 
-#define VIC_SIZE                32
-
 #define PLLCFG_N(n)             ((n - 1) << 16)
 #define PLLCFG_M(m)             (m - 1)
 
