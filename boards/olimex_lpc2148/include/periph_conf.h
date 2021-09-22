@@ -32,7 +32,7 @@ extern "C" {
  */
 #define XTAL_HZ             (12000000U)         /* the board provides a 12 MHz XTAL */
 
-#define CLOCK_CORECLOCK     (60000000U)         /* the lpc2388 runs with 72MHz */
+#define CLOCK_CORECLOCK     (60000000U)         /* the lpc2148 runs at 60 MHz */
 
 #define CLOCK_PCLK          (CLOCK_CORECLOCK)
 /** @} */
@@ -96,8 +96,8 @@ static const spi_conf_t spi_config[] = {
 static const adc_conf_t adc_config[] = {
     {
         .chan       = 0,
-        .pinsel     = 1,
-        .pinsel_msk = BIT14,
+        .pinsel     = 0,
+        .pinsel_msk = BIT28,
     },
 };
 
