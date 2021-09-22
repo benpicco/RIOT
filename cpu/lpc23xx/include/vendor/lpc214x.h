@@ -148,6 +148,10 @@ extern "C" {
 /* VPB Divider */
 #define VPBDIV          (*((volatile unsigned char *) 0xE01FC100))
 
+#define VPBDIV_4        0x0 /**< APB bus clock (PCLK) is one fourth of the processor clock (CCLK) */
+#define VPBDIV_1        0x1 /**< APB bus clock (PCLK) is the same as the processor clock (CCLK) */
+#define VPBDIV_2        0x2 /**< APB bus clock (PCLK) is half of the processor clock (CCLK) */
+
 /* Power Control */
 #define PCON            (*((volatile unsigned char *) 0xE01FC0C0))
 #define PCONP           (*((volatile unsigned long *) 0xE01FC0C4))
