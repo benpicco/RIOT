@@ -46,12 +46,21 @@ extern "C" {
 /** @} */
 
 /**
- * @name    INT0 (Button) pin definitions
+ * @name    B1 (Button) pin definitions
  * @{
  */
-#define BTN0_PIN            GPIO_PIN(2, 10)
+#define BTN0_PIN            GPIO_PIN(0, 15)
 #define BTN0_MODE           GPIO_IN
 #define BTN0_INT_FLANK      GPIO_FALLING
+/** @} */
+
+/**
+ * @name    B2 (Button) pin definitions
+ * @{
+ */
+#define BTN1_PIN            GPIO_PIN(0, 16)
+#define BTN1_MODE           GPIO_IN
+#define BTN1_INT_FLANK      GPIO_FALLING
 /** @} */
 
 /**
