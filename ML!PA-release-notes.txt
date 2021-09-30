@@ -1,0 +1,9 @@
+RIOT-2022.01-mlpa-0 - Merge Notes
+==========================
+
+ - based on 2022.01-devel-9-g5a9c659f5d
+
+ - cherry-pick 7ae42ee7b951ea7d94ae9d38288cd8e387b5d5d7 (sam0 ADC hack)
+ - merged benpicco/cpu/sam0_common/flashpage_irq_disable
+ - merged benpicco/drivers/dose-standby
+ - merged benpicco/drivers/dose-timeout_bytes
