@@ -158,6 +158,7 @@ typedef struct {
 #if !defined(MODULE_PERIPH_UART_RXSTART_IRQ) || DOXYGEN
     gpio_t sense_pin;                       /**< GPIO to sense for start bits on the UART's rx line */
 #endif
+    gpio_t standby_pin;                     /**< GPIO to put the CAN transceiver in standby mode */
     xtimer_t timeout;                       /**< Timeout timer ensuring always to get back to IDLE state */
     uint32_t timeout_base;                  /**< Base timeout in us */
 } dose_t;
@@ -170,6 +171,7 @@ typedef struct {
 #if !defined(MODULE_PERIPH_UART_RXSTART_IRQ) || DOXYGEN
     gpio_t sense_pin;                       /**< GPIO to sense for start bits on the UART's rx line */
 #endif
+    gpio_t standby_pin;                     /**< GPIO to put the CAN transceiver in standby mode */
     uint32_t baudrate;                      /**< Baudrate to UART device */
 } dose_params_t;
 
