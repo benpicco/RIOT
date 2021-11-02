@@ -191,9 +191,9 @@ static dose_signal_t state_transit_send(dose_t *ctx, dose_signal_t signal)
     /* Don't trace any END octets ... the timeout or the END signal
      * will bring us back to the BLOCKED state after _send has emitted
      * its last octet. */
-
+#ifndef MODULE_PERIPH_UART_COLLISION
     xtimer_set(&ctx->timeout, ctx->timeout_base);
-
+#endif
     return DOSE_SIGNAL_NONE;
 }
 
@@ -388,6 +388,10 @@ static int send_octet(dose_t *ctx, uint8_t c)
 {
     uart_write(ctx->uart, (uint8_t *) &c, sizeof(c));
 
+#ifdef MODULE_PERIPH_UART_COLLISION
+    return uart_collision_detected(ctx->uart);
+#endif
+
     /* Wait for a state transition */
     uint8_t state = wait_for_state(ctx, DOSE_STATE_ANY);
     if (state != DOSE_STATE_SEND) {
@@ -422,11 +426,32 @@ static int send_data_octet(dose_t *ctx, uint8_t c)
     return rc;
 }
 
+static inline void _send_start(dose_t *ctx)
+{
+#ifdef MODULE_PERIPH_UART_COLLISION
+    uart_collision_detect_enable(ctx->uart);
+#else
+    (void)ctx;
+#endif
+}
+
+static inline void _send_done(dose_t *ctx)
+{
+#ifdef MODULE_PERIPH_UART_COLLISION
+    uart_collision_detect_disable(ctx->uart);
+#else
+    (void)ctx;
+#endif
+
+    xtimer_remove(&ctx->timeout);
+}
+
 static int _send(netdev_t *dev, const iolist_t *iolist)
 {
     dose_t *ctx = container_of(dev, dose_t, netdev);
     int8_t retries = 3;
     size_t pktlen;
+    uint32_t backoff;
     uint16_t crc;
 
 send:
@@ -438,6 +463,8 @@ send:
         wait_for_state(ctx, DOSE_STATE_IDLE);
         state(ctx, DOSE_SIGNAL_SEND);
     } while (wait_for_state(ctx, DOSE_STATE_ANY) != DOSE_STATE_SEND);
+
+    _send_start(ctx);
 
     /* Send packet buffer */
     for (const iolist_t *iol = iolist; iol; iol = iol->iol_next) {
@@ -471,6 +498,8 @@ send:
         goto collision;
     }
 
+    _send_done(ctx);
+
     /* We probably sent the whole packet?! */
     dev->event_callback(dev, NETDEV_EVENT_TX_COMPLETE);
 
@@ -480,11 +509,18 @@ send:
     return pktlen;
 
 collision:
+    _send_done(ctx);
     DEBUG("dose _send(): collision!\n");
     if (--retries < 0) {
         dev->event_callback(dev, NETDEV_EVENT_TX_MEDIUM_BUSY);
+        state(ctx, DOSE_SIGNAL_END);
         return -EBUSY;
     }
+
+    /* use timeout to transition back to idle state */
+    backoff = random_uint32_range(1 * ctx->timeout_base, 2 * ctx->timeout_base);
+    xtimer_set(&ctx->timeout, backoff);
+
     goto send;
 }
 
