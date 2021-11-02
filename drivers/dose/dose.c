@@ -28,6 +28,9 @@
 #include "net/eui_provider.h"
 #include "net/netdev/eth.h"
 
+#define USE_SYSTICK 1
+#include "systick.h"
+
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
@@ -104,11 +107,17 @@ static inline uint32_t _line_time_us(dose_t *ctx, uint32_t bytes)
 
 static void _set_timeout(dose_t *ctx, uint32_t us)
 {
+#if USE_SYSTICK
+    (void) ctx;
+    systick_set(us, 0);
+    systick_start();
+#else
     static const xtimer_ticks32_t min_timeout = {.ticks32 = XTIMER_BACKOFF};
     if (us < xtimer_usec_from_ticks(min_timeout)) {
         us = xtimer_usec_from_ticks(min_timeout);
     }
     xtimer_set(&ctx->timeout, us);
+#endif
 }
 
 static void _set_timeout_bytes(dose_t *ctx, uint32_t bytes)
@@ -697,8 +706,12 @@ void dose_setup(dose_t *ctx, const dose_params_t *params, uint8_t index)
 
     /* line time of a single byte */
     ctx->timeout_base = (10UL * US_PER_SEC) / params->baudrate;
+#if USE_SYSTICK
+    systick_init(_isr_xtimer, ctx);
+#else
     ctx->timeout.callback = _isr_xtimer;
     ctx->timeout.arg = ctx;
+#endif
 
     DEBUG("dose timeout set to %" PRIu32 " µs\n", ctx->timeout_base);
 }
