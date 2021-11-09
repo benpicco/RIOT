@@ -26,6 +26,7 @@
 
 #include "cpu.h"
 
+#include "pm_layered.h"
 #include "periph/uart.h"
 #include "periph/gpio.h"
 
@@ -98,6 +99,13 @@ static inline void _reset(SercomUsart *dev)
 static void _set_baud(uart_t uart, uint32_t baudrate)
 {
     const uint32_t f_src = sam0_gclk_freq(uart_config[uart].gclk_src);
+
+#ifdef SAMD21_PM_IDLE_1
+    if (baudrate > 500000) {
+        pm_block(SAMD21_PM_IDLE_1);
+    }
+#endif
+
 #if IS_ACTIVE(CONFIG_SAM0_UART_BAUD_FRAC)
     /* Asynchronous Fractional */
     uint32_t baud = (((f_src * 8) / baudrate) / 16);
