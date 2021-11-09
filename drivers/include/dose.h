@@ -155,6 +155,9 @@ typedef struct {
     uint8_t flags;                          /**< Several flags */
     uint8_t recv_buf[DOSE_FRAME_LEN];       /**< Receive buffer for incoming frames */
     size_t recv_buf_ptr;                    /**< Index of the next empty octet of the recveive buffer */
+#if defined(MODULE_DOSE_WATCHDOG) || DOXYGEN
+    size_t recv_buf_ptr_last;               /**< Last value of recv_buf_ptr when the watchdog visited */
+#endif
     uart_t uart;                            /**< UART device to use */
     uint8_t uart_octet;                     /**< Last received octet */
 #if !defined(MODULE_PERIPH_UART_RXSTART_IRQ) || DOXYGEN
