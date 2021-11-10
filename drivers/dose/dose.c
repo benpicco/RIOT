@@ -756,7 +756,7 @@ void dose_setup(dose_t *ctx, const dose_params_t *params, uint8_t index)
     if (index == 0) {
         _dose_base = ctx;
         timer_init(DOSE_TIMER_DEV, US_PER_SEC, _dose_watchdog_cb, NULL);
-        timer_set_periodic(DOSE_TIMER_DEV, 0, ctx->timeout_base * 4, TIM_FLAG_RESET_ON_MATCH);
+        timer_set_periodic(DOSE_TIMER_DEV, 0, ctx->timeout_base * 2, TIM_FLAG_RESET_ON_MATCH);
         timer_stop(DOSE_TIMER_DEV);
     }
 #endif /* MODULE_DOSE_WATCHDOG */
