@@ -61,10 +61,12 @@ static uint16_t crc16_update(uint16_t crc, uint8_t octet)
     return crc;
 }
 
-static void _crc_cb(void *ctx, uint8_t octet)
+static void _crc_cb(void *ctx, uint8_t *data, size_t len)
 {
     uint16_t *crc = ctx;
-    *crc = crc16_update(*crc, octet);
+    for (uint8_t *end = data + len; data != end; ++data) {
+        *crc = crc16_update(*crc, *data);
+    }
 }
 
 static void _init_standby(dose_t *ctx, const dose_params_t *params)
