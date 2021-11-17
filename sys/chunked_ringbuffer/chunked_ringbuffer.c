@@ -159,21 +159,21 @@ bool crb_peek_bytes(chunk_ringbuf_t *rb, void *dst, size_t offset, size_t len)
 bool crb_chunk_foreach(chunk_ringbuf_t *rb, crb_byte_callback_t func, void *ctx)
 {
     size_t len;
-    const uint8_t *cur;
     int idx = _get_complete_chunk(rb);
     if (idx < 0) {
         return false;
     }
 
     len = rb->chunk_len[idx];
-    cur = rb->chunk_start[idx];
-    for (unsigned i = 0; i < len; ++i) {
-        if (cur > rb->buffer_end) {
-            cur = rb->buffer;
-        }
 
-        func(ctx, *cur);
-        ++cur;
+    if (rb->chunk_start[idx] + len <= rb->buffer_end) {
+        /* chunk is continuous */
+        func(ctx, rb->chunk_start[idx], len);
+    } else {
+        /* chunk wraps around */
+        size_t len_0 = 1 + rb->buffer_end - rb->chunk_start[idx];
+        func(ctx, rb->chunk_start[idx], len_0);
+        func(ctx, rb->buffer, len - len_0);
     }
 
     return true;
