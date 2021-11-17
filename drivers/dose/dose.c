@@ -113,6 +113,11 @@ static unsigned _watchdog_users;
 static dose_t *_dose_base;
 static uint8_t _dose_numof;
 
+#ifndef DOSE_TIMER_DEV
+static xtimer_t _wdt;
+static unsigned _wdt_period;
+#endif
+
 static inline void _watchdog_start(void)
 {
     if (_watchdog_users) {
@@ -120,7 +125,11 @@ static inline void _watchdog_start(void)
     }
 
     ++_watchdog_users;
+#ifdef DOSE_TIMER_DEV
     timer_start(DOSE_TIMER_DEV);
+#else
+    xtimer_set(&_wdt, _wdt_period);
+#endif
 }
 
 static inline void _watchdog_stop(void)
@@ -129,13 +138,23 @@ static inline void _watchdog_stop(void)
         return;
     }
 
+#ifdef DOSE_TIMER_DEV
     timer_stop(DOSE_TIMER_DEV);
+#else
+    xtimer_remove(&_wdt);
+#endif
 }
 
+#ifdef DOSE_TIMER_DEV
 static void _dose_watchdog_cb(void *arg, int chan)
 {
-    (void) arg;
     (void) chan;
+#else
+static void _dose_watchdog_cb(void *arg)
+{
+    xtimer_set(&_wdt, _wdt_period);
+#endif
+    (void) arg;
 
     for (unsigned i = 0; i < _dose_numof; ++i) {
         dose_t *ctx = &_dose_base[i];
@@ -159,6 +178,18 @@ static void _dose_watchdog_cb(void *arg, int chan)
             break;
         }
     }
+}
+
+static void _watchdog_init(unsigned timeout_us)
+{
+#ifdef DOSE_TIMER_DEV
+    timer_init(DOSE_TIMER_DEV, US_PER_SEC, _dose_watchdog_cb, NULL);
+    timer_set_periodic(DOSE_TIMER_DEV, 0, timeout_us, TIM_FLAG_RESET_ON_MATCH);
+    timer_stop(DOSE_TIMER_DEV);
+#else
+    _wdt.callback = _dose_watchdog_cb;
+    _wdt_period = timeout_us;
+#endif
 }
 
 static inline void _set_random_backoff(dose_t *ctx)
@@ -808,9 +839,7 @@ void dose_setup(dose_t *ctx, const dose_params_t *params, uint8_t index)
     }
     if (index == 0) {
         _dose_base = ctx;
-        timer_init(DOSE_TIMER_DEV, US_PER_SEC, _dose_watchdog_cb, NULL);
-        timer_set_periodic(DOSE_TIMER_DEV, 0, ctx->timeout_base * 2, TIM_FLAG_RESET_ON_MATCH);
-        timer_stop(DOSE_TIMER_DEV);
+        _watchdog_init(ctx->timeout_base * 2);
     }
 #endif /* MODULE_DOSE_WATCHDOG */
 }
