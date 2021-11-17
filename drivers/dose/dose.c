@@ -170,8 +170,6 @@ static void _dose_watchdog_cb(void *arg)
                 break;
             }
 
-            /* fall-through */
-        case DOSE_STATE_BLOCKED:
             state(&_dose_base[i], DOSE_SIGNAL_XTIMER);
             break;
         default:
@@ -191,18 +189,28 @@ static void _watchdog_init(unsigned timeout_us)
     _wdt_period = timeout_us;
 #endif
 }
-
-static inline void _set_random_backoff(dose_t *ctx)
-{
-    (void) ctx;
-}
-
 #else
 static inline void _watchdog_start(void) {}
 static inline void _watchdog_stop(void) {}
-static inline void _set_random_backoff(dose_t *ctx)
+#endif
+
+static dose_signal_t state_transit_blocked(dose_t *ctx, dose_signal_t signal)
 {
     uint32_t backoff;
+    (void) signal;
+
+    _watchdog_stop();
+
+    if (ctx->state == DOSE_STATE_RECV) {
+        /* We got here from RECV state. The driver's thread has to look
+         * if this frame should be processed. By queuing NETDEV_EVENT_ISR,
+         * the netif thread will call _isr at some time. */
+        SETBIT(ctx->flags, DOSE_FLAG_RECV_BUF_DIRTY);
+        netdev_trigger_event_isr(&ctx->netdev);
+    }
+
+    /* Enable interrupt for start bit sensing */
+    _enable_sense(ctx);
 
     /* The timeout will bring us back into IDLE state by a random time.
      * If we entered this state from RECV state, the random time lays
@@ -217,27 +225,6 @@ static inline void _set_random_backoff(dose_t *ctx)
         backoff = random_uint32_range(1 * ctx->timeout_base, 2 * ctx->timeout_base);
     }
     xtimer_set(&ctx->timeout, backoff);
-}
-#endif
-
-static dose_signal_t state_transit_blocked(dose_t *ctx, dose_signal_t signal)
-{
-    (void) signal;
-
-    if (ctx->state == DOSE_STATE_RECV) {
-        /* We got here from RECV state. The driver's thread has to look
-         * if this frame should be processed. By queuing NETDEV_EVENT_ISR,
-         * the netif thread will call _isr at some time. */
-        SETBIT(ctx->flags, DOSE_FLAG_RECV_BUF_DIRTY);
-        netdev_trigger_event_isr(&ctx->netdev);
-    } else if (ctx->state == DOSE_STATE_INIT) {
-        _watchdog_start();
-    }
-
-    /* Enable interrupt for start bit sensing */
-    _enable_sense(ctx);
-
-    _set_random_backoff(ctx);
 
     return DOSE_SIGNAL_NONE;
 }
@@ -384,6 +371,12 @@ static void _isr_gpio(void *arg)
 static void _isr_xtimer(void *arg)
 {
     dose_t *dev = arg;
+
+    /* ignore stale timer if we are already in RX state */
+    if (IS_ACTIVE(MODULE_DOSE_WATCHDOG) &&
+        dev->state == DOSE_STATE_RECV) {
+        return;
+    }
 
     state(dev, DOSE_SIGNAL_XTIMER);
 }
