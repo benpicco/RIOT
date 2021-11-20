@@ -282,6 +282,9 @@ static void state(dose_t *ctx, dose_signal_t signal)
             case DOSE_STATE_IDLE + DOSE_SIGNAL_SEND:
                 signal = state_transit_blocked(ctx, signal);
                 ctx->state = DOSE_STATE_BLOCKED;
+                /* fall-through */
+            case DOSE_STATE_RECV + DOSE_SIGNAL_SEND:
+                SETBIT(ctx->flags, DOSE_FLAG_SEND_PENDING);
                 break;
 
             case DOSE_STATE_SEND + DOSE_SIGNAL_END:
@@ -303,6 +306,8 @@ static void state(dose_t *ctx, dose_signal_t signal)
                 break;
 
             case DOSE_STATE_BLOCKED + DOSE_SIGNAL_XTIMER:
+                CLRBIT(ctx->flags, DOSE_FLAG_SEND_PENDING);
+                /* fall-through */
             case DOSE_STATE_SEND + DOSE_SIGNAL_UART:
                 signal = state_transit_send(ctx, signal);
                 ctx->state = DOSE_STATE_SEND;
@@ -523,16 +528,11 @@ send:
     crc = 0xffff;
     pktlen = 0;
 
-    /* Wait for interface to become IDLE */
-    wait_for_state(ctx, DOSE_STATE_IDLE);
-
     /* Indicate intention to send */
-    SETBIT(ctx->flags, DOSE_FLAG_SEND_PENDING);
     state(ctx, DOSE_SIGNAL_SEND);
 
     /* Wait for transition to SEND state */
     wait_for_state(ctx, DOSE_STATE_SEND);
-    CLRBIT(ctx->flags, DOSE_FLAG_SEND_PENDING);
 
     _send_start(ctx);
 
