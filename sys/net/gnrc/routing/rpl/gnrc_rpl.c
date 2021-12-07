@@ -423,6 +423,11 @@ uint8_t gnrc_rpl_gen_instance_id(bool local)
 
 void gnrc_rpl_configure_root(gnrc_netif_t *netif, const ipv6_addr_t *dodag_id)
 {
+    /* only run RPL on wireless interfaces */
+    if (gnrc_netapi_get(netif->pid, NETOPT_IS_WIRED, 0, NULL, 0) == 1) {
+        return;
+    }
+
     gnrc_rpl_init(netif->pid);
     gnrc_rpl_instance_t *inst = gnrc_rpl_instance_get(
             CONFIG_GNRC_RPL_DEFAULT_INSTANCE
