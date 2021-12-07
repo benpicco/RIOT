@@ -70,6 +70,7 @@
 #include "net/gnrc/udp.h"
 #include "net/gnrc/ipv6/nib.h"
 #include "net/gnrc/ndp.h"
+#include "net/gnrc/rpl.h"
 #include "random.h"
 #include "xtimer.h"
 
@@ -286,10 +287,13 @@ static void _configure_subnets(uint8_t subnets, uint8_t start_idx, gnrc_netif_t 
     while ((downstream = gnrc_netif_iter(downstream))) {
         gnrc_pktsnip_t *tmp;
         ipv6_addr_t new_prefix;
+        int idx;
 
         if (downstream == upstream) {
             continue;
         }
+
+        gnrc_netif_acquire(downstream);
 
         /* create subnet from upstream prefix */
         _init_sub_prefix(&new_prefix, prefix, prefix_len, ++start_idx, subnet_len);
@@ -302,8 +306,8 @@ static void _configure_subnets(uint8_t subnets, uint8_t start_idx, gnrc_netif_t 
         _remove_old_prefix(downstream, &new_prefix, new_prefix_len, &ext_opts);
 
         /* configure subnet on downstream interface */
-        gnrc_netif_ipv6_add_prefix(downstream, &new_prefix, new_prefix_len,
-                                   valid_ltime, pref_ltime);
+        idx = gnrc_netif_ipv6_add_prefix(downstream, &new_prefix, new_prefix_len,
+                                         valid_ltime, pref_ltime);
 
         /* start advertising subnet */
         gnrc_ipv6_nib_change_rtr_adv_iface(downstream, true);
@@ -316,6 +320,13 @@ static void _configure_subnets(uint8_t subnets, uint8_t start_idx, gnrc_netif_t 
         } else {
             ext_opts = tmp;
         }
+
+        /* configure RPL root if applicable */
+        if (idx >= 0) {
+            gnrc_rpl_configure_root(downstream, &downstream->ipv6.addrs[idx]);
+        }
+
+        gnrc_netif_release(downstream);
     }
 
     /* immediately send an RA with RIO */
