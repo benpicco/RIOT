@@ -18,6 +18,7 @@
 
 #include "net/gnrc/ipv6/nib.h"
 #include "net/gnrc/netif.h"
+#include "net/gnrc/rpl.h"
 #include "net/ipv6/addr.h"
 
 #include "timex.h"
@@ -190,8 +191,10 @@ static int _nib_prefix(int argc, char **argv)
         unsigned iface = atoi(argv[3]);
         unsigned pfx_len = ipv6_addr_split_prefix(argv[4]);
         uint32_t valid_ltime = UINT32_MAX, pref_ltime = UINT32_MAX;
+        gnrc_netif_t *netif = _get_iface(iface);
+        int idx;
 
-        if (_get_iface(iface) == NULL) {
+        if (netif == NULL) {
             printf("Interface %u does not exist\n", iface);
             return 1;
         }
@@ -211,7 +214,14 @@ static int _nib_prefix(int argc, char **argv)
                          UINT32_MAX - 1 :
                          ltime_ms * MS_PER_SEC;
         }
-        gnrc_ipv6_nib_pl_set(iface, &pfx, pfx_len, valid_ltime, pref_ltime);
+
+        gnrc_netif_acquire(netif);
+        idx = gnrc_netif_ipv6_add_prefix(netif, &pfx, pfx_len,
+                                         valid_ltime, pref_ltime);
+        if (idx >= 0) {
+            gnrc_rpl_configure_root(netif, &netif->ipv6.addrs[idx]);
+        }
+        gnrc_netif_release(netif);
     }
     else if ((argc > 4) && (strcmp(argv[2], "del") == 0)) {
         ipv6_addr_t pfx;
