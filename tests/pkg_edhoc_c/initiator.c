@@ -63,6 +63,8 @@ static ssize_t _send(coap_pkt_t *pkt, size_t len, char *addr_str, uint16_t port)
 {
     ipv6_addr_t addr;
     sock_udp_ep_t remote;
+    sock_udp_t sock;
+    ssize_t res;
 
     remote.family = AF_INET6;
     remote.port = port;
@@ -98,7 +100,11 @@ static ssize_t _send(coap_pkt_t *pkt, size_t len, char *addr_str, uint16_t port)
     }
     memcpy(&remote.addr.ipv6[0], &addr.u8[0], sizeof(addr.u8));
 
-    return nanocoap_request(pkt, NULL, &remote, len);
+    nanocoap_connect(&sock, NULL, &remote);
+    res = nanocoap_request(&sock, pkt, len);
+    nanocoap_close(&sock);
+
+    return res;
 }
 
 static ssize_t _build_coap_pkt(coap_pkt_t *pkt, uint8_t *buf, ssize_t buflen,
