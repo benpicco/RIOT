@@ -200,16 +200,14 @@ ssize_t nanocoap_get(sock_udp_t *sock, const char *path, void *buf,
  * @param[in]   sock       socket to use for the request
  * @param[in]   path       pointer to source path
  * @param[in]   blksize    sender suggested SZX for the COAP block request
- * @param[in]   work_buf   Work buffer, must be `NANOCOAP_BLOCKWISE_BUF(blksize)` bytes
  * @param[in]   callback   callback to be executed on each received block
  * @param[in]   arg        optional function arguments
  *
- * @returns     -EINVAL    if an invalid url is provided
  * @returns     -1         if failed to fetch the url content
  * @returns      0         on success
  */
 int nanocoap_get_blockwise(sock_udp_t *sock, const char *path,
-                           coap_blksize_t blksize, void *work_buf,
+                           coap_blksize_t blksize,
                            coap_blockwise_cb_t callback, void *arg);
 
 /**
@@ -221,7 +219,6 @@ int nanocoap_get_blockwise(sock_udp_t *sock, const char *path,
  *
  * @param[in]   url        url pointer to source path
  * @param[in]   blksize    sender suggested SZX for the COAP block request
- * @param[in]   work_buf   Work buffer, must be `NANOCOAP_BLOCKWISE_BUF(blksize)` bytes
  * @param[in]   callback   callback to be executed on each received block
  * @param[in]   arg        optional function arguments
  *
@@ -230,7 +227,7 @@ int nanocoap_get_blockwise(sock_udp_t *sock, const char *path,
  * @returns      0         on success
  */
 int nanocoap_get_blockwise_url(const char *url,
-                               coap_blksize_t blksize, void *work_buf,
+                               coap_blksize_t blksize,
                                coap_blockwise_cb_t callback, void *arg);
 
 /**
@@ -246,6 +243,23 @@ int nanocoap_get_blockwise_url(const char *url,
  * @returns     <0 on error
  */
 ssize_t nanocoap_request(sock_udp_t *sock, coap_pkt_t *pkt, size_t len);
+
+/**
+ * @brief   Simple synchronous CoAP request with callback
+ *
+ *          The response will be handled by a callback, which avoids copying the
+ *          response packet out of the network stack internal buffer.
+ *
+ * @param[in]       sock    socket to use for the request
+ * @param[in,out]   pkt     Packet struct containing the request. Is reused for
+ *                          the response
+ * @param[in]       cb      Callback executed for response packet
+ * @param[in]       arg     Optional callback argumnent
+ *
+ * @returns     length of response on success
+ * @returns     <0 on error
+ */
+ssize_t nanocoap_request_cb(sock_udp_t *sock, coap_pkt_t *pkt, coap_request_cb_t cb, void *arg);
 
 #ifdef __cplusplus
 }
