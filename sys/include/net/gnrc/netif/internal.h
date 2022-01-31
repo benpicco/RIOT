@@ -399,6 +399,11 @@ static inline bool gnrc_netif_is_6lo(const gnrc_netif_t *netif)
     }
 }
 
+static inline bool gnrc_netif_is_multihop_p6c(const gnrc_netif_t *netif)
+{
+    return IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C) && gnrc_netif_is_6lo(netif);
+}
+
 /**
  * @brief   Checks if the interface represents a 6Lo node (6LN) according to
  *          RFC 6775
