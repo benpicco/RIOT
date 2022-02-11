@@ -112,6 +112,11 @@ ifneq (,$(filter mtd_%,$(USEMODULE)))
   USEMODULE += mtd
 endif
 
+ifneq (,$(filter mtd_sdcard_auto_vfs,$(USEMODULE)))
+  USEMODULE += mtd_sdcard
+  USEMODULE += vfs
+endif
+
 # nrfmin is a concrete module but comes from cpu/nrf5x_common. Due to limitations
 # in the dependency resolution mechanism it's not possible to move its
 # dependency resolution at cpu level.
