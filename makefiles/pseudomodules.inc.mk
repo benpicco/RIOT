@@ -219,6 +219,7 @@ PSEUDOMODULES += sys_bus_%
 PSEUDOMODULES += vdd_lc_filter_%
 PSEUDOMODULES += vfs_auto_format
 PSEUDOMODULES += vfs_auto_mount
+PSEUDOMODULES += vfs_default
 PSEUDOMODULES += wakaama_objects_%
 PSEUDOMODULES += wifi_enterprise
 PSEUDOMODULES += xtimer_on_ztimer
