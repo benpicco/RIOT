@@ -1,0 +1,3 @@
+USEMODULE += mtd
+USEMODULE += vfs
+USEMODULE += storfs_fs

@@ -1,0 +1,4 @@
+INCLUDES += -I$(PKGDIRBASE)/storfs/include
+INCLUDES += -I$(RIOTPKG)/storfs/include
+
+DIRS += $(RIOTPKG)/storfs/fs

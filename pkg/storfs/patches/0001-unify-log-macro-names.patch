@@ -1,0 +1,61 @@
+From bc4bf86eeee0d4feb4e41ad0438c7ac0418354be Mon Sep 17 00:00:00 2001
+From: Benjamin Valentin <benjamin.valentin@ml-pa.com>
+Date: Thu, 17 Mar 2022 17:01:11 +0100
+Subject: [PATCH] unify log macro names
+
+---
+ src/storfs.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/storfs.c b/src/storfs.c
+index 2840d52..f085357 100644
+--- a/src/storfs.c
++++ b/src/storfs.c
+@@ -879,7 +879,7 @@ storfs_err_t wear_level_act(storfs_t* storfsInst, wear_level_t *wearLevelInfo)
+         //Determine the parent/sibling location of the previous file in order to prepare it for another iteration of wear-level writing
+         if(find_prev_file_loc(storfsInst, wearLevelInfo->storfsPrevLoc, storfsInst->cachedInfo.rootLocation[0], &prevWearLevelInfo.storfsPrevLoc) != STORFS_OK)
+         {
+-            LOGE(TAG, "Error determining the previous file's parent/sibling location");
++            STORFS_LOGE(TAG, "Error determining the previous file's parent/sibling location");
+             return STORFS_ERROR;
+         }
+ 
+@@ -1050,7 +1050,7 @@ static storfs_err_t write_wear_level_helper(storfs_t* storfsInst, wear_level_t *
+             } 
+             if(storfsInst->erase(storfsInst, wearLevelInfo->storfsCurrLoc->pageLoc) != STORFS_OK)
+             {
+-                LOGE(TAG, "Could not erase page in wear-level function");
++                STORFS_LOGE(TAG, "Could not erase page in wear-level function");
+                 return STORFS_ERROR;
+             }           
+         }
+@@ -1658,7 +1658,7 @@ storfs_err_t storfs_fputs(storfs_t *storfsInst, const char *str, const int n, ST
+ 
+     if(stream->fileFlags & STORFS_FILE_REWIND_FLAG)
+     {
+-        LOGD(TAG, "Rewound file has been written");
++        STORFS_LOGD(TAG, "Rewound file has been written");
+         stream->fileFlags &= ~(STORFS_FILE_REWIND_FLAG);
+     }
+ 
+@@ -1916,7 +1916,7 @@ storfs_err_t storfs_rewind(storfs_t *storfsInst, STORFS_FILE *stream)
+         return STORFS_ERROR;
+     }
+ 
+-    LOGI(TAG, "Rewinding file %s to original location", stream->fileInfo.fileName);
++    STORFS_LOGI(TAG, "Rewinding file %s to original location", stream->fileInfo.fileName);
+ 
+     //Set read pointer location
+     stream->fileRead.readLocPtr.pageLoc = stream->fileLoc.pageLoc;
+@@ -1924,7 +1924,7 @@ storfs_err_t storfs_rewind(storfs_t *storfsInst, STORFS_FILE *stream)
+     //Set read file size remainder
+     stream->fileRead.fileSizeRem = stream->fileInfo.fileSize - STORFS_HEADER_TOTAL_SIZE - (stream->fileInfo.fileSize / storfsInst->pageSize * STORFS_FRAGMENT_HEADER_TOTAL_SIZE);
+ 
+-    LOGD(TAG, "File size remainder %ld", stream->fileRead.fileSizeRem);
++    STORFS_LOGD(TAG, "File size remainder %ld", stream->fileRead.fileSizeRem);
+ 
+     //Set rewind flag
+     stream->fileFlags |= STORFS_FILE_REWIND_FLAG;
+-- 
+2.32.0
+
