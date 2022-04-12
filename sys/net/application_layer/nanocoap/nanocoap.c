@@ -812,6 +812,9 @@ size_t coap_opt_put_uri_pathquery(uint8_t *buf, uint16_t *lastonum, const char *
     size_t bytes_out = coap_opt_put_string_with_len(buf, *lastonum,
                                                     COAP_OPT_URI_PATH,
                                                     uri, len, '/');
+    if (bytes_out == 0) {
+        return 0;
+    }
 
     if (query) {
         buf += bytes_out;
