@@ -217,7 +217,7 @@ static void *_suit_coap_thread(void *arg)
         switch (m.content.value) {
             case SUIT_MSG_TRIGGER:
                 LOG_INFO("suit_coap: trigger received\n");
-                _suit_handle_url(_url, CONFIG_SUIT_COAP_BLOCKSIZE);
+                _suit_handle_url(_url, CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT);
                 break;
             default:
                 LOG_WARNING("suit_coap: warning: unhandled msg\n");

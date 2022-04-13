@@ -96,13 +96,6 @@ typedef const struct {
 extern const coap_resource_subtree_t coap_resource_subtree_suit;
 
 /**
- * @brief Coap block-wise-transfer size used for SUIT
- */
-#ifndef CONFIG_SUIT_COAP_BLOCKSIZE
-#define CONFIG_SUIT_COAP_BLOCKSIZE  COAP_BLOCKSIZE_64
-#endif
-
-/**
  * @brief   Trigger a SUIT udate
  *
  * @param[in] url       url pointer containing the full coap url to the manifest
