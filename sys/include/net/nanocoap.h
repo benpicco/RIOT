@@ -198,6 +198,9 @@ typedef struct {
     coap_hdr_t *hdr;                                  /**< pointer to raw packet   */
     uint8_t *token;                                   /**< pointer to token        */
     uint8_t *payload;                                 /**< pointer to payload      */
+    uint8_t *write_pos;
+    uint8_t *buf_end;
+    uint16_t hdr_len;
     uint16_t payload_len;                             /**< length of payload       */
     uint16_t options_len;                             /**< length of options array */
     coap_optpos_t options[CONFIG_NANOCOAP_NOPTS_MAX]; /**< option offset array     */
@@ -746,7 +749,7 @@ void coap_block_object_init(coap_block1_t *block, size_t blknum, size_t blksize,
  * @return      true if the `more` bit is set in the block option
  * @return      false if the `more` bit is not set the block option
  */
-bool coap_block_finish(coap_block_slicer_t *slicer, uint16_t option);
+bool coap_block_finish(coap_pkt_t *pkt, coap_block_slicer_t *slicer, uint16_t option);
 
 /**
  * @brief Finish a block1 request
@@ -762,9 +765,9 @@ bool coap_block_finish(coap_block_slicer_t *slicer, uint16_t option);
  * @return      true if the `more` bit is set in the block option
  * @return      false if the `more` bit is not set the block option
  */
-static inline bool coap_block1_finish(coap_block_slicer_t *slicer)
+static inline bool coap_block1_finish(coap_pkt_t *pkt, coap_block_slicer_t *slicer)
 {
-    return coap_block_finish(slicer, COAP_OPT_BLOCK1);
+    return coap_block_finish(pkt, slicer, COAP_OPT_BLOCK1);
 }
 
 /**
@@ -781,9 +784,9 @@ static inline bool coap_block1_finish(coap_block_slicer_t *slicer)
  * @return      true if the `more` bit is set in the block option
  * @return      false if the `more` bit is not set the block option
  */
-static inline bool coap_block2_finish(coap_block_slicer_t *slicer)
+static inline bool coap_block2_finish(coap_pkt_t *pkt, coap_block_slicer_t *slicer)
 {
-    return coap_block_finish(slicer, COAP_OPT_BLOCK2);
+    return coap_block_finish(pkt, slicer, COAP_OPT_BLOCK2);
 }
 
 /**
@@ -823,7 +826,7 @@ void coap_block_slicer_init(coap_block_slicer_t *slicer, size_t blknum,
  *
  * @returns     Number of bytes written to @p bufpos
  */
-size_t coap_blockwise_put_bytes(coap_block_slicer_t *slicer, uint8_t *bufpos,
+size_t coap_blockwise_put_bytes(coap_pkt_t *pdu, coap_block_slicer_t *slicer,
                                 const uint8_t *c, size_t len);
 
 /**
@@ -839,7 +842,7 @@ size_t coap_blockwise_put_bytes(coap_block_slicer_t *slicer, uint8_t *bufpos,
  *
  * @returns     Number of bytes written to @p bufpos
  */
-size_t coap_blockwise_put_char(coap_block_slicer_t *slicer, uint8_t *bufpos, char c);
+size_t coap_blockwise_put_char(coap_pkt_t *pkt, coap_block_slicer_t *slicer, char c);
 
 /**
  * @brief    Block option getter
@@ -1331,7 +1334,7 @@ ssize_t coap_opt_remove(coap_pkt_t *pkt, uint16_t optnum);
  *
  * @returns     amount of bytes written to @p buf
  */
-size_t coap_opt_put_block(uint8_t *buf, uint16_t lastonum, coap_block_slicer_t *slicer,
+size_t coap_opt_put_block(coap_pkt_t *pkt, uint16_t lastonum, coap_block_slicer_t *slicer,
                           bool more, uint16_t option);
 
 /**
@@ -1349,10 +1352,10 @@ size_t coap_opt_put_block(uint8_t *buf, uint16_t lastonum, coap_block_slicer_t *
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_block1(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_block1(coap_pkt_t *pkt, uint16_t lastonum,
                                          coap_block_slicer_t *slicer, bool more)
 {
-    return coap_opt_put_block(buf, lastonum, slicer, more, COAP_OPT_BLOCK1);
+    return coap_opt_put_block(pkt, lastonum, slicer, more, COAP_OPT_BLOCK1);
 }
 
 /**
@@ -1370,10 +1373,10 @@ static inline size_t coap_opt_put_block1(uint8_t *buf, uint16_t lastonum,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_block2(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_block2(coap_pkt_t *pkt, uint16_t lastonum,
                                          coap_block_slicer_t *slicer, bool more)
 {
-    return coap_opt_put_block(buf, lastonum, slicer, more, COAP_OPT_BLOCK2);
+    return coap_opt_put_block(pkt, lastonum, slicer, more, COAP_OPT_BLOCK2);
 }
 
 /**
@@ -1387,7 +1390,7 @@ static inline size_t coap_opt_put_block2(uint8_t *buf, uint16_t lastonum,
  *
  * @returns     amount of bytes written to @p buf
  */
-size_t coap_opt_put_uint(uint8_t *buf, uint16_t lastonum, uint16_t onum,
+size_t coap_opt_put_uint(coap_pkt_t *pkt, uint16_t lastonum, uint16_t onum,
                          uint32_t value);
 
 /**
@@ -1399,10 +1402,10 @@ size_t coap_opt_put_uint(uint8_t *buf, uint16_t lastonum, uint16_t onum,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_block1_control(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_block1_control(coap_pkt_t *pkt, uint16_t lastonum,
                                                  coap_block1_t *block)
 {
-    return coap_opt_put_uint(buf, lastonum, COAP_OPT_BLOCK1,
+    return coap_opt_put_uint(pkt, lastonum, COAP_OPT_BLOCK1,
                              (block->blknum << 4) | block->szx | (block->more ? 0x8 : 0));
 }
 
@@ -1417,11 +1420,11 @@ static inline size_t coap_opt_put_block1_control(uint8_t *buf, uint16_t lastonum
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_block2_control(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_block2_control(coap_pkt_t *pkt, uint16_t lastonum,
                                                  coap_block1_t *block)
 {
     /* block.more must be zero, so no need to 'or' it in */
-    return coap_opt_put_uint(buf, lastonum, COAP_OPT_BLOCK2,
+    return coap_opt_put_uint(pkt, lastonum, COAP_OPT_BLOCK2,
                              (block->blknum << 4) | block->szx);
 }
 
@@ -1438,7 +1441,7 @@ static inline size_t coap_opt_put_block2_control(uint8_t *buf, uint16_t lastonum
  *
  * @return      number of bytes written to @p buf
  */
-size_t coap_opt_put_string_with_len(uint8_t *buf, uint16_t lastonum, uint16_t optnum,
+size_t coap_opt_put_string_with_len(coap_pkt_t *pkt, uint16_t lastonum, uint16_t optnum,
                                     const char *string, size_t len, char separator);
 /**
  * @brief   Encode the given string as multi-part option into buffer
@@ -1452,11 +1455,11 @@ size_t coap_opt_put_string_with_len(uint8_t *buf, uint16_t lastonum, uint16_t op
  *
  * @return      number of bytes written to @p buf
  */
-static inline size_t coap_opt_put_string(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_string(coap_pkt_t *pkt, uint16_t lastonum,
                                          uint16_t optnum,
                                          const char *string, char separator)
 {
-    return coap_opt_put_string_with_len(buf, lastonum, optnum,
+    return coap_opt_put_string_with_len(pkt, lastonum, optnum,
                                         string, strlen(string), separator);
 }
 
@@ -1470,11 +1473,11 @@ static inline size_t coap_opt_put_string(uint8_t *buf, uint16_t lastonum,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_location_path(uint8_t *buf,
+static inline size_t coap_opt_put_location_path(coap_pkt_t *pkt,
                                                 uint16_t lastonum,
                                                 const char *location)
 {
-    return coap_opt_put_string(buf, lastonum, COAP_OPT_LOCATION_PATH,
+    return coap_opt_put_string(pkt, lastonum, COAP_OPT_LOCATION_PATH,
                                location, '/');
 }
 
@@ -1488,11 +1491,11 @@ static inline size_t coap_opt_put_location_path(uint8_t *buf,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_location_query(uint8_t *buf,
+static inline size_t coap_opt_put_location_query(coap_pkt_t *pkt,
                                                  uint16_t lastonum,
                                                  const char *location)
 {
-    return coap_opt_put_string(buf, lastonum, COAP_OPT_LOCATION_QUERY,
+    return coap_opt_put_string(pkt, lastonum, COAP_OPT_LOCATION_QUERY,
                                location, '&');
 }
 
@@ -1506,10 +1509,10 @@ static inline size_t coap_opt_put_location_query(uint8_t *buf,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_uri_path(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_uri_path(coap_pkt_t *pkt, uint16_t lastonum,
                                            const char *uri)
 {
-    return coap_opt_put_string(buf, lastonum, COAP_OPT_URI_PATH, uri, '/');
+    return coap_opt_put_string(pkt, lastonum, COAP_OPT_URI_PATH, uri, '/');
 }
 
 /**
@@ -1522,10 +1525,10 @@ static inline size_t coap_opt_put_uri_path(uint8_t *buf, uint16_t lastonum,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_uri_query(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_uri_query(coap_pkt_t *pkt, uint16_t lastonum,
                                             const char *uri)
 {
-    return coap_opt_put_string(buf, lastonum, COAP_OPT_URI_QUERY, uri, '&');
+    return coap_opt_put_string(pkt, lastonum, COAP_OPT_URI_QUERY, uri, '&');
 }
 
 /**
@@ -1545,7 +1548,7 @@ static inline size_t coap_opt_put_uri_query(uint8_t *buf, uint16_t lastonum,
  * unassigned option 13 need to split their URI themselves and call the
  * respective helper functions.
  */
-size_t coap_opt_put_uri_pathquery(uint8_t *buf, uint16_t *lastonum, const char *uri);
+size_t coap_opt_put_uri_pathquery(coap_pkt_t *pkt, uint16_t *lastonum, const char *uri);
 
 /**
  * @brief   Convenience function for inserting PROXY_URI option into buffer
@@ -1557,10 +1560,10 @@ size_t coap_opt_put_uri_pathquery(uint8_t *buf, uint16_t *lastonum, const char *
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_opt_put_proxy_uri(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_opt_put_proxy_uri(coap_pkt_t *pkt, uint16_t lastonum,
                                             const char *uri)
 {
-    return coap_opt_put_string(buf, lastonum, COAP_OPT_PROXY_URI, uri, '\0');
+    return coap_opt_put_string(pkt, lastonum, COAP_OPT_PROXY_URI, uri, '\0');
 }
 
 /**
@@ -1580,7 +1583,7 @@ static inline size_t coap_opt_put_proxy_uri(uint8_t *buf, uint16_t lastonum,
  *
  * @returns     amount of bytes written to @p pkt_pos
  */
-size_t coap_put_block1_ok(uint8_t *pkt_pos, coap_block1_t *block1, uint16_t lastonum);
+size_t coap_put_block1_ok(coap_pkt_t *pkt, coap_block1_t *block1, uint16_t lastonum);
 
 /**
  * @brief   Insert a CoAP option into buffer
@@ -1598,7 +1601,7 @@ size_t coap_put_block1_ok(uint8_t *pkt_pos, coap_block1_t *block1, uint16_t last
  *
  * @returns     amount of bytes written to @p buf
  */
-size_t coap_put_option(uint8_t *buf, uint16_t lastonum, uint16_t onum, const uint8_t *odata, size_t olen);
+size_t coap_put_option(coap_pkt_t *pkt, uint16_t lastonum, uint16_t onum, const uint8_t *odata, size_t olen);
 
 /**
  * @brief   Insert block1 option into buffer
@@ -1612,10 +1615,10 @@ size_t coap_put_option(uint8_t *buf, uint16_t lastonum, uint16_t onum, const uin
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_put_option_block1(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_put_option_block1(coap_pkt_t *pkt, uint16_t lastonum,
                                             unsigned blknum, unsigned szx, int more)
 {
-    return coap_opt_put_uint(buf, lastonum, COAP_OPT_BLOCK1,
+    return coap_opt_put_uint(pkt, lastonum, COAP_OPT_BLOCK1,
                              (blknum << 4) | szx | (more ? 0x8 : 0));
 }
 
@@ -1629,10 +1632,10 @@ static inline size_t coap_put_option_block1(uint8_t *buf, uint16_t lastonum,
  *
  * @returns     amount of bytes written to @p buf
  */
-static inline size_t coap_put_option_ct(uint8_t *buf, uint16_t lastonum,
+static inline size_t coap_put_option_ct(coap_pkt_t *pkt, uint16_t lastonum,
                                         uint16_t content_type)
 {
-    return coap_opt_put_uint(buf, lastonum, COAP_OPT_CONTENT_FORMAT, content_type);
+    return coap_opt_put_uint(pkt, lastonum, COAP_OPT_CONTENT_FORMAT, content_type);
 }
 /**@}*/
 

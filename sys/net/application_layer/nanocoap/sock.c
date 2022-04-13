@@ -232,7 +232,7 @@ ssize_t nanocoap_sock_get(nanocoap_sock_t *sock, const char *path, void *buf, si
 
     pkt.hdr = buf;
     pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_CON, NULL, 0, COAP_METHOD_GET, 1);
-    pktpos += coap_opt_put_uri_path(pktpos, 0, path);
+    pktpos += coap_opt_put_uri_path(&pkt, 0, path);
     pkt.payload = pktpos;
     pkt.payload_len = 0;
 
@@ -311,8 +311,8 @@ static int _fetch_block(coap_pkt_t *pkt, sock_udp_t *sock,
 
     pktpos += coap_build_hdr(pkt->hdr, COAP_TYPE_CON, NULL, 0, COAP_METHOD_GET,
                              num);
-    pktpos += coap_opt_put_uri_pathquery(pktpos, &lastonum, path);
-    pktpos += coap_opt_put_uint(pktpos, lastonum, COAP_OPT_BLOCK2,
+    pktpos += coap_opt_put_uri_pathquery(pkt, &lastonum, path);
+    pktpos += coap_opt_put_uint(pkt, lastonum, COAP_OPT_BLOCK2,
                                 (num << 4) | blksize);
 
     pkt->payload = pktpos;

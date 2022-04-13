@@ -59,19 +59,19 @@ static ssize_t _riot_block2_handler(coap_pkt_t *pdu, uint8_t *buf, size_t len, v
     ssize_t plen = coap_opt_finish(pdu, COAP_OPT_FINISH_PAYLOAD);
 
     /* Add actual content */
-    plen += coap_blockwise_put_bytes(&slicer, buf+plen, block2_intro, sizeof(block2_intro)-1);
-    plen += coap_blockwise_put_bytes(&slicer, buf+plen, (uint8_t*)RIOT_VERSION, strlen(RIOT_VERSION));
-    plen += coap_blockwise_put_char(&slicer, buf+plen, ')');
-    plen += coap_blockwise_put_bytes(&slicer, buf+plen, block2_board, sizeof(block2_board)-1);
-    plen += coap_blockwise_put_bytes(&slicer, buf+plen, (uint8_t*)RIOT_BOARD, strlen(RIOT_BOARD));
-    plen += coap_blockwise_put_bytes(&slicer, buf+plen, block2_mcu, sizeof(block2_mcu)-1);
-    plen += coap_blockwise_put_bytes(&slicer, buf+plen, (uint8_t*)RIOT_MCU, strlen(RIOT_MCU));
+    coap_blockwise_put_bytes(pdu, &slicer, block2_intro, sizeof(block2_intro)-1);
+    coap_blockwise_put_bytes(pdu, &slicer, (uint8_t*)RIOT_VERSION, strlen(RIOT_VERSION));
+    coap_blockwise_put_char(pdu, &slicer, ')');
+    coap_blockwise_put_bytes(pdu, &slicer, block2_board, sizeof(block2_board)-1);
+    coap_blockwise_put_bytes(pdu, &slicer, (uint8_t*)RIOT_BOARD, strlen(RIOT_BOARD));
+    coap_blockwise_put_bytes(pdu, &slicer, block2_mcu, sizeof(block2_mcu)-1);
+    coap_blockwise_put_bytes(pdu, &slicer, (uint8_t*)RIOT_MCU, strlen(RIOT_MCU));
     /* To demonstrate individual chars */
-    plen += coap_blockwise_put_char(&slicer, buf+plen, ' ');
-    plen += coap_blockwise_put_char(&slicer, buf+plen, 'M');
-    plen += coap_blockwise_put_char(&slicer, buf+plen, 'C');
-    plen += coap_blockwise_put_char(&slicer, buf+plen, 'U');
-    plen += coap_blockwise_put_char(&slicer, buf+plen, '.');
+    coap_blockwise_put_char(pdu, &slicer, ' ');
+    coap_blockwise_put_char(pdu, &slicer, 'M');
+    coap_blockwise_put_char(pdu, &slicer, 'C');
+    coap_blockwise_put_char(pdu, &slicer, 'U');
+    coap_blockwise_put_char(pdu, &slicer, '.');
 
     coap_block2_finish(&slicer);
 
