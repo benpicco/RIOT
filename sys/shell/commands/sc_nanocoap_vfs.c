@@ -54,16 +54,22 @@ static int _print_dir(const char *url)
 
 int _nanocoap_get_handler(int argc, char **argv)
 {
+    int res;
     char buffer[64];
     char *dst, *url = argv[1];
 
     if (argc < 2) {
         printf("Usage: %s <url> [destination]\n", argv[0]);
+        printf("Default destination: %s\n", VFS_DEFAULT_DATA);
         return -EINVAL;
     }
 
     if (_is_dir(url)) {
-        return _print_dir(url);
+        res = _print_dir(url);
+        if (res) {
+            printf("Request failed: %s\n", strerror(-res));
+        }
+        return res;
     }
 
     if (argc < 3) {
@@ -74,7 +80,7 @@ int _nanocoap_get_handler(int argc, char **argv)
         }
         if (snprintf(buffer, sizeof(buffer), "%s%s",
                      VFS_DEFAULT_DATA, dst) >= (int)sizeof(buffer)) {
-            printf("destination truncated\n");
+            printf("Output file path too long\n");
             return -ENOBUFS;
         }
         dst = buffer;
@@ -82,5 +88,11 @@ int _nanocoap_get_handler(int argc, char **argv)
         dst = argv[2];
     }
 
-    return nanocoap_vfs_get(url, dst);
+    res = nanocoap_vfs_get(url, dst);
+    if (res < 0) {
+        printf("Download failed: %s\n", strerror(-res));
+    } else {
+        printf("Saved as %s\n", dst);
+    }
+    return res;
 }
