@@ -114,7 +114,7 @@ int _nanocoap_get_handler(int argc, char **argv)
         dst = argv[2];
     }
 
-    res = nanocoap_vfs_get(url, dst);
+    res = nanocoap_vfs_get_url(url, dst);
     if (res < 0) {
         printf("Download failed: %s\n", strerror(-res));
     } else {
