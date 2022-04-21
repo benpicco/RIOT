@@ -32,8 +32,9 @@
 #endif
 
 struct dir_list_ctx {
-    char buffer[CONFIG_COAP_PATH_MAX_LEN];
+    char *buf;
     char *cur;
+    char *end;
 };
 
 static bool _is_dir(char *url)
@@ -52,27 +53,26 @@ static int _print(void *arg, size_t offset, uint8_t *buf, size_t len, int more)
     char *end = (char *)buf + len;
     for (char *c = (char *)buf; c < end; ++c) {
         if (ctx->cur) {
-            switch (*c) {
-            case '>':
+            if (*c == '>' || ctx->cur == ctx->end) {
                 *ctx->cur = 0;
-                puts(ctx->buffer);
+                puts(ctx->buf);
                 ctx->cur = NULL;
-                break;
-            default:
+            } else {
                 *ctx->cur++ = *c;
             }
         } else if (*c == '<') {
-            ctx->cur = ctx->buffer;
+            ctx->cur = ctx->buf;
         }
     }
 
     return 0;
 }
 
-static int _print_dir(const char *url)
+static int _print_dir(const char *url, char *buf, size_t len)
 {
     struct dir_list_ctx ctx = {
-        .cur = NULL
+        .buf = buf,
+        .end = buf + len,
     };
     return nanocoap_get_blockwise_url(url, CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT,
                                       _print, &ctx);
@@ -81,7 +81,7 @@ static int _print_dir(const char *url)
 int _nanocoap_get_handler(int argc, char **argv)
 {
     int res;
-    char buffer[64];
+    char buffer[CONFIG_COAP_PATH_MAX_LEN];
     char *dst, *url = argv[1];
 
     if (argc < 2) {
@@ -91,7 +91,7 @@ int _nanocoap_get_handler(int argc, char **argv)
     }
 
     if (_is_dir(url)) {
-        res = _print_dir(url);
+        res = _print_dir(url, buffer, sizeof(buffer));
         if (res) {
             printf("Request failed: %s\n", strerror(-res));
         }
