@@ -34,7 +34,20 @@ extern "C" {
  * @returns     0 on success
  * @returns     <0 on error
  */
-int nanocoap_vfs_get(const char *url, const char *dst);
+int nanocoap_vfs_get_url(const char *url, const char *dst);
+
+/**
+ * @brief   Downloads the resource behind @p path via blockwise
+ *          GET and stores it in the file @p dst.
+ *
+ * @param[in]   sock    Connection to the server
+ * @param[in]   path    Remote path to the resource
+ * @param[in]   dst     Local path to the destination file
+ *
+ * @returns     0 on success
+ * @returns     <0 on error
+ */
+int nanocoap_vfs_get(nanocoap_sock_t *sock, const char *path, const char *dst);
 
 #ifdef __cplusplus
 }

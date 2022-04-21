@@ -34,7 +34,26 @@ static int _2file(void *arg, size_t offset, uint8_t *buf, size_t len, int more)
     return vfs_write(*fd, buf, len);
 }
 
-int nanocoap_vfs_get(const char *url, const char *dst)
+int nanocoap_vfs_get(nanocoap_sock_t *sock, const char *path, const char *dst)
+{
+    int res, fd = vfs_open(dst, O_CREAT | O_WRONLY, 0644);
+    if (fd < 0) {
+        return fd;
+    }
+
+    res = nanocoap_sock_get_blockwise(sock, path, CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT,
+                                      _2file, &fd);
+    vfs_close(fd);
+
+    /* don't keep incomplete file around */
+    if (res < 0) {
+        vfs_unlink(dst);
+    }
+
+    return res;
+}
+
+int nanocoap_vfs_get_url(const char *url, const char *dst)
 {
     DEBUG("nanocoap: downloading %s to %s\n", url, dst);
 
