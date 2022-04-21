@@ -79,21 +79,25 @@ extern "C" {
 #endif
 
 /**
+ * @name    ILI9341 display rotation modes
+ * @{
+ */
+#define ST7735_ROTATION_VERT            0                   /**< Vertical mode */
+#define ST7735_ROTATION_VERT_FLIP       LCD_MADCTL_MX | \
+                                        LCD_MADCTL_MY       /**< Flipped vertical */
+#define ST7735_ROTATION_HORZ            LCD_MADCTL_MV | \
+                                        LCD_MADCTL_MX       /**< Horizontal mode */
+#define ST7735_ROTATION_HORZ_FLIP       LCD_MADCTL_MV | \
+                                        LCD_MADCTL_MY       /**< Horizontal flipped */
+/** @} */
+
+/**
  * @brief   Device descriptor for a st7735
  *
  */
 typedef struct {
     lcd_t dev;                    /**< Pointer to the common lcd device */
 } st7735_t;
-
-/**
- * @brief   Device initialization parameters
- */
-typedef struct {
-    lcd_params_t params;            /**< LCD struct params */
-    uint8_t offset_x;             /**< LCD offset to apply on x axis. */
-    uint8_t offset_y;             /**< LCD offset to apply on y axis. */
-} st7735_params_t;
 
 /**
  * @brief   LCD device operations table
