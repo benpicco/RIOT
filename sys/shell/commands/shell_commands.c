@@ -189,6 +189,7 @@ extern int _loramac_handler(int argc, char **argv);
 
 #ifdef MODULE_NANOCOAP_VFS
 extern int _nanocoap_get_handler(int argc, char **argv);
+extern int _nanocoap_mirror_dir(int argc, char **argv);
 #endif
 
 #ifdef MODULE_NICE
@@ -274,6 +275,7 @@ const shell_command_t _shell_command_list[] = {
 #endif
 #ifdef MODULE_NANOCOAP_VFS
     {"nget", "download a file from a CoAP server", _nanocoap_get_handler},
+    {"ngetdir", "download a direcory from a CoAP server", _nanocoap_mirror_dir},
 #endif
 #ifdef MODULE_GNRC_IPV6_NIB
     {"nib", "Configure neighbor information base", _gnrc_ipv6_nib},
