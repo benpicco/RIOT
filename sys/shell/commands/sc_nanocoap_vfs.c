@@ -27,6 +27,15 @@
 #include "net/nanocoap_vfs.h"
 #include "net/nanocoap_sock.h"
 
+#ifndef CONFIG_COAP_PATH_MAX_LEN
+#define CONFIG_COAP_PATH_MAX_LEN (64)
+#endif
+
+struct dir_list_ctx {
+    char buffer[CONFIG_COAP_PATH_MAX_LEN];
+    char *cur;
+};
+
 static bool _is_dir(char *url)
 {
     int len = strlen(url);
@@ -35,12 +44,26 @@ static bool _is_dir(char *url)
 
 static int _print(void *arg, size_t offset, uint8_t *buf, size_t len, int more)
 {
-    (void)arg;
     (void)offset;
+    (void)more;
 
-    write(STDOUT_FILENO, buf, len);
-    if (!more) {
-        write(STDOUT_FILENO, "\n", 1);
+    struct dir_list_ctx *ctx = arg;
+
+    char *end = (char *)buf + len;
+    for (char *c = (char *)buf; c < end; ++c) {
+        if (ctx->cur) {
+            switch (*c) {
+            case '>':
+                *ctx->cur = 0;
+                puts(ctx->buffer);
+                ctx->cur = NULL;
+                break;
+            default:
+                *ctx->cur++ = *c;
+            }
+        } else if (*c == '<') {
+            ctx->cur = ctx->buffer;
+        }
     }
 
     return 0;
@@ -48,8 +71,11 @@ static int _print(void *arg, size_t offset, uint8_t *buf, size_t len, int more)
 
 static int _print_dir(const char *url)
 {
+    struct dir_list_ctx ctx = {
+        .cur = NULL
+    };
     return nanocoap_get_blockwise_url(url, CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT,
-                                      _print, NULL);
+                                      _print, &ctx);
 }
 
 int _nanocoap_get_handler(int argc, char **argv)
