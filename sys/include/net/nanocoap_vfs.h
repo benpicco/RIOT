@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#include "net/nanocoap_sock.h"
+
 /**
  * @brief   Downloads the resource behind @p url via blockwise
  *          GET and stores it in the file @p dst.
