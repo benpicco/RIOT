@@ -38,8 +38,9 @@
 #include "debug.h"
 
 enum {
-    STATE_SEND_REQUEST,
-    STATE_AWAIT_RESPONSE,
+    STATE_REQUEST_SEND,     /**< request was just sent or will be sent again */
+    STATE_RESPONSE_RCVD,    /**< response received but might be wrong one */
+    STATE_RESPONSE_OK,      /**< proper response was received */
 };
 
 typedef struct {
@@ -128,7 +129,7 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
     const uint8_t *token = coap_get_token(pkt);
     uint8_t token_len = coap_get_token_len(pkt);
 
-    unsigned state = STATE_SEND_REQUEST;
+    unsigned state = STATE_REQUEST_SEND;
 
     uint32_t timeout = random_uint32_range(CONFIG_COAP_ACK_TIMEOUT_MS * US_PER_MS,
                                            CONFIG_COAP_ACK_TIMEOUT_MS * CONFIG_COAP_RANDOM_FACTOR_1000);
@@ -140,12 +141,9 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
     /* check if we expect a reply */
     const bool confirmable = coap_get_type(pkt) == COAP_TYPE_CON;
 
-    /* try receiving another packet without re-request */
-    bool retry_rx = false;
-
     while (1) {
         switch (state) {
-        case STATE_SEND_REQUEST:
+        case STATE_REQUEST_SEND:
             DEBUG("nanocoap: send %u bytes (%u tries left)\n", (unsigned)pdu_len, tries_left);
             if (--tries_left == 0) {
                 DEBUG("nanocoap: maximum retries reached\n");
@@ -165,9 +163,9 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
 
             /* ctx must have been released at this point */
             assert(ctx == NULL);
-            state = STATE_AWAIT_RESPONSE;
             /* fall-through */
-        case STATE_AWAIT_RESPONSE:
+        case STATE_RESPONSE_RCVD:
+        case STATE_RESPONSE_OK:
             DEBUG("nanocoap: waiting for response (timeout: %"PRIu32" µs)\n",
                   _deadline_left_us(deadline));
             tmp = sock_udp_recv_buf(sock, &payload, &ctx, _deadline_left_us(deadline), NULL);
@@ -178,15 +176,14 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
              * releases the packet.
              * This assertion will trigger should the behavior change in the future.
              */
-            if (retry_rx) {
+            if (state != STATE_REQUEST_SEND) {
                 assert(tmp == 0 && ctx == NULL);
             }
             if (tmp == 0) {
                 /* no more data */
                 /* sock_udp_recv_buf() needs to be called in a loop until ctx is NULL again
                  * to release the buffer */
-                if (retry_rx) {
-                    retry_rx = false;
+                if (state == STATE_RESPONSE_RCVD) {
                     continue;
                 }
                 return res;
@@ -196,7 +193,7 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
                 DEBUG("nanocoap: timeout\n");
                 timeout *= 2;
                 deadline = _deadline_from_interval(timeout);
-                state = STATE_SEND_REQUEST;
+                state = STATE_REQUEST_SEND;
                 continue;
             }
             if (res < 0) {
@@ -205,17 +202,17 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
             }
 
             /* parse response */
+            state = STATE_RESPONSE_RCVD;
             if (coap_parse(pkt, payload, res) < 0) {
                 DEBUG("nanocoap: error parsing packet\n");
-                retry_rx = true;
                 continue;
             }
             else if (_id_or_token_missmatch(pkt, id, token, token_len)) {
                 DEBUG("nanocoap: ID mismatch %u != %u\n", coap_get_id(pkt), id);
-                retry_rx = true;
                 continue;
             }
 
+            state = STATE_RESPONSE_OK;
             DEBUG("nanocoap: response code=%i\n", coap_get_code(pkt));
             switch (coap_get_type(pkt)) {
             case COAP_TYPE_RST:
