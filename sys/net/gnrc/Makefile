@@ -70,6 +70,9 @@ endif
 ifneq (,$(filter gnrc_pktbuf_static,$(USEMODULE)))
   DIRS += pktbuf_static
 endif
+ifneq (,$(filter gnrc_pktbuf_static_heap,$(USEMODULE)))
+  DIRS += pktbuf_static_heap
+endif
 ifneq (,$(filter gnrc_pktbuf,$(USEMODULE)))
   DIRS += pktbuf
 endif
