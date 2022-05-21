@@ -433,16 +433,26 @@ void gnrc_pktbuf_free_internal(void *data, size_t size)
 {
     size_t bytes_at_end;
     _unused_t *new = (_unused_t *)data, *prev = NULL, *ptr = _first_unused;
+    size = _align(size);
 
     if (!gnrc_pktbuf_contains(data)) {
         return;
     }
     while (ptr && (((void *)ptr) < data)) {
+        /* check if the free chunk attaches right at the end of a previous chunk */
+        if ((uint8_t *)ptr + ptr->size == data) {
+            DEBUG("pktbuf: insert at end: %p + %u = %p\n", (void*)ptr, ptr->size, data);
+            ptr->size += size;
+            if ((ptr->next != NULL) && _too_small_hole(ptr, ptr->next)) {
+                _merge(ptr, ptr->next);
+            }
+            return;
+        }
         prev = ptr;
         ptr = ptr->next;
     }
     new->next = ptr;
-    new->size = _align(size);
+    new->size = size;
     /* calculate number of bytes between new _unused_t chunk and end of packet
      * buffer */
     bytes_at_end = ((&gnrc_pktbuf_static_buf[0] + CONFIG_GNRC_PKTBUF_SIZE)
