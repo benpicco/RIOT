@@ -117,9 +117,11 @@ void rtt64_init(void)
 
 void rtt64_set_counter(uint64_t now)
 {
+    now >>= 16 - RTT_SUBSEC_BITS;
+
     unsigned state = irq_disable();
 
-    rtt_set_counter(now >> (16 - RTT_SUBSEC_BITS));
+    rtt_set_counter(now);
     overflows = now >> RTT_SHIFT;
 
     irq_restore(state);
@@ -145,12 +147,14 @@ uint64_t rtt64_get_counter(void)
 
 void rtt64_set_alarm_counter(uint64_t alarm, rtt_cb_t cb, void *arg)
 {
+    alarm >>= 16 - RTT_SUBSEC_BITS;
+
     unsigned state = irq_disable();
 
     alarm_cb = cb;
     alarm_cb_arg = arg;
 
-    rtt_set_alarm(alarm >> (16 - RTT_SUBSEC_BITS), cb, arg);
+    rtt_set_alarm(alarm, cb, arg);
     alarm_overflows = alarm >> RTT_SHIFT;
 
     irq_restore(state);
