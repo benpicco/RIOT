@@ -163,33 +163,3 @@ void rtt64_clear_alarm(void)
     alarm_cb = NULL;
     alarm_overflows = 0;
 }
-
-/* convenience functions */
-
-void rtt64_get_time(uint64_t *secs, uint32_t *us)
-{
-    rtt64_t now = rtt64_get_counter();
-
-    *secs = rtt64_sec(now);
-    *us = rtt64_usec(now);
-}
-
-void rtt64_set_time(uint64_t secs, uint32_t us)
-{
-    rtt64_t now = rtt64_counter(secs, us);
-    rtt64_set_counter(now);
-}
-
-void rtt64_get_alarm_time(uint64_t *secs, uint32_t *us)
-{
-    rtt64_t alarm = rtt64_get_alarm_counter();
-
-    *secs = rtt64_sec(alarm);
-    *us = rtt64_usec(alarm);
-}
-
-void rtt64_set_alarm_time(uint64_t secs, uint32_t us, rtt_cb_t cb, void *arg)
-{
-    rtt64_t alarm = rtt64_counter(secs, us);
-    rtt64_set_alarm_counter(alarm, cb, arg);
-}

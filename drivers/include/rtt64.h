@@ -136,7 +136,11 @@ void rtt64_clear_alarm(void);
  * @param secs  Current seconds since 1st January 1970
  * @param us    Microseconds of the current second
  */
-void rtt64_set_time(uint64_t secs, uint32_t us);
+static inline void rtt64_set_time(uint64_t secs, uint32_t us)
+{
+    rtt64_t now = rtt64_counter(secs, us);
+    rtt64_set_counter(now);
+}
 
 /**
  * @brief Get RTT 64 time in seconds, microseconds
@@ -144,7 +148,17 @@ void rtt64_set_time(uint64_t secs, uint32_t us);
  * @param secs  Current seconds since 1st January 1970
  * @param us    Microseconds of the current second
  */
-void rtt64_get_time(uint64_t *secs, uint32_t *us);
+static inline void rtt64_get_time(uint64_t *secs, uint32_t *us)
+{
+    rtt64_t now = rtt64_get_counter();
+
+    if (secs) {
+        *secs = rtt64_sec(now);
+    }
+    if (us) {
+        *us = rtt64_usec(now);
+    }
+}
 
 /**
  * @brief Set RTT 64 bit alarm in seconds, microseconds
@@ -154,7 +168,11 @@ void rtt64_get_time(uint64_t *secs, uint32_t *us);
  * @param cb    Alarm callback
  * @param arg   Alarm callback argument
  */
-void rtt64_set_alarm_time(uint64_t secs, uint32_t us, rtt_cb_t cb, void *arg);
+static inline void rtt64_set_alarm_time(uint64_t secs, uint32_t us, rtt_cb_t cb, void *arg)
+{
+    rtt64_t alarm = rtt64_counter(secs, us);
+    rtt64_set_alarm_counter(alarm, cb, arg);
+}
 
 /**
  * @brief Get RTT 64 bit alarm in seconds, microseconds
@@ -162,7 +180,17 @@ void rtt64_set_alarm_time(uint64_t secs, uint32_t us, rtt_cb_t cb, void *arg);
  * @param secs  Second of the alarm
  * @param us    Microsecond of the alarm
  */
-void rtt64_get_alarm_time(uint64_t *secs, uint32_t *us);
+static inline void rtt64_get_alarm_time(uint64_t *secs, uint32_t *us)
+{
+    rtt64_t alarm = rtt64_get_alarm_counter();
+
+    if (secs) {
+        *secs = rtt64_sec(alarm);
+    }
+    if (us) {
+        *us = rtt64_usec(alarm);
+    }
+}
 
 #ifdef __cplusplus
 }
