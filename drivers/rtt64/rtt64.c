@@ -20,7 +20,6 @@
 
 #include "irq.h"
 #include "rtt64.h"
-#include "bitarithm.h"
 #include "time_units.h"
 
 #define ENABLE_DEBUG    0
@@ -70,7 +69,7 @@
 /**
  * @brief   Width of the RTT counter
  */
-#define RTT_SHIFT   (1 + bitarithm_msb(RTT_MAX_VALUE))
+#define RTT_SHIFT   (8 * sizeof(long) - __builtin_clzl(RTT_MAX_VALUE))
 
 /**
  * @brief fallback if not backup ram is available
@@ -96,26 +95,12 @@ static void _overflow_cb(void *arg)
     }
 }
 
-static uint64_t _time_to_counter(uint64_t secs, uint32_t us)
-{
-    uint64_t now = secs << 16;
-    now |= ((uint64_t)us * 0xFFFF) / US_PER_SEC;
-
-    return now;
-}
-
-static void _counter_to_time(uint64_t now, uint64_t *secs, uint32_t *us)
-{
-    *secs = now >> 16;
-    *us = ((uint64_t)US_PER_SEC * (now & 0xFFFF)) >> 16;
-}
-
 void rtt64_init(void)
 {
     rtt_set_overflow_cb(_overflow_cb, NULL);
 }
 
-void rtt64_set_counter(uint64_t now)
+void rtt64_set_counter(rtt64_t now)
 {
     now >>= 16 - RTT_SUBSEC_BITS;
 
@@ -127,17 +112,17 @@ void rtt64_set_counter(uint64_t now)
     irq_restore(state);
 }
 
-uint64_t rtt64_get_counter(void)
+rtt64_t rtt64_get_counter(void)
 {
-    uint64_t now;
+    rtt64_t now;
     uint32_t overflows_prev;
 
     do {
         unsigned state = irq_disable();
         overflows_prev = overflows;
 
-        now = (uint64_t)overflows << (RTT_SHIFT + 16 - RTT_SUBSEC_BITS);
-        now |= (uint64_t)rtt_get_counter() << (16 - RTT_SUBSEC_BITS);
+        now = (rtt64_t)overflows << (RTT_SHIFT + 16 - RTT_SUBSEC_BITS);
+        now |= (rtt64_t)rtt_get_counter() << (16 - RTT_SUBSEC_BITS);
 
         irq_restore(state);
     } while (overflows != overflows_prev);
@@ -145,7 +130,7 @@ uint64_t rtt64_get_counter(void)
     return now;
 }
 
-void rtt64_set_alarm_counter(uint64_t alarm, rtt_cb_t cb, void *arg)
+void rtt64_set_alarm_counter(rtt64_t alarm, rtt_cb_t cb, void *arg)
 {
     alarm >>= 16 - RTT_SUBSEC_BITS;
 
@@ -160,13 +145,13 @@ void rtt64_set_alarm_counter(uint64_t alarm, rtt_cb_t cb, void *arg)
     irq_restore(state);
 }
 
-uint64_t rtt64_get_alarm_counter(void)
+rtt64_t rtt64_get_alarm_counter(void)
 {
     unsigned state = irq_disable();
 
-    uint64_t alarm = (uint64_t)(overflows + alarm_overflows)
+    rtt64_t alarm = (rtt64_t)(overflows + alarm_overflows)
                    << (RTT_SHIFT + 16 - RTT_SUBSEC_BITS);
-    alarm |= (uint64_t)rtt_get_alarm() << (16 - RTT_SUBSEC_BITS);
+    alarm |= (rtt64_t)rtt_get_alarm() << (16 - RTT_SUBSEC_BITS);
 
     irq_restore(state);
     return alarm;
@@ -179,26 +164,32 @@ void rtt64_clear_alarm(void)
     alarm_overflows = 0;
 }
 
+/* convenience functions */
+
 void rtt64_get_time(uint64_t *secs, uint32_t *us)
 {
-    uint64_t now = rtt64_get_counter();
+    rtt64_t now = rtt64_get_counter();
 
-    _counter_to_time(now, secs, us);
+    *secs = rtt64_sec(now);
+    *us = rtt64_usec(now);
 }
 
 void rtt64_set_time(uint64_t secs, uint32_t us)
 {
-    rtt64_set_counter(_time_to_counter(secs, us));
+    rtt64_t now = rtt64_counter(secs, us);
+    rtt64_set_counter(now);
 }
 
 void rtt64_get_alarm_time(uint64_t *secs, uint32_t *us)
 {
-    uint64_t alarm = rtt64_get_alarm_counter();
+    rtt64_t alarm = rtt64_get_alarm_counter();
 
-    return _counter_to_time(alarm, secs, us);
+    *secs = rtt64_sec(alarm);
+    *us = rtt64_usec(alarm);
 }
 
 void rtt64_set_alarm_time(uint64_t secs, uint32_t us, rtt_cb_t cb, void *arg)
 {
-    rtt64_set_alarm_counter(_time_to_counter(secs, us), cb, arg);
+    rtt64_t alarm = rtt64_counter(secs, us);
+    rtt64_set_alarm_counter(alarm, cb, arg);
 }
