@@ -73,7 +73,7 @@ static inline uint32_t rtt64_usec(rtt64_t time)
 static inline rtt64_t rtt64_counter(uint64_t secs, uint32_t us)
 {
     uint64_t now = secs << 16;
-    now |= ((uint64_t)us * 0xFFFF) / US_PER_SEC;
+    now += ((uint64_t)us * 0xFFFF) / US_PER_SEC;
 
     return now;
 }
