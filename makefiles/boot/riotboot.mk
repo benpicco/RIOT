@@ -22,8 +22,8 @@ EPOCH = $(call memoized,EPOCH,$(shell date +%s))
 APP_VER ?= $(EPOCH)
 
 # Final target for slot 0 with riot_hdr
-SLOT0_RIOT_BIN = $(BINDIR_RIOTBOOT)/$(BOARD)-0.$(APP_VER).bin
-SLOT1_RIOT_BIN = $(BINDIR_RIOTBOOT)/$(BOARD)-1.$(APP_VER).bin
+SLOT0_RIOT_BIN = $(BINDIR_RIOTBOOT)/slot0.$(APP_VER).bin
+SLOT1_RIOT_BIN = $(BINDIR_RIOTBOOT)/slot1.$(APP_VER).bin
 SLOT_RIOT_BINS = $(SLOT0_RIOT_BIN) $(SLOT1_RIOT_BIN)
 
 # if RIOTBOOT_SKIP_COMPILE is set to 1, "make riotboot/slot[01](-flash)"
@@ -72,8 +72,8 @@ $(HEADER_TOOL): FORCE
 %.hdr: $(HEADER_TOOL) %.bin FORCE
 	$(Q)$(HEADER_TOOL) generate $< $(APP_VER) $$(($(ROM_START_ADDR)+$(OFFSET))) $(RIOTBOOT_HDR_LEN) - > $@
 
-$(BINDIR_RIOTBOOT)/$(BOARD)-0.hdr: OFFSET=$(SLOT0_IMAGE_OFFSET)
-$(BINDIR_RIOTBOOT)/$(BOARD)-1.hdr: OFFSET=$(SLOT1_IMAGE_OFFSET)
+$(BINDIR_RIOTBOOT)/slot0.hdr: OFFSET=$(SLOT0_IMAGE_OFFSET)
+$(BINDIR_RIOTBOOT)/slot1.hdr: OFFSET=$(SLOT1_IMAGE_OFFSET)
 
 # Generic target to create a binary files for both slots
 riotboot: $(SLOT_RIOT_BINS)
