@@ -1,6 +1,5 @@
 ifeq ($(BOARD),native)
   USEMODULE += suit_storage_ram
-  USEMODULE += netdev_default
   # Use VFS storage for native
   USEMODULE += suit_storage_vfs
   ## Use VFS
