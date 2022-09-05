@@ -43,6 +43,9 @@
 #include "periph/gpio.h"
 #endif
 
+#include "net/gcoap.h"
+#include "net/gcoap/fileserver.h"
+
 #define COAP_INBUF_SIZE (256U)
 
 /* Extend stacksize of nanocoap server thread */
@@ -196,6 +199,33 @@ static const shell_command_t shell_commands[] = {
     { NULL, NULL, NULL }
 };
 
+static void _config_slip(void)
+{
+    gnrc_netif_t *slip = gnrc_netif_get_by_type(NETDEV_SLIPDEV, 0);
+
+    if (slip == NULL) {
+        return;
+    }
+
+    if (gnrc_netif_get_by_type(NETDEV_SAM0_ETH, 0) == NULL) {
+        return;
+    }
+
+    ipv6_addr_t addr;
+    ipv6_addr_from_str(&addr, "fdea:dbee:f::1");
+    gnrc_netif_ipv6_addr_add_internal(slip, &addr, 128,
+                                      GNRC_NETIF_IPV6_ADDRS_FLAGS_STATE_VALID);
+}
+
+static const coap_resource_t _resources[] = {
+    { "/fw", COAP_GET | COAP_MATCH_SUBTREE, gcoap_fileserver_handler, "/sd0/fw" },
+};
+
+static gcoap_listener_t _listener = {
+    .resources = _resources,
+    .resources_len = ARRAY_SIZE(_resources),
+};
+
 int main(void)
 {
     puts("RIOT SUIT update example application");
@@ -214,11 +244,17 @@ int main(void)
     /* start suit updater thread */
     suit_worker_run();
 
+    _config_slip();
+
     /* start nanocoap server thread */
-    thread_create(_nanocoap_server_stack, sizeof(_nanocoap_server_stack),
-                  THREAD_PRIORITY_MAIN - 1,
-                  THREAD_CREATE_STACKTEST,
-                  _nanocoap_server_thread, NULL, "nanocoap server");
+    if (IS_USED(MODULE_GCOAP_FILESERVER)) {
+        gcoap_register_listener(&_listener);
+    } else {
+        thread_create(_nanocoap_server_stack, sizeof(_nanocoap_server_stack),
+                      THREAD_PRIORITY_MAIN - 1,
+                      THREAD_CREATE_STACKTEST,
+                      _nanocoap_server_thread, NULL, "nanocoap server");
+    }
 
     /* the shell contains commands that receive packets via GNRC and thus
        needs a msg queue */

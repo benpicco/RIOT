@@ -15,7 +15,7 @@ RIOTBASE ?= $(CURDIR)/../..
 
 USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules for IPv6 and UDP
-USEMODULE += gnrc_ipv6_default
+#USEMODULE += gnrc_ipv6_default
 USEMODULE += sock_udp
 # Additional networking modules that can be dropped if not needed
 USEMODULE += gnrc_icmpv6_echo
@@ -23,6 +23,8 @@ USEMODULE += gnrc_icmpv6_echo
 # include this for printing IP addresses
 USEMODULE += shell
 USEMODULE += shell_commands
+USEMODULE += ps
+USEMODULE += nanocoap_vfs
 
 # Set this to 1 to enable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
@@ -31,6 +33,52 @@ DEVELHELP ?= 0
 
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
+
+ifeq ($(BOARD), samr21-xpro)
+  CFLAGS += -DSLIPDEV_PARAM_UART=UART_DEV\(1\)
+  USEMODULE += slipdev_l2addr
+  DEBUG_ADAPTER_ID=ATML2127031800010587
+
+  SUIT_COAP_SERVER = [fdea:dbee:f::1]
+  SUIT_COAP_BASEPATH = fw/$(BOARD)
+
+  ifeq ($(APP_VER), 1)
+    USEMODULE += gnrc_ipv6_default
+  endif
+  ifeq ($(APP_VER), 2)
+    USEMODULE += gnrc_sixlowpan_border_router_default
+    USEMODULE += gnrc_ipv6_auto_subnets_simple
+    USEMODULE += netdev_default
+  endif
+
+endif
+
+ifeq ($(BOARD), same54-xpro)
+  DEBUG_ADAPTER_ID=ATML2748051800006409
+
+  SUIT_COAP_ROOT = file:///sd0/fw/$(BOARD)
+
+  CFLAGS += -DFATFS_FFCONF_OPT_USE_LFN=2
+  CFLAGS += -DVFS_NAME_MAX=39
+
+  CFLAGS += -DCONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF=3
+  CFLAGS += -DTHREAD_STACKSIZE_MAIN=3072
+
+  ifeq ($(APP_VER), 1)
+    USEMODULE += gnrc_ipv6_default
+    USEMODULE += netdev_default
+  endif
+  ifeq ($(APP_VER), 2)
+    CFLAGS += -DSLIPDEV_PARAM_UART=UART_DEV\(3\)
+    USEMODULE += slipdev_l2addr
+    USEMODULE += netdev_default
+
+    USEMODULE += gcoap_fileserver
+
+    USEMODULE += gnrc_ipv6_router_default
+    USEMODULE += gnrc_ipv6_auto_subnets_simple
+  endif
+endif
 
 #
 # SUIT update specific stuff
@@ -62,7 +110,7 @@ ifeq ($(BOARD),native)
 endif
 
 # Change this to 0 to not use ethos
-USE_ETHOS ?= 1
+USE_ETHOS ?= 0
 
 ifeq (1,$(USE_ETHOS))
   USEMODULE += stdio_ethos
@@ -84,7 +132,7 @@ ifeq (1,$(USE_ETHOS))
   TERMPROG = $(RIOTTOOLS)/ethos/ethos
   TERMFLAGS = $(IFACE) $(PORT)
 else
-  USEMODULE += netdev_default
+#  USEMODULE += netdev_default
 endif
 
 # Ensure both slot bin files are always generated and linked to avoid compiling
@@ -116,7 +164,7 @@ $(call target-export-variables,test-with-config test-with-config/check-config,IF
 $(call target-export-variables,test-with-config test-with-config/check-config,BOARD)
 
 # allow to use large blocks to utilize large MTUs (802.15.4g, Ethernet, WiFi)
-LARGE_BLOCKS ?= 0
+LARGE_BLOCKS ?= 1
 ifeq (1, $(LARGE_BLOCKS))
   CFLAGS += -DCONFIG_NANOCOAP_BLOCKSIZE_DEFAULT=COAP_BLOCKSIZE_1024
 else
