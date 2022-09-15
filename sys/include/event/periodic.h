@@ -111,9 +111,7 @@ static inline void event_periodic_set_count(event_periodic_t *event_periodic, ui
  * @brief   Stop a periodic timeout event
  *
  * Calling this function will cancel the timeout by removing its underlying
- * timer. If the timer has already fired before calling this function, the
- * connected event will be put already into the given event queue and this
- * function does not have any effect.
+ * timer.
  *
  * @note Calling this function does not touch event_periodic->count, if the
  * periodic event was not set to run for ever and did run until expiration,
@@ -124,6 +122,7 @@ static inline void event_periodic_set_count(event_periodic_t *event_periodic, ui
 static inline void event_periodic_stop(event_periodic_t *event_periodic)
 {
     ztimer_periodic_stop(&event_periodic->timer);
+    event_cancel(event_periodic->queue, event_periodic->event);
 }
 
 #ifdef __cplusplus
