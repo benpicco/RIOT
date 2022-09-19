@@ -107,6 +107,9 @@ endif
 ifneq (,$(filter log_%,$(USEMODULE)))
   DIRS += log
 endif
+ifneq (,$(filter lru_list,$(USEMODULE)))
+  DIRS += lru_list
+endif
 ifneq (,$(filter nanocoap,$(USEMODULE)))
   DIRS += net/application_layer/nanocoap
 endif
