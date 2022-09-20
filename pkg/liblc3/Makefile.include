@@ -1,0 +1,6 @@
+CFLAGS += -ffast-math
+
+CFLAGS += -Wno-pedantic
+CFLAGS += -Wno-cast-align
+
+INCLUDES += -I$(PKGDIRBASE)/liblc3/include
