@@ -117,7 +117,7 @@ def test_linear_topology(factory, zep_dispatch):
 
 def run_test(func, factory):
     with Popen(['../../dist/tools/zep_dispatch/bin/zep_dispatch',
-                '-t', '-', '127.0.0.1', '17754'], stdin=subprocess.PIPE) as zep_dispatch:
+                '-t', '-', '-s', '1337', '127.0.0.1', '17754'], stdin=subprocess.PIPE) as zep_dispatch:
         try:
             func(factory, zep_dispatch)
         finally:
