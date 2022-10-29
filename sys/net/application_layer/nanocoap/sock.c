@@ -179,19 +179,20 @@ static uint32_t _deadline_left_us(uint32_t deadline)
 }
 
 ssize_t nanocoap_sock_request_cb_timeout(nanocoap_sock_t *sock, coap_pkt_t *pkt,
-                                         coap_request_cb_t cb, void *arg, uint32_t timeout)
+                                         coap_request_cb_t cb, void *arg, uint32_t timeout,
+                                         bool more)
 {
     ssize_t tmp, res = 0;
     const unsigned id = coap_get_id(pkt);
     void *payload, *ctx = NULL;
     const uint8_t *token = coap_get_token(pkt);
     uint8_t token_len = coap_get_token_len(pkt);
-    uint8_t state = STATE_REQUEST_SEND;
+    uint8_t state = more ? STATE_RESPONSE_RCVD : STATE_REQUEST_SEND;
 
     uint32_t deadline = _deadline_from_interval(timeout);
 
     /* check if we expect a reply */
-    const bool confirmable = coap_get_type(pkt) == COAP_TYPE_CON;
+    const bool confirmable = !more && (coap_get_type(pkt) == COAP_TYPE_CON);
 
     /* add 1 for initial transmit, retry only when CONfirmable */
     unsigned tries_left = confirmable * CONFIG_COAP_MAX_RETRANSMIT + 1;
@@ -304,6 +305,15 @@ ssize_t nanocoap_sock_request_cb_timeout(nanocoap_sock_t *sock, coap_pkt_t *pkt,
                 /* call user callback */
                 if (cb) {
                     res = cb(arg, pkt);
+                    /* get another response */
+                    switch (res) {
+                    case NANOCOAP_SOCK_RX_MORE:
+                        deadline = 0;
+                        /* fall-through */
+                    case NANOCOAP_SOCK_RX_AGAIN:
+                        state = STATE_RESPONSE_RCVD;
+                        break;
+                    }
                 } else {
                     res = _get_error(pkt);
                 }

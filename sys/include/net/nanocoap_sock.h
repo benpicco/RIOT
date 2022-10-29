@@ -177,6 +177,25 @@ typedef struct {
     uint16_t msg_id;                        /**< next CoAP message ID */
 } nanocoap_sock_t;
 
+#ifndef __ELASTERROR
+#define __ELASTERROR 300
+#endif
+
+/**
+ * @brief   custom error codes for @ref coap_request_cb_t
+ */
+enum {
+    /**
+     * @brief   Try to receive another response if there is already a queued
+     *          response, don't wait if there is none.
+     */
+    NANOCOAP_SOCK_RX_MORE = -(__ELASTERROR + 1),
+    /**
+     * @brief   Try to receive another response within the remaining timeout
+     */
+    NANOCOAP_SOCK_RX_AGAIN = -(__ELASTERROR + 2),
+};
+
 /**
  * @brief Blockwise request helper struct
  */
@@ -510,12 +529,14 @@ ssize_t nanocoap_sock_request(nanocoap_sock_t *sock, coap_pkt_t *pkt, size_t len
  * @param[in]       cb      Callback executed for response packet
  * @param[in]       arg     Optional callback argumnent
  * @param[in]       timeout Time (in µs) to wait for a response
+ * @param[in]       more    Receive more responses without sending the packet again
  *
  * @returns     length of response on success
  * @returns     <0 on error
  */
 ssize_t nanocoap_sock_request_cb_timeout(nanocoap_sock_t *sock, coap_pkt_t *pkt,
-                                         coap_request_cb_t cb, void *arg, uint32_t timeout);
+                                         coap_request_cb_t cb, void *arg, uint32_t timeout,
+                                         bool more);
 
 /**
  * @brief   Simple synchronous CoAP request with callback
@@ -538,7 +559,7 @@ static inline ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t
     /* random timeout, deadline for receive retries */
     uint32_t timeout = random_uint32_range(CONFIG_COAP_ACK_TIMEOUT_MS * US_PER_MS,
                                            CONFIG_COAP_ACK_TIMEOUT_MS * CONFIG_COAP_RANDOM_FACTOR_1000);
-    return nanocoap_sock_request_cb_timeout(sock, pkt, cb, arg, timeout);
+    return nanocoap_sock_request_cb_timeout(sock, pkt, cb, arg, timeout, false);
 }
 
 /**
