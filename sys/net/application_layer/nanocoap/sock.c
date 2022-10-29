@@ -178,8 +178,8 @@ static uint32_t _deadline_left_us(uint32_t deadline)
     return deadline - now;
 }
 
-ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
-                                 coap_request_cb_t cb, void *arg)
+ssize_t nanocoap_sock_request_cb_timeout(nanocoap_sock_t *sock, coap_pkt_t *pkt,
+                                         coap_request_cb_t cb, void *arg, uint32_t timeout)
 {
     ssize_t tmp, res = 0;
     const unsigned id = coap_get_id(pkt);
@@ -188,9 +188,6 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
     uint8_t token_len = coap_get_token_len(pkt);
     uint8_t state = STATE_REQUEST_SEND;
 
-    /* random timeout, deadline for receive retries */
-    uint32_t timeout = random_uint32_range(CONFIG_COAP_ACK_TIMEOUT_MS * US_PER_MS,
-                                           CONFIG_COAP_ACK_TIMEOUT_MS * CONFIG_COAP_RANDOM_FACTOR_1000);
     uint32_t deadline = _deadline_from_interval(timeout);
 
     /* check if we expect a reply */

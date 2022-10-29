@@ -140,6 +140,7 @@
 #include "net/credman.h"
 #include "net/sock/dtls.h"
 #endif
+#include "random.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -498,6 +499,25 @@ ssize_t nanocoap_get_blockwise_url_to_buf(const char *url,
 ssize_t nanocoap_sock_request(nanocoap_sock_t *sock, coap_pkt_t *pkt, size_t len);
 
 /**
+ * @brief   Simple synchronous CoAP request with callback & custom timeout
+ *
+ *          The response will be handled by a callback, which avoids copying the
+ *          response packet out of the network stack internal buffer.
+ *
+ * @param[in]       sock    socket to use for the request
+ * @param[in,out]   pkt     Packet struct containing the request. Is reused for
+ *                          the response
+ * @param[in]       cb      Callback executed for response packet
+ * @param[in]       arg     Optional callback argumnent
+ * @param[in]       timeout Time (in µs) to wait for a response
+ *
+ * @returns     length of response on success
+ * @returns     <0 on error
+ */
+ssize_t nanocoap_sock_request_cb_timeout(nanocoap_sock_t *sock, coap_pkt_t *pkt,
+                                         coap_request_cb_t cb, void *arg, uint32_t timeout);
+
+/**
  * @brief   Simple synchronous CoAP request with callback
  *
  *          The response will be handled by a callback, which avoids copying the
@@ -512,8 +532,14 @@ ssize_t nanocoap_sock_request(nanocoap_sock_t *sock, coap_pkt_t *pkt, size_t len
  * @returns     length of response on success
  * @returns     <0 on error
  */
-ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
-                                 coap_request_cb_t cb, void *arg);
+static inline ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
+                                               coap_request_cb_t cb, void *arg)
+{
+    /* random timeout, deadline for receive retries */
+    uint32_t timeout = random_uint32_range(CONFIG_COAP_ACK_TIMEOUT_MS * US_PER_MS,
+                                           CONFIG_COAP_ACK_TIMEOUT_MS * CONFIG_COAP_RANDOM_FACTOR_1000);
+    return nanocoap_sock_request_cb_timeout(sock, pkt, cb, arg, timeout);
+}
 
 /**
  * @brief   Simple synchronous CoAP request
