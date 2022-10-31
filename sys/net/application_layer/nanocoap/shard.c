@@ -59,8 +59,9 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
     case 408:
         break;
     case 429:
-        DEBUG("client requested slowdown (%u missing blocks)\n",
+        DEBUG("client requested slowdown (still has %u blocks to send)\n",
               unaligned_get_u16(pkt->payload));
+        /* payload contains number of blocks downstream still has to send */
         uint16_t block_numof = unaligned_get_u16(pkt->payload);
         uint32_t deadlline = ztimer_now(ZTIMER_MSEC)
                            + block_numof * CONFIG_NANOCOAP_FRAME_GAP_MS;
@@ -80,10 +81,10 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
     pkt->payload += sizeof(shard_num);
 
     if (ctx->active_tx == shard_num) {
-        DEBUG("want %u blocks from shard %u (current)\n",
+        DEBUG("want %u blocks from shard %"PRIu32" (current)\n",
               bf_popcnt(pkt->payload, shard_blocks), shard_num);
     } else if (ctx->active_tx == shard_num + 1) {
-        DEBUG("want %u blocks from shard %u (last)\n",
+        DEBUG("want %u blocks from shard %"PRIu32" (last)\n",
               bf_popcnt(pkt->payload, shard_blocks), shard_num);
         if (!(shard->state & SHARD_STATE_TX)) {
             DEBUG("but shard is already released\n");
@@ -92,8 +93,8 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
         }
         ctx->active_tx = shard_num;
     } else {
-        DEBUG("lost blocks can't be satisfied (want shard %u, have shard %u)\n",
-              shard_num, ctx->active_tx);
+        DEBUG("lost blocks can't be satisfied (want %u blocks from shard %"PRIu32", have shard %"PRIu32")\n",
+              bf_popcnt(pkt->payload, shard_blocks), shard_num, ctx->active_tx);
         return NANOCOAP_SOCK_RX_AGAIN;
     }
 
@@ -107,13 +108,7 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
 
     bf_or_atomic(shard->to_send, shard->to_send, pkt->payload, shard_blocks);
 
-    return ctx->slowdown_deadline ? NANOCOAP_SOCK_RX_AGAIN : NANOCOAP_SOCK_RX_MORE;
-}
-
-static unsigned _get_id(void)
-{
-    static unsigned id;
-    return ++id;
+    return NANOCOAP_SOCK_RX_AGAIN;
 }
 
 static uint32_t _deadline_left_us(uint32_t deadline)
@@ -128,17 +123,35 @@ static uint32_t _deadline_left_us(uint32_t deadline)
     return deadline - now;
 }
 
+static uint32_t _timeout_us(bool last_block, bool last_shard)
+{
+    uint8_t mul;
+
+    if (last_block && last_shard) {
+        /* very last block of a transmisson */
+        mul = 25;
+    } else if (last_block) {
+        /* last block of a shard */
+        mul = 10;
+    } else if (last_shard) {
+        mul = 1;
+    } else {
+        mul = 1;
+    }
+
+    return CONFIG_NANOCOAP_FRAME_GAP_MS * US_PER_MS * mul;
+}
+
 static int _block_request(coap_shard_request_ctx_t *req, coap_shard_common_ctx_t *ctx,
                           coap_shard_ctx_t *shard,
-                          unsigned i, bool more_blocks)
+                          unsigned i, bool more_blocks, bool more)
 {
     const size_t len = coap_szx2size(req->blksize);
 
     int res;
     unsigned blknum = shard->first_block + i;
     bool more_shards = !shard->is_last;
-    bool more = more_blocks || more_shards;
-    uint16_t id = _get_id();
+    uint16_t id = nanocoap_sock_next_msg_id(req->sock);
 
     uint8_t buf[CONFIG_NANOCOAP_BLOCK_HEADER_MAX];
     iolist_t snip = {
@@ -146,12 +159,9 @@ static int _block_request(coap_shard_request_ctx_t *req, coap_shard_common_ctx_t
         .iol_len  = len,
     };
 
-    bool _more = more_shards
-               || (bf_popcnt(shard->to_send, shard->blocks_data + shard->blocks_fec) > 1);
-
     /* last block of the transfer has a long timeout as the process ends with it */
-    uint32_t timeout_us = _more ? (CONFIG_NANOCOAP_FRAME_GAP_MS * US_PER_MS)
-                                : (CONFIG_NANOCOAP_FRAME_GAP_MS * US_PER_MS * 100);
+    uint32_t timeout_us = _timeout_us(!more_blocks, !more_shards);
+
     do {
         /* build CoAP header */
         coap_pkt_t pkt = {
@@ -187,7 +197,7 @@ static int _block_request(coap_shard_request_ctx_t *req, coap_shard_common_ctx_t
 
         ctx->slowdown_deadline = 0;
 
-        DEBUG("send block %u (shard %u)\n", blknum, ctx->active_tx);
+        DEBUG("send block %u (shard %"PRIu32")\n", blknum, ctx->active_tx);
 #ifdef MODULE_NANOCOAP_SHARD_DEBUG
         shard->transmits[i]++;
 #endif
@@ -197,7 +207,7 @@ static int _block_request(coap_shard_request_ctx_t *req, coap_shard_common_ctx_t
                                                    timeout_us, ctx->slowdown_deadline);
             timeout_us = _deadline_left_us(ctx->slowdown_deadline);
             if (ctx->slowdown_deadline) {
-                DEBUG("new timeout: %u µs\n", timeout_us);
+                DEBUG("new timeout: %"PRIu32" µs\n", timeout_us);
             }
         } while (timeout_us);
     } while (ctx->slowdown_deadline);
@@ -218,7 +228,7 @@ static inline unsigned _update_shard(coap_shard_common_ctx_t *state, coap_shard_
 
 static bool _shard_put(coap_shard_common_ctx_t *state, coap_shard_request_ctx_t *req, bool fwd)
 {
-    unsigned current_shard = state->active_tx;
+    uint32_t current_shard = state->active_tx;
     coap_shard_ctx_t *shard = &state->shards[current_shard & 1];
     coap_shard_ctx_t *shard_prev = current_shard
                                  ? &state->shards[!(current_shard & 1)]
@@ -226,16 +236,19 @@ static bool _shard_put(coap_shard_common_ctx_t *state, coap_shard_request_ctx_t 
     unsigned total_blocks = shard->blocks_data + shard->blocks_fec;
 
     int i;
-    unsigned next_shard = current_shard + 1;
+    uint32_t next_shard = current_shard + 1;
     int next_first_block = shard->first_block + total_blocks;
     bool is_last = shard->is_last;
     do {
         while ((i = bf_find_first_set(shard->to_send, total_blocks)) >= 0) {
 
-            _block_request(req, state, shard, i, (i + 1) < next_first_block);
+            bool more = ((i + 1) < next_first_block) || !is_last;
+
+            unsigned blocks_left = bf_popcnt(shard->to_send, total_blocks);
+            _block_request(req, state, shard, i, blocks_left > 1, more);
 
             if (current_shard != state->active_tx) {
-                DEBUG("lost blocks in shard %u\n", state->active_tx);
+                DEBUG("lost blocks in shard %"PRIu32"\n", state->active_tx);
 
                 /* re-set missing bits in current shard */
                 /* (other side will have ignored them)  */
@@ -243,16 +256,16 @@ static bool _shard_put(coap_shard_common_ctx_t *state, coap_shard_request_ctx_t 
 
                 /* rewind shard */
                 current_shard = _update_shard(state, &shard, &total_blocks);
-            } else if (shard_prev && (shard_prev != shard) &&
-                      ((unsigned)i >= total_blocks / 2)) {
-                /* free previous shard if more than half of the next shard has been transmitted */
+            } else if (shard_prev && (shard_prev != shard) && !is_last &&
+                      (blocks_left < total_blocks / 3)) {
+                /* free previous shard if more than 2/3 of the next shard has been transmitted */
                 unsigned total_blocks_prev = shard_prev->blocks_data
                                            + shard_prev->blocks_fec;
-                DEBUG("free shard %u\n",
+                DEBUG("free shard %"PRIu32"\n",
                       shard_prev->first_block / total_blocks_prev);
 #ifdef MODULE_NANOCOAP_SHARD_DEBUG
                 for (unsigned j = 0; j < total_blocks_prev; ++j) {
-                    DEBUG("\tblock was %u transmitted %u times\n",
+                    DEBUG("\tblock %"PRIu32" was transmitted %u times\n",
                           j + shard_prev->first_block, shard_prev->transmits[j]);
                     shard_prev->transmits[j] = 0;
                 }
@@ -265,7 +278,7 @@ static bool _shard_put(coap_shard_common_ctx_t *state, coap_shard_request_ctx_t 
         /* shard not complete yet */
         if (bf_find_first_set(shard->missing, total_blocks) >= 0) {
             /* TODO: this can never happen? */
-            DEBUG("wait for missing blocks in shard %u\n", state->active_tx);
+            DEBUG("wait for missing blocks in shard %"PRIu32"\n", state->active_tx);
             ztimer_sleep(ZTIMER_MSEC, 100);
             continue;
         }
@@ -273,7 +286,7 @@ static bool _shard_put(coap_shard_common_ctx_t *state, coap_shard_request_ctx_t 
         state->active_tx++;
         shard_prev = shard;
         current_shard = _update_shard(state, &shard, &total_blocks);
-        DEBUG("next shard: %u (limit: %u)\n", current_shard, next_shard);
+        DEBUG("next shard: %"PRIu32" (limit: %"PRIu32")\n", current_shard, next_shard);
     } while (current_shard != next_shard);
 
     if (!fwd) {
@@ -300,6 +313,7 @@ int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_
     shard->blocks_fec = DIV_ROUND_UP(fec_len, len);
     shard->is_last = !more;
     shard->state = SHARD_STATE_TX;
+    shard->next_first_block = UINT32_MAX; /* ignore blocks from forwarder nodes */
 
     unsigned total_blocks = shard->blocks_data + shard->blocks_fec;
 
@@ -328,7 +342,7 @@ static void *_forwarder_thread(void *arg)
     while (hdl->forward) {
         mutex_lock(&hdl->fwd_lock);
 
-        DEBUG("start forwarding shard (rx: %u, tx: %u)\n", hdl->ctx.active_rx, hdl->ctx.active_tx);
+        DEBUG("start forwarding shard (rx: %"PRIu32", tx: %"PRIu32")\n", hdl->ctx.active_rx, hdl->ctx.active_tx);
         if (_shard_put(&hdl->ctx, &hdl->req, true)) {
             DEBUG("forwarding done\n");
             break;
@@ -364,6 +378,7 @@ static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_
     coap_shard_common_ctx_t *ctx = &hdl->ctx;
     coap_shard_ctx_t *shard = &ctx->shards[ctx->active_tx & 1];
 
+    uint16_t id = nanocoap_sock_next_msg_id(&hdl->upstream);
     uint16_t blocks_left = bf_popcnt(shard->to_send, shard->blocks_data + shard->blocks_fec);
 
     uint8_t *pktpos = buf;
@@ -373,12 +388,13 @@ static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_
     };
 
     pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
-                             COAP_CODE_TOO_MANY_REQUESTS, _get_id());
+                             COAP_CODE_TOO_MANY_REQUESTS, id);
     /* set payload marker */
     *pktpos++ = 0xFF;
-    memcpy(pktpos, &blocks_left, sizeof(blocks_left));
-
     pkt.payload = pktpos;
+
+    /* tell upstream how many blocks there are left to send */
+    memcpy(pktpos, &blocks_left, sizeof(blocks_left));
     pkt.payload_len = sizeof(blocks_left);
 
     nanocoap_sock_request_cb(&hdl->upstream, &pkt, NULL, NULL);
@@ -397,6 +413,7 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
     size_t bitmap_len = DIV_ROUND_UP(shard_blocks, 8);
 
     uint8_t *pktpos = buf;
+    uint16_t id = nanocoap_sock_next_msg_id(&hdl->upstream);
 
     iolist_t payload = {
         .iol_base = (void *)shard->missing,
@@ -409,18 +426,18 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
     };
 
     if (!(shard->state & SHARD_STATE_RX)) {
-        DEBUG("shard %u not yet started\n", ctx->active_rx);
+        DEBUG("shard %"PRIu32" not yet started\n", ctx->active_rx);
         return;
     }
 
     if (bf_find_first_set(shard->missing, shard_blocks) < 0) {
-        DEBUG("shard %u already complete\n", ctx->active_rx);
+        DEBUG("shard %"PRIu32" already complete\n", ctx->active_rx);
         return;
     }
 
-    DEBUG("re-request shard %u (%u blocks)\n", ctx->active_rx, bf_popcnt(shard->missing, shard_blocks));
+    DEBUG("re-request shard %"PRIu32" (%u blocks)\n", ctx->active_rx, bf_popcnt(shard->missing, shard_blocks));
     pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
-                             COAP_CODE_REQUEST_ENTITY_INCOMPLETE, _get_id());
+                             COAP_CODE_REQUEST_ENTITY_INCOMPLETE, id);
 
     /* set payload marker */
     *pktpos++ = 0xFF;
@@ -442,7 +459,7 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
 
         /* set timeout for response (or any) block */
         uint32_t timeout_ms = (2 * CONFIG_NANOCOAP_FRAME_GAP_MS)
-                            + (random_uint32() % 0x1F);
+                            + (random_uint32() & 0x1F);
         ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
     }
 }
@@ -501,20 +518,48 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
     out->len = 0;
 
-    /* if the current transfer expired, replace it */
-    if ((now > hdl->timeout) || (ctx->token_len == 0)) {
-        DEBUG("request timeout\n");
-        memset(ctx, 0, sizeof(*ctx));
+    if (coap_get_token_len(pkt) == 0 ||
+        coap_get_token_len(pkt) > sizeof(ctx->token)) {
+        DEBUG("invalid token len: %u\n", coap_get_token_len(pkt));
+        return 0;
+    }
 
-        if (coap_get_token_len(pkt) > sizeof(ctx->token)) {
-            DEBUG("invalid token len: %u\n", coap_get_token_len(pkt));
+    /* request token must match */
+    if ((ctx->token_len != coap_get_token_len(pkt)) ||
+        memcmp(ctx->token, coap_get_token(pkt), ctx->token_len)) {
+        if (hdl->done || now > hdl->timeout) {
+            DEBUG("request done/timeout\n");
+            ctx->token_len = 0;
+        } else {
+            DEBUG("token missmatch\n");
             return 0;
         }
+    }
+
+    if (ctx->token_len == 0) {
+        memset(ctx, 0, sizeof(*ctx));
 
         /* cleanup stale connection */
-        if (ctx->token_len && !hdl->done) {
-            nanocoap_sock_close(&hdl->upstream);
-        }
+        nanocoap_sock_close(&hdl->upstream);
+    }
+
+    coap_shard_ctx_t *shard = &ctx->shards[ctx->active_rx & 1];
+
+    coap_block1_t block1;
+    if (coap_get_block1(pkt, &block1) < 0) {
+        DEBUG("no block option\n");
+        return 0;
+    }
+
+    if ((block1.blknum < shard->first_block) ||
+        (block1.blknum < shard->next_first_block)) {
+        DEBUG("old shard received (%"PRIu32" < %"PRIu32"|%"PRIu32")\n", block1.blknum, shard->first_block, shard->next_first_block);
+        return 0;
+    }
+
+    /* if the current transfer expired, replace it */
+    if (ctx->token_len == 0) {
+        DEBUG("new request\n");
 
         /* store new token */
         ctx->token_len = coap_get_token_len(pkt);
@@ -551,38 +596,18 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         DEBUG("connect upstream on %u\n", remote->netif);
         nanocoap_sock_connect(&hdl->upstream, NULL, remote);
         hdl->done = false;
+    } else {
+        /* use the last remote to request re-transfers */
+        sock_udp_set_remote(&hdl->upstream.udp, remote);
     }
-
-    /* request token must match */
-    if ((ctx->token_len != coap_get_token_len(pkt)) ||
-        memcmp(ctx->token, coap_get_token(pkt), ctx->token_len)) {
-        if (hdl->done) {
-            ctx->token_len = 0;
-        }
-        DEBUG("token missmatch\n");
-        return 0;
-    }
-
-    coap_shard_ctx_t *shard = &ctx->shards[ctx->active_rx & 1];
 
     /* set timeout for the transfer */
     hdl->timeout = now + CONFIG_NANOCOAP_SHARD_XFER_TIMEOUT_SECS;
 
-    coap_block1_t block1;
-    if (coap_get_block1(pkt, &block1) < 0) {
-        DEBUG("no block option\n");
-        return 0;
-    }
-
-    if ((block1.blknum < shard->first_block) ||
-        (block1.blknum < shard->next_first_block)) {
-        DEBUG("old shard received (%u < %u|%u)\n", block1.blknum, shard->first_block, shard->next_first_block);
-        return 0;
-    }
 
     /* set timeout for the next block */
     uint32_t timeout_ms = (2 * CONFIG_NANOCOAP_FRAME_GAP_MS)
-                        + (random_uint32() % 0x1F);
+                        + (random_uint32() & 0x1F);
     ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
 
     const size_t block_len = coap_szx2size(block1.szx);
@@ -612,7 +637,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
     switch (shard->state) {
     case SHARD_STATE_EMPTY:
-        DEBUG("start shard %u (%u blocks)\n", ctx->active_rx, blocks_per_shard);
+        DEBUG("start shard %"PRIu32" (%"PRIu32" blocks)\n", ctx->active_rx, blocks_per_shard);
         shard->state = SHARD_STATE_RX;
         shard->is_last = !more_shards;
         shard->first_block = shard->next_first_block;
@@ -620,7 +645,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         bf_clear_all(shard->to_send, blocks_per_shard);
         break;
     case SHARD_STATE_TX:
-        DEBUG("shard %u busy TX\n", ctx->active_tx);
+        DEBUG("shard %"PRIu32" busy TX\n", ctx->active_tx);
         _request_slowdown(hdl, buf, len);
         return 0;
     default:
@@ -628,7 +653,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     }
 
     uint32_t block_in_shard = block1.blknum - shard->first_block;
-    DEBUG("got block %u (%u / %u)\n", block1.blknum, block_in_shard, blocks_per_shard - 1);
+    DEBUG("got block %"PRIu32" (%"PRIu32" / %"PRIu32")\n", block1.blknum, block_in_shard, blocks_per_shard - 1);
 
     if (block_in_shard >= (shard->blocks_data + shard->blocks_fec)) {
 
@@ -638,6 +663,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
             DEBUG("ignore block from other node outside current shard\n");
         } else {
             DEBUG("block from next shard received, old shard not complete\n");
+            ztimer_sleep(ZTIMER_USEC, random_uint32() % 0x7FF);
             _request_missing(hdl, buf, len);
         }
         return 0;
@@ -666,7 +692,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
     /* check if there are any missing blocks in the current shard */
     if (bf_find_first_set(shard->missing, blocks_per_shard) < 0) {
-        DEBUG("shard %u done%s, got %u blocks!\n",
+        DEBUG("shard %"PRIu32" done%s, got %"PRIu32" blocks!\n",
               ctx->active_rx, more_shards ? "" : "(last shard)", blocks_per_shard);
 
         coap_shard_ctx_t *prev = ctx->active_rx

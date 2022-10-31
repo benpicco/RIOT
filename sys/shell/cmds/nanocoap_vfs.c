@@ -187,3 +187,52 @@ static int _nanocoap_put_handler(int argc, char **argv)
 
 SHELL_COMMAND(ncget, "download a file from a CoAP server", _nanocoap_get_handler);
 SHELL_COMMAND(ncput, "upload a file to a CoAP server", _nanocoap_put_handler);
+
+static int _nanocoap_put_non_handler(int argc, char **argv)
+{
+    int res;
+    char *file, *url;
+    char buffer[CONFIG_NANOCOAP_URI_MAX];
+
+    if (argc < 2) {
+        printf("Usage: %s <file> <dst>\n", argv[0]);
+        return -EINVAL;
+    }
+
+    const sock_udp_ep_t remote = {
+        .family = AF_INET6,
+        .addr = IPV6_ADDR_ALL_COAP_SHARD_LINK_LOCAL,
+        .port = COAP_PORT,
+    };
+
+    file = argv[1];
+    url = argv[2];
+
+    if (_is_dir(url)) {
+        const char *basename = strrchr(file, '/');
+        if (basename == NULL) {
+            return -EINVAL;
+        }
+        if (snprintf(buffer, sizeof(buffer), "%s%s",
+                     url, basename + 1) >= (int)sizeof(buffer)) {
+            puts("Constructed URI too long");
+            return -ENOBUFS;
+        }
+        url = buffer;
+    }
+
+    nanocoap_sock_t sock;
+    nanocoap_sock_connect(&sock, NULL, &remote);
+    res = nanocoap_vfs_put_multicast(&sock, url, file);
+    nanocoap_sock_close(&sock);
+
+    if (res < 0) {
+        printf("Upload failed: %s\n", strerror(-res));
+    }
+    else {
+        printf("Saved to %s\n", url);
+    }
+    return res;
+}
+
+SHELL_COMMAND(ncput_non, "Multicast a file to a CoAP server", _nanocoap_put_non_handler);

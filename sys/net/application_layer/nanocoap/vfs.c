@@ -157,3 +157,73 @@ int nanocoap_vfs_put_url(const char *url, const char *src,
 
     return res;
 }
+
+int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const char *src)
+{
+    coap_shard_request_t ctx = {
+        .req = {
+            .path = path,
+            .blksize = CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT,
+            .sock = sock,
+        },
+    };
+
+    int res;
+    size_t work_buf_len;
+    void *work_buf = nanocoap_shard_req_get(&ctx, &work_buf_len);
+
+    int fd = vfs_open(src, O_RDONLY, 0644);
+    if (fd < 0) {
+        res = fd;
+        goto error;
+    }
+
+    bool more = true;
+    while (more && (res = vfs_read(fd, work_buf, work_buf_len)) > 0) {
+
+        /* check if this is the last block */
+        uint8_t dummy;
+        if (vfs_read(fd, &dummy, 1) == 1) {
+            vfs_lseek(fd, -1, SEEK_CUR);
+        } else {
+            /* add padding */
+            memset((uint8_t *)work_buf + res, 0, work_buf_len - res);
+            res = work_buf_len;
+            more = false;
+        }
+
+        DEBUG("nanocoap: send %u byte shard%s\n", res, more ? "" : " (last shard)");
+        res = nanocoap_shard_put(&ctx, work_buf, res, NULL, 0, more);
+        if (res < 0) {
+            break;
+        }
+        work_buf = nanocoap_shard_req_get(&ctx, NULL);
+    }
+
+error:
+    vfs_close(fd);
+
+    return res;
+}
+
+ssize_t nanocoap_vfs_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
+                                         coap_request_ctx_t *context)
+{
+    coap_shard_result_t out;
+
+    int res = nanocoap_shard_block_handler(pkt, buf, len, context, &out);
+
+    if (out.len) {
+        if (out.offset == 0) {
+            /* TODO: fopen() */
+        }
+
+        fwrite(out.data, out.len, 1, stdout);
+
+        if (!out.more) {
+            /* TODO: fclose() */
+        }
+    }
+
+    return res;
+}

@@ -21,6 +21,7 @@
 #define NET_NANOCOAP_VFS_H
 
 #include "net/nanocoap_sock.h"
+#include "net/nanocoap/shard.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -81,6 +82,16 @@ int nanocoap_vfs_put_url(const char *url, const char *src,
  */
 int nanocoap_vfs_put(nanocoap_sock_t *sock, const char *path, const char *src,
                      void *work_buf, size_t work_buf_len);
+
+int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const char *src);
+
+typedef struct {
+    coap_shard_handler_ctx_t super; /**< parent struct           */
+    const char *path;               /**< destination path on VFS */
+} coap_vfs_shard_ctx_t;
+
+ssize_t nanocoap_vfs_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
+                                         coap_request_ctx_t *context);
 
 #ifdef __cplusplus
 }
