@@ -22,10 +22,15 @@
 #include <string.h>
 
 #include "net/nanocoap_sock.h"
+#include "net/netif.h"
 #include "net/sock/udp.h"
 
 #define ENABLE_DEBUG 0
 #include "debug.h"
+
+static char _server_stack[THREAD_STACKSIZE_DEFAULT];
+
+extern void nanotest_enable_forward(unsigned netif, bool on);
 
 /*
  * Customized implementation of nanocoap_server() to ignore a count of
@@ -83,6 +88,32 @@ static void _start_server(uint16_t port, int ignore_count)
     _nanocoap_server(&local, buf, sizeof(buf), ignore_count);
 }
 
+typedef struct {
+    int ignore_count;
+    uint16_t port;
+} nanotest_server_ctx_t;
+
+static void *_server_thread(void *arg)
+{
+    nanotest_server_ctx_t *ctx = arg;
+
+    printf("starting server on port %u\n", ctx->port);
+    _start_server(ctx->port, ctx->ignore_count);
+
+    /* server executes run loop; never reaches this point*/
+    return NULL;
+}
+
+static netif_t *_get_downstream(void)
+{
+    netif_t *netif = netif_iter(NULL);
+    if (netif) {
+        netif = netif_iter(netif);
+    }
+
+    return netif;
+}
+
 int nanotest_server_cmd(int argc, char **argv)
 {
     if (argc < 2) {
@@ -94,7 +125,10 @@ int nanotest_server_cmd(int argc, char **argv)
     }
 
     int arg_pos = 2;
-    int ignore_count = 0;
+    nanotest_server_ctx_t ctx = {
+        .port = COAP_PORT,
+    };
+
     if ((argc >= (arg_pos+1)) && (strcmp(argv[arg_pos], "-i") == 0)) {
         /* need count of requests to ignore*/
         if (argc == 3) {
@@ -102,27 +136,32 @@ int nanotest_server_cmd(int argc, char **argv)
         }
         arg_pos++;
 
-        ignore_count = atoi(argv[arg_pos]);
-        if (ignore_count <= 0) {
+        ctx.ignore_count = atoi(argv[arg_pos]);
+        if (ctx.ignore_count <= 0) {
             puts("nanocli: unable to parse ignore_count");
             goto error;
         }
         arg_pos++;
     }
 
-    uint16_t port = COAP_PORT;
     if (argc == (arg_pos+1)) {
-        port = atoi(argv[arg_pos]);
-        if (port == 0) {
+        ctx.port = atoi(argv[arg_pos]);
+        if (ctx.port == 0) {
             puts("nanocli: unable to parse port");
             goto error;
         }
     }
 
-    printf("starting server on port %u\n", port);
-    _start_server(port, ignore_count);
+    netif_t *downstream = _get_downstream();
+    if (downstream) {
+        printf("enable shard forwarding on %u\n", netif_get_id(downstream));
+        nanotest_enable_forward(netif_get_id(downstream), true);
+    }
 
-    /* server executes run loop; never reaches this point*/
+    thread_create(_server_stack, sizeof(_server_stack),
+                  THREAD_PRIORITY_MAIN, THREAD_CREATE_STACKTEST, _server_thread, &ctx,
+                  "nanotest_server");
+    ztimer_sleep(ZTIMER_MSEC, 100);
     return 0;
 
     error:

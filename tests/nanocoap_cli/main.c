@@ -26,6 +26,8 @@
 #include "net/ipv6/addr.h"
 #include "shell.h"
 
+#include "net/nanocoap/shard.h"
+
 #define MAIN_QUEUE_SIZE (4)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
 
@@ -148,6 +150,9 @@ int main(void)
         return res;
     }
 #endif
+
+    /* TODO: move elsewhere */
+    nanocoap_shard_netif_join_all();
 
     /* start shell */
     puts("All up, running the shell now");

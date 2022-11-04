@@ -14,6 +14,14 @@ USEMODULE += gnrc_ipv6_default
 # USEMODULE += gnrc_ipv6_nib_dns     # include RDNSS option handling
 
 USEMODULE += nanocoap_sock
+USEMODULE += nanocoap_shard
+USEMODULE += nanocoap_shard_debug
+USEMODULE += nanocoap_shard_forward
+
+USEMODULE += gnrc_icmpv6_echo ps
+CFLAGS += -DNETDEV_TAP_MAX=2
+
+USEMODULE += nanocoap_shard_test
 
 # boards where basic nanocoap functionality fits, but no VFS
 LOW_MEMORY_BOARDS := \
