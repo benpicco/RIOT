@@ -366,6 +366,10 @@ void cpu_init(void)
     AFIO->MAPR |= AFIO_MAPR_SWJ_CFG_JTAGDISABLE;
 #endif
 
+#ifdef RCC_AHB1ENR_CCMDATARAMEN
+    periph_clk_en(AHB1, RCC_AHB1ENR_CCMDATARAMEN);
+#endif
+
     /* trigger static peripheral initialization */
     periph_init();
 

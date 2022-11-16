@@ -64,6 +64,7 @@ info-stm32:
 
 ifneq (,$(CCMRAM_LEN))
   LINKFLAGS += $(LINKFLAGPREFIX)--defsym=_ccmram_length=$(CCMRAM_LEN)
+  CFLAGS    += -DCPU_HAS_CCMRAM=1
 endif
 ifneq (,$(SRAM4_LEN))
   LINKFLAGS += $(LINKFLAGPREFIX)--defsym=_sram4_length=$(SRAM4_LEN)

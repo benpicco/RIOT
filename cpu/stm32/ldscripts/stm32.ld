@@ -11,29 +11,35 @@
  * @{
  *
  * @file
- * @brief           Memory definitions for the Cortex-M family
+ * @brief           Memory definitions for the STM32 family
  *
  * @author          Francisco Acosta <francisco.acosta@inria.fr>
  *
  * @}
  */
 
-ccmram_length = DEFINED( ccmram_len ) ? ccmram_len : 0x0 ;
-sram4_length = DEFINED( sram4_length ) ? sram4_length : 0x0 ;
+ccmram_length = DEFINED( _ccmram_length ) ? _ccmram_length : 0x0 ;
 
 MEMORY
 {
     ccmram  : ORIGIN = 0x10000000, LENGTH = ccmram_length
-    sram4   : ORIGIN = 0x28000000, LENGTH = sram4_length
 }
 
 SECTIONS
 {
+    .ccmram.bss (NOLOAD) : ALIGN(4) {
+        _sccmram_bss = .;
+        *(.ccmram.bss)
+        _eccmram_bss = .;
+        /* Round size so that we can use 4 byte copy in init */
+        . = ALIGN(4);
+    } > ccmram
+
     .heap2 ALIGN(4) (NOLOAD) :
     {
         _sheap2 = . ;
-        _eheap2 = ORIGIN(sram4) + LENGTH(sram4);
-    } > sram4
+        _eheap2 = ORIGIN(ccmram) + LENGTH(ccmram);
+    } > ccmram
 }
 
 INCLUDE cortexm.ld

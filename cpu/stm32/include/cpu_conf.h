@@ -78,9 +78,13 @@
 #error Not supported CPU family
 #endif
 
-/* add unused backup RAM as extra heap */
-#if !defined(NUM_HEAPS) && CPU_HAS_BACKUP_RAM
+#if !defined(NUM_HEAPS)
+/* add unused backup & CCM RAM as extra heap */
+#if CPU_HAS_CCMRAM && CPU_HAS_BACKUP_RAM
+#define NUM_HEAPS   3
+#elif CPU_HAS_BACKUP_RAM
 #define NUM_HEAPS   2
+#endif
 #endif
 
 #ifdef __cplusplus
