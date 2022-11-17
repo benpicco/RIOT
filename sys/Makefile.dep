@@ -751,6 +751,12 @@ ifneq (,$(filter nanocoap_shard,$(USEMODULE)))
   USEMODULE += event_thread
 endif
 
+ifneq (,$(filter nanocoap_shard_test,$(USEMODULE)))
+  USEMODULE += fmt
+  USEMODULE += md5sum
+  USEMODULE += nanocoap_shard
+endif
+
 ifneq (,$(filter nanocoap_sock,$(USEMODULE)))
   USEMODULE += sock_udp
   USEMODULE += sock_util
