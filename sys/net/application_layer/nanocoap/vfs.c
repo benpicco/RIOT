@@ -23,6 +23,8 @@
 #include "net/sock/util.h"
 #include "vfs.h"
 
+#include "net/gnrc/icmpv6/echo.h"
+
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
@@ -158,6 +160,18 @@ int nanocoap_vfs_put_url(const char *url, const char *src,
     return res;
 }
 
+static void _preheat_nc(nanocoap_sock_t *sock)
+{
+    /* ping to ensure neighbor cache is hot */
+    for (unsigned i = 0; i < 3; ++i) {
+        gnrc_icmpv6_echo_send(gnrc_netif_get_by_pid(sock->udp.remote.netif),
+                              (ipv6_addr_t *)&sock->udp.remote.addr,
+                              0, 0, 0, 0);
+        ztimer_sleep(ZTIMER_MSEC, 5);
+    }
+    ztimer_sleep(ZTIMER_MSEC, 2 * NDP_RETRANS_TIMER_MS + 10);
+}
+
 int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const char *src)
 {
     coap_shard_request_t ctx = {
@@ -177,6 +191,8 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
         res = fd;
         goto error;
     }
+
+    _preheat_nc(sock);
 
     bool more = true;
     while (more && (res = vfs_read(fd, work_buf, work_buf_len)) > 0) {
