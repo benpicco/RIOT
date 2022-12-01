@@ -41,6 +41,7 @@ config MODULE_STDIO_UART_ONLCR
 config MODULE_STDIO_NATIVE
     bool "Native"
     depends on CPU_ARCH_NATIVE
+    select MODULE_ISRPIPE
 
 config MODULE_STDIO_ETHOS
     bool "ETHOS"
