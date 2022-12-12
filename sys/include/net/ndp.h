@@ -184,7 +184,7 @@ extern "C" {
 #define NDP_MAX_ANYCAST_MS_DELAY    (1000U)     /**< MAX_ANYCAST_DELAY_TIME (in ms) */
 #define NDP_MAX_NA_NUMOF            (3U)        /**< MAX_NEIGHBOR_ADVERTISEMENT */
 #define NDP_REACH_MS                (30000U)    /**< REACHABLE_TIME (in ms) */
-#define NDP_RETRANS_TIMER_MS        (1000U)     /**< RETRANS_TIMER (in ms) */
+#define NDP_RETRANS_TIMER_MS        (100U)      /**< RETRANS_TIMER (in ms) */
 /**
  * @brief   MAX_RETRANS_TIMER (in ms)
  *

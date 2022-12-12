@@ -14,7 +14,8 @@ setup() {
     sed '/^#/d' "$1" | while read -r level num; do
         # we actually want to execute the output here.
         # shellcheck disable=SC2091
-        $(printf -- "sudo %s/tapsetup/tapsetup -b br%s -t tap_%s -c %s\n" "$RIOTTOOLS" "$i" "$level" "$num") > /dev/null;
+#        $(printf -- "sudo %s/tapsetup/tapsetup -b br%s -t tap_%s -c %s\n" "$RIOTTOOLS" "$i" "$level" "$num") > /dev/null;
+        $(printf -- "sudo %s/tapsetup/tapsetup -b br%s -t tap_%s -c %s --loss 20%% --delay 5ms\n" "$RIOTTOOLS" "$i" "$level" "$num") > /dev/null;
         i=$((i+1))
     done
 
