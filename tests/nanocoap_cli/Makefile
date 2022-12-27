@@ -7,6 +7,32 @@ USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules
 USEMODULE += gnrc_ipv6_default
 
+# Instead of simulating an Ethernet connection, we can also simulate
+# an IEEE 802.15.4 radio using ZEP
+USE_ZEP ?= 0
+
+# set the ZEP port for native
+ZEP_PORT_BASE ?= 17754
+ifeq (1,$(USE_ZEP))
+  TERMFLAGS += -z [::1]:$(ZEP_PORT_BASE)
+  USEMODULE += socket_zep
+
+  USEMODULE += gnrc_ipv6_router_default
+  # Add a routing protocol
+  USEMODULE += gnrc_rpl
+  USEMODULE += auto_init_gnrc_rpl
+
+  CFLAGS += -DCONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF=3
+
+  ifneq (,$(ZEP_MAC))
+    TERMFLAGS += --eui64=$(ZEP_MAC)
+  endif
+else
+  USEMODULE += gnrc_ipv6_auto_subnets
+  USEMODULE += gnrc_ipv6_router_default
+endif
+
+
 # Optionally include DNS support. This includes resolution of names at an
 # upstream DNS server and the handling of RDNSS options in Router Advertisements
 # to auto-configure that upstream DNS server.
