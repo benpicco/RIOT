@@ -94,12 +94,5 @@ const unsigned coap_resources_numof = ARRAY_SIZE(coap_resources);
 
 void nanotest_enable_forward(unsigned netif, bool on)
 {
-    const sock_udp_ep_t remote = {
-        .family = AF_INET6,
-        .addr = IPV6_ADDR_ALL_COAP_SHARD_LINK_LOCAL,
-        .port = COAP_PORT,
-        .netif = netif,
-    };
-
-    nanocoap_shard_set_forward(&_ctx_md5.super, on ? &remote : NULL);
+    nanocoap_shard_set_forward(&_ctx_md5.super, netif, on);
 }

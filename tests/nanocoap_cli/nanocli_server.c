@@ -25,6 +25,11 @@
 #include "net/netif.h"
 #include "net/sock/udp.h"
 
+#include "net/gnrc/ipv6/nib/ft.h"
+
+#include "event/periodic_callback.h"
+#include "event/thread.h"
+
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
@@ -104,14 +109,15 @@ static void *_server_thread(void *arg)
     return NULL;
 }
 
-static netif_t *_get_downstream(void)
+static void _downstream_check_cb(void *arg)
 {
-    netif_t *netif = netif_iter(NULL);
-    if (netif) {
-        netif = netif_iter(netif);
-    }
+    gnrc_netif_t *downstream = gnrc_ipv6_nib_ft_iter_downstream(NULL);
 
-    return netif;
+    if (downstream) {
+        printf("enable shard forwarding on %u\n", downstream->pid);
+        nanotest_enable_forward(downstream->pid, true);
+        event_periodic_callback_stop(arg);
+    }
 }
 
 int nanotest_server_cmd(int argc, char **argv)
@@ -152,11 +158,10 @@ int nanotest_server_cmd(int argc, char **argv)
         }
     }
 
-    netif_t *downstream = _get_downstream();
-    if (downstream) {
-        printf("enable shard forwarding on %u\n", netif_get_id(downstream));
-        nanotest_enable_forward(netif_get_id(downstream), true);
-    }
+    static event_periodic_callback_t downstream_cb;
+    event_periodic_callback_init(&downstream_cb, ZTIMER_MSEC, EVENT_PRIO_MEDIUM,
+                                 _downstream_check_cb, &downstream_cb);
+    event_periodic_callback_start(&downstream_cb, 500);
 
     thread_create(_server_stack, sizeof(_server_stack),
                   THREAD_PRIORITY_MAIN, THREAD_CREATE_STACKTEST, _server_thread, &ctx,

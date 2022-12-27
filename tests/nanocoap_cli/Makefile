@@ -7,6 +7,8 @@ USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules
 USEMODULE += gnrc_ipv6_default
 
+USEMODULE += event_periodic_callback
+
 # Instead of simulating an Ethernet connection, we can also simulate
 # an IEEE 802.15.4 radio using ZEP
 USE_ZEP ?= 0
