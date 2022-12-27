@@ -23,6 +23,7 @@
 #include <stdint.h>
 
 #include "net/gnrc/pkt.h"
+#include "net/gnrc/netif.h"
 #include "net/ipv6/addr.h"
 
 #ifdef __cplusplus
@@ -138,6 +139,16 @@ void gnrc_ipv6_nib_ft_del(const ipv6_addr_t *dst, unsigned dst_len);
  */
 bool gnrc_ipv6_nib_ft_iter(const ipv6_addr_t *next_hop, unsigned iface,
                            void **state, gnrc_ipv6_nib_ft_t *fte);
+
+/**
+ * @brief   Iterate over downstream interfaces
+ *
+ * @param[in] prev  previous interface in iteration. NULL to start iteration.
+ *
+ * @return  The next downstream network interface after @p prev.
+ * @return  NULL, if @p prev was the last network interface.
+ */
+gnrc_netif_t * gnrc_ipv6_nib_ft_iter_downstream(gnrc_netif_t *prev);
 
 /**
  * @brief   Prints a forwarding table entry

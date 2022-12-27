@@ -146,6 +146,57 @@ bool gnrc_ipv6_nib_ft_iter(const ipv6_addr_t *next_hop, unsigned iface,
     return (*state != NULL);
 }
 
+static bool _is_downstream(unsigned iface)
+{
+    uint16_t u16;
+    if (netif_get_opt(netif_get_by_id(iface), NETOPT_IS_WIRED,
+                      0, &u16, sizeof(u16)) <= 0) {
+        /* first check if there is a known next hop */
+        _nib_offl_entry_t *offl = NULL;
+        while ((offl = _nib_offl_iter(offl))) {
+            if (_nib_onl_get_if(offl->next_hop) != iface) {
+                continue;
+            }
+
+            /* there is a next hop */
+            if (offl->mode != _PL) {
+                return true;
+            }
+        }
+    }
+
+    /* there is only a single interface */
+    if (gnrc_netif_iter(gnrc_netif_iter(NULL)) == NULL) {
+        return false;
+    }
+
+    /* check if the interface is not the default route */
+    _nib_dr_entry_t *dr = NULL;
+    while ((dr = _nib_drl_iter(dr))) {
+        if (_nib_onl_get_if(dr->next_hop) == iface) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+gnrc_netif_t *gnrc_ipv6_nib_ft_iter_downstream(gnrc_netif_t *iface)
+{
+    /* we need a default route to determine a downstream */
+    if (_nib_drl_iter(NULL) == NULL) {
+        return NULL;
+    }
+
+    while ((iface = gnrc_netif_iter(iface))) {
+        if (_is_downstream(iface->pid)) {
+            return iface;
+        }
+    }
+
+    return NULL;
+}
+
 void gnrc_ipv6_nib_ft_print(const gnrc_ipv6_nib_ft_t *fte)
 {
     char addr_str[IPV6_ADDR_MAX_STR_LEN];
