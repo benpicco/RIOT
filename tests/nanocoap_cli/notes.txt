@@ -1,0 +1,11 @@
+ncput_non /nvm0/doc.txt /md5/in
+ncput_non /nvm0/thread.c /md5/in
+
+ifconfig
+server start
+
+ping ff02::1
+
+nib prefix add 7 2001:db8::/32
+ifconfig 7 add 2001:db8::1/32
+rpl root 0 2001:db8::1
