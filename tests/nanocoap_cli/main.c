@@ -26,7 +26,7 @@
 #include "net/ipv6/addr.h"
 #include "shell.h"
 
-#include "net/nanocoap/shard.h"
+#include "net/nanocoap/page.h"
 
 #define MAIN_QUEUE_SIZE (4)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
@@ -56,6 +56,7 @@ extern int nanotest_server_cmd(int argc, char **argv);
 extern int nanotest_client_put_cmd(int argc, char **argv);
 extern int nanotest_client_put_non_cmd(int argc, char **argv);
 static int _list_all_inet6(int argc, char **argv);
+static int _init_test(int argc, char **argv);
 
 static const shell_command_t shell_commands[] = {
     { "client", "CoAP client", nanotest_client_cmd },
@@ -64,6 +65,7 @@ static const shell_command_t shell_commands[] = {
     { "put_non", "non-confirmable put", nanotest_client_put_non_cmd },
     { "server", "CoAP server", nanotest_server_cmd },
     { "inet6", "IPv6 addresses", _list_all_inet6 },
+    { "init", "Initialize initiator", _init_test },
     { NULL, NULL, NULL }
 };
 
@@ -137,6 +139,43 @@ static int _list_all_inet6(int argc, char **argv)
     return 0;
 }
 
+#include "net/gnrc/rpl.h"
+#include "net/ipv6/addr.h"
+#include "net/gnrc/netif.h"
+
+static int _init_test(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    /* stop CoAP sever */
+    char *_argv[2] = { NULL, "stop" };
+    nanotest_server_cmd(2, _argv);
+
+    gnrc_netif_t *iface = gnrc_netif_iter(NULL);
+    if (iface == NULL) {
+        puts("no interface found");
+        return -1;
+    }
+
+    ipv6_addr_t prefix = {
+        .u16 = { { .u16 = htons(0x2001) }, { .u16 = htons(0xdb8) } },
+    };
+
+    int idx = gnrc_netif_ipv6_add_prefix(iface, &prefix, 64, UINT32_MAX, UINT32_MAX);
+    if (idx >= 0) {
+        printf("address configured\n");
+        /* start advertising subnet obtained via UHCP */
+        gnrc_ipv6_nib_change_rtr_adv_iface(iface, true);
+        /* configure this router as RPL root */
+        gnrc_rpl_configure_root(iface, &iface->ipv6.addrs[idx]);
+    } else {
+        printf("can't add address: %d\n", idx);
+    }
+
+    return 0;
+}
+
 int main(void)
 {
     /* for the thread running the shell */
@@ -153,6 +192,17 @@ int main(void)
 
     /* TODO: move elsewhere */
     nanocoap_shard_netif_join_all();
+
+    /* auto-start sever */
+    char *argv[2] = { NULL, "start" };
+    nanotest_server_cmd(2, argv);
+
+#ifdef CPU_NATIVE
+    extern pid_t _native_id;
+    if (_native_id == 1) {
+        _init_test(0, NULL);
+    }
+#endif
 
     /* start shell */
     puts("All up, running the shell now");
