@@ -205,7 +205,7 @@ static void print_help(const shell_command_t *command_list)
  *
  *
  */
-void shell_exec_line(const shell_command_t *command_list, char *line)
+static void handle_input_line(const shell_command_t *command_list, char *line)
 {
     /* first we need to calculate the number of arguments */
     int argc = 0;
@@ -508,30 +508,10 @@ void shell_run_once(const shell_command_t *shell_commands,
                 break;
 
             default:
-                shell_exec_line(shell_commands, line_buf);
+                handle_input_line(shell_commands, line_buf);
                 break;
         }
 
         print_prompt();
-    }
-}
-
-extern pid_t _native_id;
-
-void shell_exec_line_const(const shell_command_t *commands, const char *line)
-{
-    char buffer[64];
-    strncpy(buffer, line, sizeof(buffer) - 1);
-    shell_exec_line(commands, buffer);
-}
-
-void shell_run_autostart(const shell_command_t *commands)
-{
-    if (_native_id == 1) {
-        shell_exec_line_const(commands, "nib prefix add 7 2001:db8::/64");
-        shell_exec_line_const(commands, "ifconfig 7 add 2001:db8::1/64");
-        shell_exec_line_const(commands, "rpl root 0 2001:db8::1");
-    } else {
-        shell_exec_line_const(commands, "server start");
     }
 }

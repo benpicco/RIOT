@@ -162,8 +162,6 @@ typedef struct {
  */
 void shell_run_once(const shell_command_t *commands, char *line_buf, int len);
 
-void shell_run_autostart(const shell_command_t *commands);
-
 /**
  * @brief           Start a shell and restart it if it exits
  *
@@ -177,8 +175,6 @@ void shell_run_autostart(const shell_command_t *commands);
 static inline void shell_run_forever(const shell_command_t *commands,
                                      char *line_buf, int len)
 {
-    shell_run_autostart(commands);
-
     while (1) {
         shell_run_once(commands, line_buf, len);
 
