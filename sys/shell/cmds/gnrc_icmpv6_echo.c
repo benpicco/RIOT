@@ -86,8 +86,8 @@ static int _finish(_ping_data_t *data);
 static int _gnrc_icmpv6_ping(int argc, char **argv)
 {
     _ping_data_t data = {
-        .netreg = GNRC_NETREG_ENTRY_INIT_PID(ICMPV6_ECHO_REP,
-                                                 thread_getpid()),
+        .netreg = GNRC_NETREG_ENTRY_INIT_PID(GNRC_NETREG_DEMUX_CTX_ALL,
+                                             thread_getpid()),
         .count = DEFAULT_COUNT,
         .tmin = UINT_MAX,
         .datalen = DEFAULT_DATALEN,
@@ -283,6 +283,8 @@ static void _pinger(_ping_data_t *data)
 
 static int _print_reply(gnrc_pktsnip_t *pkt, int corrupted, uint32_t triptime, void *ctx)
 {
+    char from_str[IPV6_ADDR_MAX_STR_LEN];
+
     _ping_data_t *data = ctx;
     gnrc_pktsnip_t *netif = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_NETIF);
     gnrc_pktsnip_t *ipv6 = gnrc_pktsnip_search_type(pkt, GNRC_NETTYPE_IPV6);
@@ -304,11 +306,28 @@ static int _print_reply(gnrc_pktsnip_t *pkt, int corrupted, uint32_t triptime, v
     /* check if payload size matches expectation */
     truncated = (data->datalen + sizeof(icmpv6_echo_t)) - icmpv6->size;
 
+    /* print error message if we got one */
     if (icmpv6_hdr->type != ICMPV6_ECHO_REP) {
+        ipv6_addr_to_str(from_str, &ipv6_hdr->src, sizeof(from_str));
+        printf("from %s: ", from_str);
+
+        switch (icmpv6_hdr->type) {
+        case ICMPV6_DST_UNR:
+            puts("destination unreachable");
+            break;
+        case ICMPV6_PKT_TOO_BIG:
+            puts("packet too big");
+            break;
+        case ICMPV6_TIME_EXC:
+            puts("hop limit exeeded");
+            break;
+        default:
+            printf("unknown ICMPv6 type: %u\n", icmpv6_hdr->type);
+            break;
+        }
         return -EINVAL;
     }
 
-    char from_str[IPV6_ADDR_MAX_STR_LEN];
     const char *dupmsg = " (DUP!)";
     uint16_t recv_seq;
 
