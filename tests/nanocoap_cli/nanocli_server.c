@@ -37,6 +37,8 @@ static char _server_stack[THREAD_STACKSIZE_DEFAULT];
 
 extern void nanotest_enable_forward(unsigned netif, bool on);
 
+static bool _server_active;
+
 /*
  * Customized implementation of nanocoap_server() to ignore a count of
  * requests. Allows testing confirmable messaging.
@@ -56,8 +58,10 @@ static int _nanocoap_server(sock_udp_ep_t *local, uint8_t *buf, size_t bufsize,
         return -1;
     }
 
+    _server_active = true;
+
     int recv_count = 0;
-    while (1) {
+    while (_server_active) {
         res = sock_udp_recv(&sock, buf, bufsize, -1, &remote);
         if (++recv_count <= ignore_count) {
             DEBUG("ignoring request\n");
@@ -82,6 +86,8 @@ static int _nanocoap_server(sock_udp_ep_t *local, uint8_t *buf, size_t bufsize,
             }
         }
     }
+
+    sock_udp_close(&sock);
 
     return 0;
 }
@@ -124,6 +130,12 @@ int nanotest_server_cmd(int argc, char **argv)
 {
     if (argc < 2) {
         goto error;
+    }
+
+    if (strncmp("stop", argv[1], 4) == 0) {
+        _server_active = false;
+        puts("server stop requested");
+        return 0;
     }
 
     if (strncmp("start", argv[1], 5) != 0) {
