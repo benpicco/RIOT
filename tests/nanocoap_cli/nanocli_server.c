@@ -33,7 +33,7 @@
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
-static char _server_stack[THREAD_STACKSIZE_DEFAULT];
+static char _server_stack[THREAD_STACKSIZE_DEFAULT * 2];
 
 extern void nanotest_enable_forward(unsigned netif, bool on);
 

@@ -1,3 +1,7 @@
+BOARD ?= iotlab-m3
+IOTLAB_EXP_NAME := nanocoap_non_block
+IOTLAB_NODES ?= 100
+
 include ../Makefile.tests_common
 
 # Include packages that pull up and auto-init the link layer.
@@ -11,20 +15,20 @@ USEMODULE += event_periodic_callback
 
 # Instead of simulating an Ethernet connection, we can also simulate
 # an IEEE 802.15.4 radio using ZEP
-USE_ZEP ?= 0
+USE_ZEP ?= 1
 
 # set the ZEP port for native
 ZEP_PORT_BASE ?= 17754
 ifeq (1,$(USE_ZEP))
-  TERMFLAGS += -z [::1]:$(ZEP_PORT_BASE)
-  USEMODULE += socket_zep
+  ifeq (native, $(BOARD))
+    TERMFLAGS += -z [::1]:$(ZEP_PORT_BASE)
+    USEMODULE += socket_zep
+  endif
 
   USEMODULE += gnrc_ipv6_router_default
   # Add a routing protocol
   USEMODULE += gnrc_rpl
   USEMODULE += auto_init_gnrc_rpl
-
-  CFLAGS += -DCONFIG_GNRC_NETIF_IPV6_ADDRS_NUMOF=3
 
   ifneq (,$(ZEP_MAC))
     TERMFLAGS += --eui64=$(ZEP_MAC)
@@ -33,7 +37,6 @@ else
   USEMODULE += gnrc_ipv6_auto_subnets
   USEMODULE += gnrc_ipv6_router_default
 endif
-
 
 # Optionally include DNS support. This includes resolution of names at an
 # upstream DNS server and the handling of RDNSS options in Router Advertisements
@@ -50,6 +53,8 @@ USEMODULE += gnrc_icmpv6_echo ps
 CFLAGS += -DNETDEV_TAP_MAX=2
 
 USEMODULE += nanocoap_shard_test
+
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_CHANNEL=20
 
 # boards where basic nanocoap functionality fits, but no VFS
 LOW_MEMORY_BOARDS := \
@@ -70,20 +75,24 @@ LOW_MEMORY_BOARDS := \
 
 # Don't enable VFS, DTLS functions on small boards
 ifeq (,$(filter $(BOARD),$(LOW_MEMORY_BOARDS)))
-  USEMODULE += nanocoap_dtls
-  USEMODULE += prng_sha256prng
+#  USEMODULE += nanocoap_dtls
+#  USEMODULE += prng_sha256prng
 
   USEMODULE += nanocoap_vfs
   USEMODULE += vfs_default
-  # USEMODULE += vfs_auto_format
+  USEMODULE += vfs_auto_format
   USEMODULE += shell_cmds_default
+  USEMODULE += shell_cmd_genfile
 
   # DTLS and VFS operations require more stack on the main thread
-  CFLAGS += -DTHREAD_STACKSIZE_MAIN=\(3*THREAD_STACKSIZE_DEFAULT\)
+  CFLAGS += -DTHREAD_STACKSIZE_MAIN=\(4*THREAD_STACKSIZE_DEFAULT\)
 
   # always enable auto-format for native
   ifeq ($(BOARD),native)
     USEMODULE += vfs_auto_format
+    CFLAGS += -DEVENT_THREAD_MEDIUM_STACKSIZE=8192
+  else
+    CFLAGS += -DEVENT_THREAD_MEDIUM_STACKSIZE=2048
   endif
 endif
 
@@ -92,3 +101,4 @@ USEMODULE += od
 USEMODULE += shell
 
 include $(RIOTBASE)/Makefile.include
+include $(RIOTBASE)/dist/testbed-support/Makefile.iotlab

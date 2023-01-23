@@ -1,3 +1,7 @@
-- [ ] enable forwarding at run-time
-- [ ] test with Socket ZEP
-- [ ] test on IoT Lab
+- [ ] count frames in zep_dispatcher
+- [ ] stop forwarding
+- [ ] error correction
+- [ ] large-scale zep dispatcher test
+- [ ] chose new parent? (when shard can't be satisfied)
+- [ ] get shard from file?
+- [ ] easy test setup (spawn nodes, run test, count transmissions, verify result)
