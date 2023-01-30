@@ -80,9 +80,10 @@ typedef struct {
  * @brief   ZEP device RX state
  */
 typedef enum {
-    ZEPDEV_STATE_IDLE,      /**< ZEP is able to receive frames */
+    ZEPDEV_STATE_IDLE,      /**< ZEP is not doing anything, not receiving frames */
+    ZEPDEV_STATE_RX_ON,     /**< ZEP is able to receive frames */
     ZEPDEV_STATE_RX_RECV,   /**< unprocessed frame is in RX buffer, rx stopped */
-    ZEPDEV_STATE_RX_DONE,   /**< received frame was handled, rx stopped */
+    ZEPDEV_STATE_TX,        /**< ZEP is currently sending a frame */
 } zepdev_state_t;
 
 /**
