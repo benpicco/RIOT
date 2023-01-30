@@ -93,6 +93,8 @@ static void _continue_reading(socket_zep_t *dev)
 
     _native_in_syscall++; /* no switching here */
 
+    dev->state = ZEPDEV_STATE_IDLE;
+
     if (real_select(dev->sock_fd + 1, &rfds, NULL, NULL, &t) == 1) {
         int sig = SIGIO;
         extern int _sig_pipefd[2];
@@ -104,8 +106,6 @@ static void _continue_reading(socket_zep_t *dev)
     }
 
     _native_in_syscall--;
-
-    dev->state = ZEPDEV_STATE_IDLE;
 }
 
 static inline bool _dst_not_me(socket_zep_t *dev, const void *buf)
@@ -239,11 +239,13 @@ static void _send_zep_hello(socket_zep_t *dev)
 
 static void _send_ack(void *arg)
 {
-    socket_zep_t *zepdev = arg;
+    ieee802154_dev_t *dev = arg;
+    socket_zep_t *zepdev = dev->priv;
     const uint8_t *rxbuf = &zepdev->rcv_buf[sizeof(zep_v2_data_hdr_t)];
     uint8_t ack[3];
     zep_v2_data_hdr_t hdr;
 
+    assert(zepdev->state != ZEPDEV_STATE_IDLE);
     assert((rxbuf[0] & IEEE802154_FCF_ACK_REQ) != 0);
 
     DEBUG("socket_zep::send_ack: seq_no: %u\n", rxbuf[2]);
@@ -261,9 +263,7 @@ static void _send_ack(void *arg)
     real_send(zepdev->sock_fd, ack, sizeof(ack), MSG_MORE);
     real_send(zepdev->sock_fd, &chksum, sizeof(chksum), 0);
 
-    if (zepdev->state == ZEPDEV_STATE_RX_DONE) {
-        _continue_reading(zepdev);
-    }
+    dev->cb(dev, IEEE802154_RADIO_INDICATION_RX_DONE);
 }
 
 static void _socket_isr(int fd, void *arg)
@@ -275,17 +275,17 @@ static void _socket_isr(int fd, void *arg)
     if (zepdev->state != ZEPDEV_STATE_IDLE) {
         res = real_recv(zepdev->sock_fd, &res, sizeof(res), MSG_TRUNC);
         DEBUG("socket_zep::_socket_isr: discard frame (%d bytes, state %u)\n", res, zepdev->state);
-        goto out;
+        return;
     }
-
-    res = real_recv(zepdev->sock_fd, zepdev->rcv_buf, sizeof(zepdev->rcv_buf), 0);
-    DEBUG("socket_zep::_socket_isr: %d bytes on %d\n", res, fd);
 
     zepdev->rcv_len = 0;
     zepdev->state = ZEPDEV_STATE_RX_RECV;
 
+    res = real_recv(zepdev->sock_fd, zepdev->rcv_buf, sizeof(zepdev->rcv_buf), 0);
+    DEBUG("socket_zep::_socket_isr: %d bytes on %d\n", res, fd);
+
     if (res < (int)sizeof(zep_v2_data_hdr_t)) {
-        DEBUG("socket_zep::_socket_isr: discard %d < %u\n", res, sizeof(zep_v2_data_hdr_t));
+        DEBUG("socket_zep::_socket_isr: frame too short %d < %u\n", res, sizeof(zep_v2_data_hdr_t));
         goto out;
     }
 
@@ -301,34 +301,33 @@ static void _socket_isr(int fd, void *arg)
         goto out;
     }
 
-    switch (((zep_v2_ack_hdr_t *)tmp)->type) {
-    case ZEP_V2_TYPE_DATA: {
-        zep_v2_data_hdr_t *zep = (zep_v2_data_hdr_t *)tmp;
-
-        if (zep->chan != zepdev->chan) {
-            DEBUG("socket_zep::read: wrong channel\n");
-            goto out;
-        }
-
-        if (_dst_not_me(zepdev, zep + 1)) {
-            DEBUG("socket_zep::read: dst not me\n");
-            goto out;
-        }
-
-        /* send ACK after 192 µs */
-        if ((((uint8_t *)(zep + 1))[0] & IEEE802154_FCF_ACK_REQ) != 0) {
-            ztimer_set(ZTIMER_USEC, &zepdev->ack_timer, ACK_DELAY_US);
-        }
-
-        break;
-    }
-    default:
+    if (((zep_v2_ack_hdr_t *)tmp)->type != ZEP_V2_TYPE_DATA) {
         DEBUG("socket_zep::read: unknown type %u\n", ((zep_v2_ack_hdr_t *)tmp)->type);
         goto out;
     }
 
+    /* we received a valid ZEP frame */
+    zep_v2_data_hdr_t *zep = (zep_v2_data_hdr_t *)tmp;
+
+    if (zep->chan != zepdev->chan) {
+        DEBUG("socket_zep::read: wrong channel\n");
+        goto out;
+    }
+
+    if (_dst_not_me(zepdev, zep + 1)) {
+        DEBUG("socket_zep::read: dst not me\n");
+        goto out;
+    }
+
     zepdev->rcv_len = res;
-    dev->cb(dev, IEEE802154_RADIO_INDICATION_RX_DONE);
+
+    /* send ACK after 192 µs */
+    if ((((uint8_t *)(zep + 1))[0] & IEEE802154_FCF_ACK_REQ) != 0) {
+        ztimer_set(ZTIMER_USEC, &zepdev->ack_timer, ACK_DELAY_US);
+    } else {
+        dev->cb(dev, IEEE802154_RADIO_INDICATION_RX_DONE);
+    }
+
     return;
 out:
     _continue_reading(zepdev);
@@ -340,8 +339,6 @@ void socket_zep_setup(socket_zep_t *dev, const socket_zep_params_t *params)
     assert((params->remote_addr != NULL) && (params->remote_port != NULL));
 
     dev->params = params;
-    dev->ack_timer.callback = _send_ack;
-    dev->ack_timer.arg = dev;
 
     native_async_read_setup();
 }
@@ -591,13 +588,14 @@ static int _request_op(ieee802154_dev_t *dev, ieee802154_hal_op_t op, void *ctx)
         break;
     case IEEE802154_HAL_OP_SET_RX:
         switch (zepdev->state) {
+        case ZEPDEV_STATE_RX_RECV:
+            DEBUG("socket_zep::request_op: discard received frame\n");
+            /* fall-through */
         case ZEPDEV_STATE_RX_DONE:
-            if (!ztimer_is_set(ZTIMER_USEC, &zepdev->ack_timer)) {
-                _continue_reading(zepdev);
-            }
+            ztimer_remove(ZTIMER_USEC, &zepdev->ack_timer);
+            _continue_reading(zepdev);
             break;
         case ZEPDEV_STATE_IDLE:
-        case ZEPDEV_STATE_RX_RECV:
             break;
         }
 
@@ -670,6 +668,9 @@ void socket_zep_hal_setup(socket_zep_t *dev, ieee802154_dev_t *hal)
 {
     hal->driver = &socket_zep_rf_ops;
     hal->priv = dev;
+
+    dev->ack_timer.callback = _send_ack;
+    dev->ack_timer.arg = hal;
 }
 
 /** @} */
