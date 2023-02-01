@@ -1,7 +1,8 @@
-From a8a3c2c751dda987fb94a1afbd771134bcbd7f04 Mon Sep 17 00:00:00 2001
-From: Gunar Schorcht <gunar@schorcht.net>
-Date: Sun, 30 Jan 2022 08:07:23 +0100
-Subject: [PATCH 02/12] wpa_supplicant: add prefix wpa_ to crypto functions
+From eea8ac65c391a781da24c483e7968814dab3a091 Mon Sep 17 00:00:00 2001
+From: Benjamin Valentin <benjamin.valentin@ml-pa.com>
+Date: Wed, 1 Feb 2023 14:37:49 +0100
+Subject: [PATCH] [PATCH 02/12] wpa_supplicant: add prefix wpa_ to crypto
+ functions
 
 Prefix `_wpa` added to crypto functions of `wpa_suppplicant` to avoid name conflicts with RIOT modules `crypto` and `hashes`.
 ---
@@ -34,7 +35,7 @@ Prefix `_wpa` added to crypto functions of `wpa_suppplicant` to avoid name confl
  26 files changed, 50 insertions(+), 50 deletions(-)
 
 diff --git a/components/wpa_supplicant/src/common/dpp.c b/components/wpa_supplicant/src/common/dpp.c
-index 899e0c06c4..c97399d88c 100644
+index 887add165f..2d0a8b052f 100644
 --- a/components/wpa_supplicant/src/common/dpp.c
 +++ b/components/wpa_supplicant/src/common/dpp.c
 @@ -153,7 +153,7 @@ static int dpp_hmac(size_t hash_len, const u8 *key, size_t key_len,
@@ -47,23 +48,23 @@ index 899e0c06c4..c97399d88c 100644
  	if (hash_len == 48)
  		return hmac_sha384(key, key_len, data, data_len, mac);
 diff --git a/components/wpa_supplicant/src/common/sae.c b/components/wpa_supplicant/src/common/sae.c
-index ec65605337..00eb2f6c21 100644
+index 3d04995327..365ac8f12c 100644
 --- a/components/wpa_supplicant/src/common/sae.c
 +++ b/components/wpa_supplicant/src/common/sae.c
-@@ -827,7 +827,7 @@ static int sae_derive_keys(struct sae_data *sae, const u8 *k)
- 	 */
- 
- 	os_memset(null_key, 0, sizeof(null_key));
--	hmac_sha256(null_key, sizeof(null_key), k, sae->tmp->prime_len,
-+	wpa_hmac_sha256(null_key, sizeof(null_key), k, sae->tmp->prime_len,
- 		    keyseed);
- 	wpa_hexdump_key(MSG_DEBUG, "SAE: keyseed", keyseed, sizeof(keyseed));
+@@ -382,7 +382,7 @@ static int sae_derive_pwe_ecc(struct sae_data *sae, const u8 *addr1,
+ 		wpa_printf(MSG_DEBUG, "SAE: counter = %03u", counter);
+ 		const_time_select_bin(found, dummy_password, password,
+ 				      password_len, tmp_password);
+-		if (hmac_sha256_vector(addrs, sizeof(addrs), 2,
++		if (wpa_hmac_sha256_vector(addrs, sizeof(addrs), 2,
+ 				       addr, len, pwd_seed) < 0)
+ 			break;
  
 diff --git a/components/wpa_supplicant/src/common/wpa_common.c b/components/wpa_supplicant/src/common/wpa_common.c
-index 070ba0887e..36b230a9cc 100644
+index bbcfcaeeae..a856ad0075 100644
 --- a/components/wpa_supplicant/src/common/wpa_common.c
 +++ b/components/wpa_supplicant/src/common/wpa_common.c
-@@ -467,7 +467,7 @@ int wpa_eapol_key_mic(const u8 *key, size_t key_len, int akmp, int ver,
+@@ -486,7 +486,7 @@ int wpa_eapol_key_mic(const u8 *key, size_t key_len, int akmp, int ver,
  #endif /* CONFIG_WPA3_SAE */
  #ifdef CONFIG_SUITEB
  		case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
@@ -315,7 +316,7 @@ index 8ab3de2ee8..fe04fc4b2b 100644
  
  #endif /* AES_H */
 diff --git a/components/wpa_supplicant/src/crypto/crypto.h b/components/wpa_supplicant/src/crypto/crypto.h
-index 9a43c9bfd9..f87a21872b 100644
+index dd2018d3bb..567a53fd62 100644
 --- a/components/wpa_supplicant/src/crypto/crypto.h
 +++ b/components/wpa_supplicant/src/crypto/crypto.h
 @@ -125,7 +125,7 @@ void * aes_encrypt_init(const u8 *key, size_t len);
@@ -399,10 +400,10 @@ index 3d14babe5a..d1426a8feb 100644
  		sha256_process(&ctx->u.sha256, mac, 32);
  		sha256_done(&ctx->u.sha256, mac);
 diff --git a/components/wpa_supplicant/src/crypto/crypto_mbedtls.c b/components/wpa_supplicant/src/crypto/crypto_mbedtls.c
-index d640a64189..d32321657a 100644
+index cf37343cfa..7158bc7297 100644
 --- a/components/wpa_supplicant/src/crypto/crypto_mbedtls.c
 +++ b/components/wpa_supplicant/src/crypto/crypto_mbedtls.c
-@@ -239,7 +239,7 @@ int hmac_sha256_vector(const u8 *key, size_t key_len, size_t num_elem,
+@@ -253,7 +253,7 @@ int hmac_sha256_vector(const u8 *key, size_t key_len, size_t num_elem,
  			   len, mac);
  }
  
@@ -411,7 +412,7 @@ index d640a64189..d32321657a 100644
  		size_t data_len, u8 *mac)
  {
  	return hmac_sha256_vector(key, key_len, 1, &data, &data_len, mac);
-@@ -312,7 +312,7 @@ void *aes_encrypt_init(const u8 *key, size_t len)
+@@ -326,7 +326,7 @@ void *aes_encrypt_init(const u8 *key, size_t len)
  	return aes_crypt_init(MBEDTLS_AES_ENCRYPT, key, len);
  }
  
@@ -420,7 +421,7 @@ index d640a64189..d32321657a 100644
  {
  	return aes_crypt(ctx, MBEDTLS_AES_ENCRYPT, plain, crypt);
  }
-@@ -327,7 +327,7 @@ void * aes_decrypt_init(const u8 *key, size_t len)
+@@ -341,7 +341,7 @@ void * aes_decrypt_init(const u8 *key, size_t len)
  	return aes_crypt_init(MBEDTLS_AES_DECRYPT, key, len);
  }
  
@@ -566,5 +567,5 @@ index ead31af3e0..dcbf39aff8 100644
  		            dev_passwd_len / 2, hash);
  	os_memcpy(wps->psk2, hash, WPS_PSK_LEN);
 -- 
-2.17.1
+2.37.2
 

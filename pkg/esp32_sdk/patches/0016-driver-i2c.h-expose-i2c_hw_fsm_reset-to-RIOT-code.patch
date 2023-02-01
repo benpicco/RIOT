@@ -1,26 +1,27 @@
-From 716cd97fba672809fd007d70b5f43b5dc4eda039 Mon Sep 17 00:00:00 2001
+From 557d88e079aeb04e299e6d861b0fc513bf8d5d8c Mon Sep 17 00:00:00 2001
 From: Benjamin Valentin <benjamin.valentin@ml-pa.com>
-Date: Tue, 18 Oct 2022 19:20:41 +0200
-Subject: [PATCH 16/27] driver/i2c.h: expose i2c_hw_fsm_reset to RIOT code
+Date: Wed, 1 Feb 2023 14:43:06 +0100
+Subject: [PATCH] Subject: [PATCH 16/27] driver/i2c.h: expose i2c_hw_fsm_reset
+ to RIOT code
 
 ---
  components/driver/i2c.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/components/driver/i2c.c b/components/driver/i2c.c
-index d7bf4b95..946d1e12 100644
+index 164b9e9e6a..6ea2ec5254 100644
 --- a/components/driver/i2c.c
 +++ b/components/driver/i2c.c
 @@ -208,7 +208,7 @@ static i2c_clk_alloc_t i2c_clk_alloc[I2C_SCLK_MAX] = {
  static i2c_obj_t *p_i2c_obj[I2C_NUM_MAX] = {0};
  static void i2c_isr_handler_default(void *arg);
- static void IRAM_ATTR i2c_master_cmd_begin_static(i2c_port_t i2c_num);
+ static void IRAM_ATTR i2c_master_cmd_begin_static(i2c_port_t i2c_num, portBASE_TYPE* HPTaskAwoken);
 -static esp_err_t i2c_hw_fsm_reset(i2c_port_t i2c_num);
 +esp_err_t i2c_hw_fsm_reset(i2c_port_t i2c_num);
  
  static void i2c_hw_disable(i2c_port_t i2c_num)
  {
-@@ -605,7 +605,7 @@ static esp_err_t i2c_master_clear_bus(i2c_port_t i2c_num)
+@@ -614,7 +614,7 @@ static esp_err_t i2c_master_clear_bus(i2c_port_t i2c_num)
   * If we remove the power supply for the slave during I2C is reading, or directly connect SDA or SCL to ground,
   * this would cause the I2C FSM get stuck in wrong state, all we can do is to reset the I2C hardware in this case.
   **/
@@ -30,5 +31,5 @@ index d7bf4b95..946d1e12 100644
  // A workaround for avoiding cause timeout issue when using
  // hardware reset.
 -- 
-2.34.1
+2.37.2
 

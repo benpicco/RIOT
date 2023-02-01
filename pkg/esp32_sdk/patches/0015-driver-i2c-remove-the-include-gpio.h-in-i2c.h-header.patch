@@ -1,7 +1,8 @@
-From 30efe1c3049b34bba70d6496d3d5f6d0489433ae Mon Sep 17 00:00:00 2001
+From 5e7ec8e897ecff052c0524bb4704ef485142b99d Mon Sep 17 00:00:00 2001
 From: Benjamin Valentin <benjamin.valentin@ml-pa.com>
-Date: Tue, 18 Oct 2022 19:17:28 +0200
-Subject: [PATCH 15/27] driver/i2c: remove the include gpio.h in i2c.h header
+Date: Wed, 1 Feb 2023 14:41:09 +0100
+Subject: [PATCH] [PATCH 15/27] driver/i2c: remove the include gpio.h in i2c.h
+ header
 
 Including driver/i2c.h by RIOT code leads to type conflicts with RIOT gpio_t type.
 ---
@@ -10,7 +11,7 @@ Including driver/i2c.h by RIOT code leads to type conflicts with RIOT gpio_t typ
  2 files changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/components/driver/i2c.c b/components/driver/i2c.c
-index d7bf4b95..072d039f 100644
+index 164b9e9e6a..e703a6f6de 100644
 --- a/components/driver/i2c.c
 +++ b/components/driver/i2c.c
 @@ -26,6 +26,7 @@
@@ -22,7 +23,7 @@ index d7bf4b95..072d039f 100644
  static const char *I2C_TAG = "i2c";
  
 diff --git a/components/driver/include/driver/i2c.h b/components/driver/include/driver/i2c.h
-index 57d9091e..c55e5f4f 100644
+index 57d9091e70..c55e5f4fcb 100644
 --- a/components/driver/include/driver/i2c.h
 +++ b/components/driver/include/driver/i2c.h
 @@ -19,7 +19,6 @@ extern "C" {
@@ -34,5 +35,5 @@ index 57d9091e..c55e5f4f 100644
  #include "hal/i2c_types.h"
  
 -- 
-2.34.1
+2.37.2
 
