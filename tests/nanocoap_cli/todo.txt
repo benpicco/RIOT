@@ -4,4 +4,5 @@
 - [ ] large-scale zep dispatcher test
 - [ ] chose new parent? (when shard can't be satisfied)
 - [ ] get shard from file?
-- [ ] easy test setup (spawn nodes, run test, count transmissions, verify result)
+- [x] easy test setup (spawn nodes, run test, count transmissions, verify result)
+- [ ] source connects upstream (?)
