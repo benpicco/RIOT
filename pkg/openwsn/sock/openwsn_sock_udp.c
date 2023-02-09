@@ -374,6 +374,13 @@ int sock_udp_get_remote(sock_udp_t *sock, sock_udp_ep_t *ep)
     return 0;
 }
 
+int sock_udp_set_remote(sock_udp_t *sock, const sock_udp_ep_t *ep)
+{
+    memcpy(&sock->gen_sock.remote, ep, sizeof(sock_udp_ep_t));
+
+    return 0;
+}
+
 ssize_t sock_udp_recv_aux(sock_udp_t *sock, void *data, size_t max_len,
                           uint32_t timeout, sock_udp_ep_t *remote,
                           sock_udp_aux_rx_t *aux)

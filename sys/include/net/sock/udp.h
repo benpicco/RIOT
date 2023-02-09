@@ -452,6 +452,17 @@ int sock_udp_get_local(sock_udp_t *sock, sock_udp_ep_t *ep);
 int sock_udp_get_remote(sock_udp_t *sock, sock_udp_ep_t *ep);
 
 /**
+ * @brief   Sets the remote end point of a UDP sock object
+ * @pre `(sock != NULL) && (ep != NULL)`
+ *
+ * @param[in] sock  A UDP sock object.
+ * @param[out] ep   The new remote end point.
+ *
+ * @return  0 on success.
+ */
+int sock_udp_set_remote(sock_udp_t *sock, const sock_udp_ep_t *ep);
+
+/**
  * @brief   Receives a UDP message from a remote end point
  *
  * @pre `(sock != NULL) && (data != NULL) && (max_len > 0)`
