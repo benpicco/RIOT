@@ -27,6 +27,7 @@ struct world {
     unsigned h;
     unsigned num_nodes;
     struct node *nodes;
+    bool grid;
 };
 
 static unsigned random_range(unsigned lower, unsigned upper)
@@ -35,13 +36,29 @@ static unsigned random_range(unsigned lower, unsigned upper)
     return lower + rand() % range;
 }
 
-static struct node *node_generate(struct node *n, const struct world *w,
-                                  unsigned range)
+static struct node *node_generate(struct node *node, const struct world *w,
+                                  unsigned range, unsigned idx)
 {
-    n->x = random_range(0, w->w);
-    n->y = random_range(0, w->h);
-    n->r = range;
-    return n;
+    if (w->grid) {
+        float l = w->w;
+        float h = w->h;
+        float n = w->num_nodes;
+
+        /* https://math.stackexchange.com/a/1039514 */
+        float n_x = sqrtf(n*l/h + powf(l - h, 2)/(4*h*h)) - (l - h)/2;
+        float n_y = n / n_x;
+
+        unsigned step_x = l / n_x;
+        unsigned step_y = h / n_y;
+
+        node->x = (idx * step_x + step_x / 2) % w->w;
+        node->y = ((idx * step_x + step_x / 2) / w->w) * step_y + step_y / 2;
+    } else {
+        node->x = random_range(0, w->w);
+        node->y = random_range(0, w->h);
+    }
+    node->r = range;
+    return node;
 }
 
 static double node_distance(const struct node *a, const struct node *b)
@@ -82,7 +99,7 @@ static void world_gen(struct world *w, unsigned num_nodes,
     w->nodes = calloc(num_nodes, sizeof(*w->nodes));
 
     for (unsigned i = 0; i < num_nodes; ++i) {
-        node_generate(&w->nodes[i], w, random_range(range - var, range + var));
+        node_generate(&w->nodes[i], w, random_range(range - var, range + var), i);
         node_name(&w->nodes[i], i);
     }
 }
@@ -205,12 +222,16 @@ int main(int argc, char** argv)
     unsigned var    = 0;
     unsigned num    = 10;
     bool binary     = false;
+    bool grid       = false;
     char c;
 
-    while ((c = getopt(argc, argv, "s:w:h:r:v:n:b")) != -1) {
+    while ((c = getopt(argc, argv, "s:w:h:r:v:n:bg")) != -1) {
         switch (c) {
         case 'b':
             binary = true;
+            break;
+        case 'g':
+            grid = true;
             break;
         case 's':
             seed = atoi(optarg);
@@ -238,7 +259,9 @@ int main(int argc, char** argv)
 
     srand(seed);
 
-    struct world w;
+    struct world w = {
+        .grid = grid,
+    };
     world_gen(&w, num, width, height, range, var);
 
     printf("# seed = %u\n", seed);
