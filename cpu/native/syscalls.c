@@ -344,8 +344,9 @@ char *make_message(const char *format, va_list argp)
             free(message);
             return NULL;
         }
-        if (n < size)
+        if (n < size) {
             return message;
+        }
         size = n + 1;
         if ((temp = realloc(message, size)) == NULL) {
             free(message);
