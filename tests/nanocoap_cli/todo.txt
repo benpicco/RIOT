@@ -1,8 +1,6 @@
-- [ ] count frames in zep_dispatcher
 - [ ] stop forwarding
 - [ ] error correction
-- [ ] large-scale zep dispatcher test
 - [ ] chose new parent? (when shard can't be satisfied)
-- [ ] get shard from file?
-- [x] easy test setup (spawn nodes, run test, count transmissions, verify result)
 - [ ] source connects upstream (?)
+- [ ] track individual node progress and plot it
+- [ ] don't send when next hop is still forwarding
