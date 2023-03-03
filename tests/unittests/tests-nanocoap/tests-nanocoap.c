@@ -1030,6 +1030,34 @@ static void test_nanocoap__add_get_proxy_uri(void)
     TEST_ASSERT_EQUAL_INT(0, strncmp((char *) proxy_uri, (char *) uri, len));
 }
 
+static void test_nanocoap__add_get_page_opt(void)
+{
+    uint8_t buf[_BUF_SIZE];
+    coap_pkt_t pkt;
+    uint16_t msgid = 0xABCD;
+    uint8_t token[2] = {0xDA, 0xEC};
+
+    size_t len = coap_build_hdr((coap_hdr_t *)&buf[0], COAP_TYPE_NON,
+                                token, 2, COAP_METHOD_GET, msgid);
+
+    coap_pkt_init(&pkt, buf, sizeof(buf), len);
+
+    len = coap_opt_put_page(&buf[len], 0, 5, 10, 6, 14, true);
+
+    /* 2 byte option header + 1 byte page opt header + 1 byte for page & data/fec/left blocks */
+    TEST_ASSERT_EQUAL_INT(2 + 1 + 1 + 1 + 1 + 1, len);
+
+    uint32_t page, blocks_data, blocks_fec, blocks_left;
+    TEST_ASSERT_EQUAL_INT(0, coap_parse(&pkt, buf, coap_get_total_hdr_len(&pkt) + len));
+    int res = coap_get_page(&pkt, &page, &blocks_data, &blocks_fec, &blocks_left);
+
+    TEST_ASSERT_EQUAL_INT(1, res);
+    TEST_ASSERT_EQUAL_INT(5, page);
+    TEST_ASSERT_EQUAL_INT(10, blocks_data);
+    TEST_ASSERT_EQUAL_INT(6,  blocks_fec);
+    TEST_ASSERT_EQUAL_INT(14,  blocks_left);
+}
+
 /*
  * Verifies that coap_parse() recognizes token length bigger than allowed.
  */
@@ -1099,6 +1127,7 @@ Test *tests_nanocoap_tests(void)
         new_TestFixture(test_nanocoap__empty),
         new_TestFixture(test_nanocoap__add_path_unterminated_string),
         new_TestFixture(test_nanocoap__add_get_proxy_uri),
+        new_TestFixture(test_nanocoap__add_get_page_opt),
         new_TestFixture(test_nanocoap__token_length_over_limit),
     };
 
