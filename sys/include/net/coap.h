@@ -70,6 +70,8 @@ extern "C" {
 #define COAP_OPT_PROXY_URI      (35)
 #define COAP_OPT_PROXY_SCHEME   (39)
 
+#define COAP_OPT_PAGE           (41)
+
 #define COAP_OPT_NON_BLOCKS     (41)    /**< preliminary option for non-blocks with payload */
 #define COAP_OPT_NON_BLOCKS_FEC (45)    /**< preliminary option for non-blocks with redundancy */
 

@@ -403,6 +403,90 @@ int coap_get_blockopt(coap_pkt_t *pkt, uint16_t option, uint32_t *blknum, uint8_
     return (blkopt & 0x8) ? 1 : 0;
 }
 
+int coap_get_page(coap_pkt_t *pkt, uint32_t *page,
+                  uint32_t *blocks_data, uint32_t *blocks_fec,
+                  uint32_t *blocks_left)
+{
+    uint8_t *optpos = coap_find_option(pkt, COAP_OPT_PAGE);
+    if (!optpos) {
+        return -1;
+    }
+
+    int option_len;
+    uint16_t delta;
+
+    uint8_t *data_start = _parse_option(pkt, optpos, &delta, &option_len);
+    if (!data_start) {
+        DEBUG("nanocoap: invalid start data\n");
+        return -1;
+    }
+
+    if (option_len > 14) {
+        DEBUG("nanocoap: invalid option length\n");
+        return -1;
+    }
+
+    uint8_t page_len = (*data_start >> 0) & 0x7;
+    uint8_t data_len = (*data_start >> 3) & 0x1;
+    uint8_t fec_len  = (*data_start >> 4) & 0x1;
+    uint8_t res      = (*data_start >> 5) & 0x1;
+    uint8_t left_len = 1;
+
+    if (option_len != (1 + page_len + data_len + fec_len + left_len)) {
+        DEBUG("nanocoap: invalid option length\n");
+        return -1;
+    }
+
+    data_start += 1;
+    *page = _decode_uint(data_start, page_len);
+
+    data_start += page_len;
+    *blocks_data = _decode_uint(data_start, data_len);
+
+    data_start += data_len;
+    *blocks_fec = _decode_uint(data_start, fec_len);
+
+    data_start += fec_len;
+    *blocks_left = _decode_uint(data_start, left_len);
+
+    return res;
+}
+
+size_t coap_opt_put_page(uint8_t *buf, uint16_t lastonum, uint32_t page, uint32_t blocks_data,
+                         uint32_t blocks_fec, uint32_t blocks_left, bool more)
+{
+    uint8_t odata[14] = {0};
+    uint8_t *cur = odata + 1;
+
+    uint8_t page_len = _encode_uint(&page);
+    uint8_t data_len = _encode_uint(&blocks_data);
+    uint8_t fec_len  = _encode_uint(&blocks_fec);
+    uint8_t left_len = _encode_uint(&blocks_left);
+
+    /* don't collapse if 0 blocks are left */
+    if (left_len == 0) {
+        left_len = 1;
+    }
+
+    assert(left_len == 1);
+
+    memcpy(cur, &page, page_len);
+    cur += page_len;
+    memcpy(cur, &blocks_data, data_len);
+    cur += data_len;
+    memcpy(cur, &blocks_fec, fec_len);
+    cur += fec_len;
+    memcpy(cur, &blocks_left, left_len);
+    cur += left_len;
+
+    odata[0] = (page_len << 0)
+             | (data_len << 3)
+             | (fec_len  << 4)
+             | (more     << 5);
+
+    return coap_put_option(buf, lastonum, COAP_OPT_PAGE, odata, cur - odata);
+}
+
 bool coap_has_unprocessed_critical_options(const coap_pkt_t *pkt)
 {
     for (unsigned i = 0; i < sizeof(pkt->opt_crit); ++i){

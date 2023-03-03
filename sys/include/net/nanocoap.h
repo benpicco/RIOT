@@ -1044,6 +1044,13 @@ static inline int coap_get_block2(coap_pkt_t *pkt, coap_block1_t *block)
 int coap_get_blockopt(coap_pkt_t *pkt, uint16_t option, uint32_t *blknum, uint8_t *szx);
 
 /**
+ * @brief   Page option getter
+ */
+int coap_get_page(coap_pkt_t *pkt, uint32_t *page,
+                  uint32_t *blocks_data, uint32_t *blocks_fec,
+                  uint32_t *blocks_left);
+
+/**
  * @brief    Check whether any of the packet's options that are critical
  *
  * (i.e must be understood by the receiver, indicated by a 1 in the option number's least
@@ -1776,6 +1783,28 @@ static inline size_t coap_put_option_ct(uint8_t *buf, uint16_t lastonum,
 {
     return coap_opt_put_uint(buf, lastonum, COAP_OPT_CONTENT_FORMAT, content_type);
 }
+
+/**
+ * @brief   Insert page option into buffer
+ *
+ *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  PL |D|C|M| r |      Page     |   Datablocks  |  Codingblocks |
+ * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * |  Left_to_Send |
+ * +-+-+-+-+-+-+-+-+
+ *
+ * @param[out]  buf             buffer to write to
+ * @param[in]   lastonum        number of previous option (for delta
+ *                              calculation), or 0 if first option
+ * @param[in]   page            current page number
+ * @param[in]   blocks_data     number of data blocks in page
+ * @param[in]   blocks_fec      number of coding blocks in page
+ * @param[in]   blocks_left     number of blocks left to transfer in the current page
+ * @param[in]   more            page is not the last page
+ */
+size_t coap_opt_put_page(uint8_t *buf, uint16_t lastonum, uint32_t page, uint32_t blocks_data,
+                         uint32_t blocks_fec, uint32_t blocks_left, bool more);
 /**@}*/
 
 /**
