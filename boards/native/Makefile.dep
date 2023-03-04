@@ -14,8 +14,8 @@ endif
 
 # default to using littlefs2 on the virtual flash if no other fs was selected
 ifneq (,$(filter vfs_default,$(USEMODULE)))
-  ifeq (,$(filter lwext%_vfs spiffs littlefs fs_native fatfs_vfs,$(USEMODULE)))
-    USEMODULE += littlefs2
+  ifeq (,$(filter lwext%_vfs spiffs littlefs% fs_native fatfs_vfs,$(USEMODULE)))
+    USEMODULE += fs_native
   endif
   USEMODULE += mtd
 endif
