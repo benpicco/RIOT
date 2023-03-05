@@ -76,8 +76,6 @@ typedef struct {
 #ifdef MODULE_NANOCOAP_SHARD_DEBUG
     uint8_t transmits[NANOCOAP_SHARD_BLOCKS_MAX];
 #endif
-    uint32_t first_block;
-    uint32_t next_first_block;  // can we get rid of this?
     uint8_t blocks_data;
     uint8_t blocks_fec;
     uint8_t state;
@@ -106,6 +104,7 @@ typedef struct {
     ztimer_t timer;
     event_t event_timeout;
     uint32_t timeout;
+    uint32_t offset_rx;
 #ifdef MODULE_NANOCOAP_SHARD_FORWARD
     nanocoap_sock_t downstream;
     char path[CONFIG_NANOCOAP_SHARD_PATH_MAX];
