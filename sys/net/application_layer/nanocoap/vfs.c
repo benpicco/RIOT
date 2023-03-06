@@ -184,7 +184,7 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
 
     int res;
     size_t work_buf_len;
-    void *work_buf = nanocoap_shard_req_get(&ctx, &work_buf_len);
+    void *work_buf = nanocoap_page_req_get(&ctx, &work_buf_len);
 
     int fd = vfs_open(src, O_RDONLY, 0644);
     if (fd < 0) {
@@ -209,11 +209,11 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
         }
 
         DEBUG("nanocoap: send %u byte shard%s\n", res, more ? "" : " (last shard)");
-        res = nanocoap_shard_put(&ctx, work_buf, res, NULL, 0, more);
+        res = nanocoap_shard_put(&ctx, work_buf, res, more);
         if (res < 0) {
             break;
         }
-        work_buf = nanocoap_shard_req_get(&ctx, NULL);
+        work_buf = nanocoap_page_req_get(&ctx, NULL);
     }
 
 error:

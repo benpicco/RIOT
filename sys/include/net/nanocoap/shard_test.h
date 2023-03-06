@@ -21,7 +21,7 @@
 #define NET_NANOCOAP_SHARD_TEST_H
 
 #include "net/nanocoap_sock.h"
-#include "net/nanocoap/shard.h"
+#include "net/nanocoap/page.h"
 #include "hashes/md5.h"
 
 #ifdef __cplusplus

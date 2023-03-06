@@ -21,7 +21,7 @@
 #define NET_NANOCOAP_VFS_H
 
 #include "net/nanocoap_sock.h"
-#include "net/nanocoap/shard.h"
+#include "net/nanocoap/page.h"
 
 #ifdef __cplusplus
 extern "C" {

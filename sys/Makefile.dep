@@ -745,16 +745,21 @@ ifneq (,$(filter nanocoap_dtls,$(USEMODULE)))
   USEPKG += tinydtls
 endif
 
-ifneq (,$(filter nanocoap_shard,$(USEMODULE)))
+ifneq (,$(filter nanocoap_page,$(USEMODULE)))
   USEMODULE += bitfield
   USEMODULE += nanocoap_sock
   USEMODULE += event_thread
 endif
 
 ifneq (,$(filter nanocoap_shard_test,$(USEMODULE)))
+  # drop me
+  USEMODULE += nanocoap_page_test
+endif
+
+ifneq (,$(filter nanocoap_page_test,$(USEMODULE)))
   USEMODULE += fmt
   USEMODULE += md5sum
-  USEMODULE += nanocoap_shard
+  USEMODULE += nanocoap_page
 endif
 
 ifneq (,$(filter nanocoap_sock,$(USEMODULE)))

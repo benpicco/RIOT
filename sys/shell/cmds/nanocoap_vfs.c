@@ -201,7 +201,7 @@ static int _nanocoap_put_non_handler(int argc, char **argv)
 
     const sock_udp_ep_t remote = {
         .family = AF_INET6,
-        .addr = IPV6_ADDR_ALL_COAP_SHARD_LINK_LOCAL,
+        .addr = IPV6_ADDR_ALL_COAP_PAGE_LINK_LOCAL,
         .port = COAP_PORT,
     };
 

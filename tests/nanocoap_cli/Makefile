@@ -45,9 +45,8 @@ endif
 # USEMODULE += gnrc_ipv6_nib_dns     # include RDNSS option handling
 
 USEMODULE += nanocoap_sock
-USEMODULE += nanocoap_shard
-USEMODULE += nanocoap_shard_debug
-USEMODULE += nanocoap_shard_forward
+USEMODULE += nanocoap_page
+USEMODULE += nanocoap_page_forward
 
 USEMODULE += gnrc_icmpv6_echo ps
 CFLAGS += -DNETDEV_TAP_MAX=2
