@@ -51,13 +51,13 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
         }
 
         bf_or_atomic(ctx->missing, ctx->missing, pkt->payload, shard_blocks);
-        DEBUG("re-requested %"PRIu32" blocks, total to send: %"PRIu32"\n",
+        DEBUG("neighbor re-requested %u blocks, total to send: %u\n",
               bf_popcnt(pkt->payload, shard_blocks), bf_popcnt(ctx->missing, shard_blocks));
 
         ctx->state = STATE_TX;
         break;
     case 429:   /* too many requests */
-        DEBUG("client requested slowdown (still has %u blocks to send)\n",
+        DEBUG("neighbor requested slowdown (still has %u blocks to send)\n",
               unaligned_get_u16(pkt->payload));
 
         ctx->state = STATE_TX_WAITING;
@@ -217,10 +217,14 @@ static void *_forwarder_thread(void *arg)
         DEBUG("start forwarding page %"PRIu32"\n", hdl->ctx.page);
         if (_shard_put(&hdl->ctx, &hdl->req)) {
             DEBUG("forwarding done\n");
+            hdl->ctx.state = STATE_IDLE;
             break;
+        } else {
+            hdl->ctx.state = STATE_RX_WAITING;
         }
     }
 
+    DEBUG("forwarder thread done\n");
     mutex_unlock(&_forwarder_thread_mtx);
 
     return NULL;
@@ -291,7 +295,7 @@ static bool _invalid_request(coap_pkt_t *pkt, coap_shard_handler_ctx_t *hdl,
     if ((ctx->token_len != coap_get_token_len(pkt)) ||
         memcmp(ctx->token, coap_get_token(pkt), ctx->token_len)) {
         if (ctx->state == STATE_IDLE || now > hdl->timeout) {
-            DEBUG("request done/timeout\n");
+            DEBUG("request done/timeout - reset state\n");
             memset(ctx, 0, sizeof(*ctx));
             return false;
         } else {
@@ -319,6 +323,8 @@ static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_
     uint16_t id = nanocoap_sock_next_msg_id(&hdl->upstream);
     uint16_t blocks_left = bf_popcnt(ctx->missing, ctx->blocks_data + ctx->blocks_fec);
 
+    DEBUG("request slowdown (%u blocks left to send)\n", blocks_left);
+
     uint8_t *pktpos = buf;
 
     coap_pkt_t pkt = {
@@ -331,9 +337,14 @@ static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_
     *pktpos++ = 0xFF;
     pkt.payload = pktpos;
 
+    memcpy(pktpos, &ctx->page, sizeof(ctx->page));
+    pktpos += sizeof(ctx->page);
+
     /* tell upstream how many blocks there are left to send */
     memcpy(pktpos, &blocks_left, sizeof(blocks_left));
-    pkt.payload_len = sizeof(blocks_left);
+    pktpos += sizeof(blocks_left);
+
+    pkt.payload_len = pktpos - pkt.payload;
 
     nanocoap_sock_request_cb(&hdl->upstream, &pkt, NULL, NULL);
 }
@@ -364,10 +375,9 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
         return;
     }
 
-    /* TODO: use CON */
     DEBUG("re-request page %"PRIu32" (%u blocks)\n",
           ctx->page, bf_popcnt(ctx->missing, shard_blocks));
-    pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_CON, ctx->token, ctx->token_len,
+    pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
                              COAP_CODE_REQUEST_ENTITY_INCOMPLETE, id);
 
     /* set payload marker */
@@ -379,6 +389,11 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
 
     nanocoap_sock_request_cb_timeout(&hdl->upstream, &pkt, NULL, NULL,
                                      CONFIG_NANOCOAP_FRAME_GAP_MS * US_PER_MS, 0);
+
+    /* set timeout for retransmission request */
+    uint32_t timeout_ms = (shard_blocks) * CONFIG_NANOCOAP_FRAME_GAP_MS
+                        + (random_uint32() & 0x3);
+    ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
 }
 
 static void _timeout_event(event_t *evp)
@@ -430,7 +445,18 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     }
 
     if (page_rx != ctx->page) {
-        DEBUG("wrong page received (got %u, have %u)\n", page_rx, ctx->page);
+        DEBUG("wrong page received (got %"PRIu32", have %"PRIu32")\n", page_rx, ctx->page);
+        if (page_rx < ctx->page) {
+            return 0;
+        }
+
+        if (ctx->state != STATE_TX_WAITING && ctx->state != STATE_TX) {
+            return 0;
+        }
+
+        if (!memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
+            _request_slowdown(hdl, buf, len);
+        }
         return 0;
     }
 
@@ -457,6 +483,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
             const char *path = coap_request_ctx_get_path(context);
             strncpy(hdl->path, path, sizeof(hdl->path));
             hdl->req.path = hdl->path;
+            hdl->req.blksize = block1.szx;
 
             uint8_t prio = thread_get_priority(thread_get_active()) + 1;
             if (mutex_trylock(&_forwarder_thread_mtx)) {
@@ -471,7 +498,6 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
             }
         }
 #endif
-
         DEBUG("connect upstream on %u\n", remote->netif);
         nanocoap_sock_connect(&hdl->upstream, NULL, remote);
     }
@@ -482,6 +508,7 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         ctx->state = STATE_RX;
         ctx->blocks_data = ndata_rx;
         ctx->blocks_fec = nfec_rx;
+        ctx->is_last = !more_shards;
         bf_set_all(ctx->missing, blocks_per_shard);
         /* fall-through */
     case STATE_RX:
@@ -538,8 +565,9 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
             return 0;
         }
 
-#ifdef MODULE_NANOCOAP_SHARD_FORWARD
-        ctx->state = STATE_TX
+#ifdef MODULE_NANOCOAP_PAGE_FORWARD
+        ctx->state = STATE_TX;
+        bf_set_all(ctx->missing, blocks_per_shard);
         mutex_unlock(&hdl->fwd_lock);
 #endif
     }
