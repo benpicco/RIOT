@@ -53,6 +53,15 @@ extern "C" {
 #define NANOCOAP_SHARD_BLOCKS_MAX           (CONFIG_NANOCOAP_SHARD_BLOCKS_PAYLOAD \
                                               + CONFIG_NANOCOAP_SHARD_BLOCKS_FEC)
 
+/**
+ * @brief   Number of resend requests for a page before giving up.
+ *          We try to re-request an incomplete page n times, if we
+ *          don't receive a page block after that, we give up.
+ */
+#ifndef CONFIG_NANOCOAP_PAGE_RETRIES
+#define CONFIG_NANOCOAP_PAGE_RETRIES            (8)
+#endif
+
 #ifndef CONFIG_NANOCOAP_SHARD_XFER_TIMEOUT_SECS
 #define CONFIG_NANOCOAP_SHARD_XFER_TIMEOUT_SECS (30)
 #endif
@@ -80,6 +89,7 @@ typedef struct {
     uint8_t blocks_data;
     uint8_t blocks_fec;
     uint8_t token_len;
+    uint8_t wait_blocks;
 } nanocoap_page_ctx_t;
 
 typedef struct {
