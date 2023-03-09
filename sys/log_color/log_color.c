@@ -27,6 +27,7 @@ typedef int dont_be_pedantic; /* this c-file is not empty */
 #include <stdio.h>
 #include <stdarg.h>
 
+#include "periph/rtc.h"
 #include "kernel_defines.h"
 #include "log.h"
 
@@ -82,6 +83,17 @@ static const char * const _ansi_codes[] =
 void log_write(unsigned level, const char *format, ...)
 {
     assert((level > 0) && (level < ARRAY_SIZE(_ansi_codes)));
+
+#ifdef MODULE_LOG_COLOR_TIMESTAMP
+    struct tm tm;
+    uint16_t ms = 0;
+    if (IS_USED(MODULE_PERIPH_RTC_MS)) {
+        rtc_get_time_ms(&tm, &ms);
+    } else if (IS_USED(MODULE_PERIPH_RTC)) {
+        rtc_get_time(&tm);
+    }
+    printf("\033[0;90m%02u:%02u:%02u.%03u|\033[0m ", tm.tm_hour, tm.tm_min, tm.tm_sec, ms);
+#endif
 
     printf("%s", _ansi_codes[level]);
     va_list args;

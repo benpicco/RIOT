@@ -420,6 +420,12 @@ ifneq (,$(filter log_color,$(USEMODULE)))
   FEATURES_BLACKLIST += arch_avr8
 endif
 
+ifneq (,$(filter log_color_timestamp,$(USEMODULE)))
+  USEMODULE += log_color
+  FEATURES_OPTIONAL += periph_rtc
+  FEATURES_OPTIONAL += periph_rtc_ms
+endif
+
 ifneq (,$(filter cpp11-compat,$(USEMODULE)))
   USEMODULE += cpp_new_delete
   USEMODULE += xtimer
