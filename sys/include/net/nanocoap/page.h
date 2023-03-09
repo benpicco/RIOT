@@ -76,6 +76,7 @@ typedef enum {
     STATE_RX_WAITING, /**< waiting for next page */
     STATE_TX,       /**< sending a page       */
     STATE_TX_WAITING, /**< waiting for continue */
+    STATE_ORPHAN,   /**< upstream is ahead of us */
 } nanocoap_page_state_t;
 
 typedef struct {

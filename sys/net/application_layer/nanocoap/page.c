@@ -229,6 +229,7 @@ static void *_forwarder_thread(void *arg)
         if (_shard_put(&hdl->ctx, &hdl->req)) {
             DEBUG("forwarding done\n");
             hdl->ctx.state = STATE_IDLE;
+            hdl->ctx.token_len = 0;
             break;
         } else {
             hdl->ctx.state = STATE_RX_WAITING;
@@ -381,7 +382,7 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
         .snips = &payload,
     };
 
-    if (ctx->state != STATE_RX) {
+    if ((ctx->state != STATE_RX) && (ctx->state != STATE_ORPHAN)) {
         return;
     }
 
@@ -466,18 +467,47 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     }
 
     if (page_rx != ctx->page) {
-        DEBUG("wrong page received (got %"PRIu32", have %"PRIu32")\n", page_rx, ctx->page);
+        if ((ctx->state == STATE_IDLE) || (ctx->state == STATE_ORPHAN)) {
+            return 0;
+        }
+
         if (page_rx < ctx->page) {
             return 0;
         }
 
-        if (ctx->state != STATE_TX_WAITING && ctx->state != STATE_TX) {
+        /* ignore wrong page by node that is not our upstream */
+        if (memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
             return 0;
         }
 
-        if (!memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
+        DEBUG("wrong page received (got %"PRIu32", have %"PRIu32")\n", page_rx, ctx->page);
+
+        const sock_udp_ep_t bcast = {
+            .family = AF_INET6,
+            .addr = IPV6_ADDR_ALL_COAP_PAGE_LINK_LOCAL,
+            .port = COAP_PORT,
+            .netif = remote->netif,
+        };
+
+        switch (ctx->state) {
+        case STATE_RX_WAITING:
+        case STATE_RX:
+            LOG_WARNING("upstrem is ahead, we are orphan now\n");
+            ztimer_remove(ZTIMER_MSEC, &hdl->timer);
+            nanocoap_sock_close(&hdl->upstream);
+            nanocoap_sock_connect(&hdl->upstream, NULL, &bcast);
+            ctx->state = STATE_ORPHAN;
+            ctx->wait_blocks = 8;
+            _request_missing(hdl, buf, len);
+            break;
+        case STATE_TX_WAITING:
+        case STATE_TX:
             _request_slowdown(hdl, buf, len);
+            break;
+        default:
+            break;
         }
+
         return 0;
     }
 
@@ -524,13 +554,19 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     }
 
     switch (ctx->state) {
+    case STATE_ORPHAN:
+        nanocoap_sock_close(&hdl->upstream);
+        DEBUG("connect upstream on %u\n", remote->netif);
+        nanocoap_sock_connect(&hdl->upstream, NULL, remote);
+        ctx->state = STATE_RX;
+        break;
     case STATE_IDLE:
     case STATE_RX_WAITING:
-        ctx->state = STATE_RX;
         ctx->blocks_data = ndata_rx;
         ctx->blocks_fec = nfec_rx;
         ctx->is_last = !more_shards;
         bf_set_all(ctx->missing, blocks_per_shard);
+        ctx->state = STATE_RX;
         /* fall-through */
     case STATE_RX:
         break;
