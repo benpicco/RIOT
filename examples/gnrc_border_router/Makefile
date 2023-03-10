@@ -8,7 +8,17 @@ BOARD ?= native
 RIOTBASE ?= $(CURDIR)/../..
 
 # Default to using ethos for providing the uplink when not on native
-UPLINK ?= ethos
+  UPLINK ?= ethernet
+  PREFIX_CONF ?= static
+
+  USEMODULE += nanocoap_server_auto_init
+  USEMODULE += gcoap_fileserver
+  USEMODULE += vfs_default
+
+  # we don't want to run GCoAP
+  CFLAGS += -DCONFIG_GCOAP_NO_AUTO_INIT=1
+  CFLAGS += -DCONFIG_NANOCOAP_SERVER_WELL_KNOWN_CORE=1
+  CFLAGS += -DFATFS_FFCONF_OPT_USE_LFN=1
 
 # Check if the selected Uplink is valid
 ifeq (,$(filter ethos slip cdc-ecm wifi ethernet,$(UPLINK)))

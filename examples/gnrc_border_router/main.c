@@ -41,3 +41,23 @@ int main(void)
     /* should be never reached */
     return 0;
 }
+
+/* we can also include the fileserver module */
+#ifdef MODULE_GCOAP_FILESERVER
+#include "net/gcoap/fileserver.h"
+#include "vfs_default.h"
+
+NANOCOAP_RESOURCE(fileserver) {
+    .path = "/fw",
+    .methods = COAP_GET
+#if IS_USED(MODULE_GCOAP_FILESERVER_PUT)
+      | COAP_PUT
+#endif
+#if IS_USED(MODULE_GCOAP_FILESERVER_DELETE)
+      | COAP_DELETE
+#endif
+      | COAP_MATCH_SUBTREE,
+    .handler = gcoap_fileserver_handler,
+    .context = VFS_DEFAULT_DATA
+};
+#endif

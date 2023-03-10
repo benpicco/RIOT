@@ -7,6 +7,10 @@ BOARD ?= samr21-xpro
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
 
+USE_ETHOS = 0
+SUIT_COAP_BASEPATH ?= fw/$(BOARD)
+SUIT_COAP_SERVER   ?= [2001:db8:1::1]
+
 #
 # Networking
 #
@@ -24,6 +28,9 @@ USEMODULE += gnrc_icmpv6_echo
 USEMODULE += shell
 USEMODULE += shell_cmds_default
 USEMODULE += shell_cmd_suit
+
+USEMODULE += nanocoap_vfs
+USEMODULE += ps
 
 # Set this to 1 to enable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
