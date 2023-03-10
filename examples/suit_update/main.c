@@ -29,6 +29,7 @@
 #include "suit/transport/coap.h"
 #ifdef MODULE_SUIT_STORAGE_FLASHWRITE
 #include "riotboot/slot.h"
+#include "riotboot/flashwrite.h"
 #endif
 
 #include "suit/storage.h"
@@ -83,8 +84,14 @@ static void *_nanocoap_server_thread(void *arg)
 static void cb(void *arg)
 {
     (void) arg;
-    printf("Button pressed! Triggering suit update! \n");
-    suit_worker_trigger(SUIT_MANIFEST_RESOURCE, sizeof(SUIT_MANIFEST_RESOURCE));
+    if (SUIT_APP_VER > 1) {
+        printf("Button pressed! Revert to previous version!\n");
+        riotboot_flashwrite_invalidate_latest();
+        pm_reboot();
+    } else {
+        printf("Button pressed! Triggering suit update!\n");
+        suit_worker_trigger(SUIT_MANIFEST_RESOURCE, sizeof(SUIT_MANIFEST_RESOURCE));
+    }
 }
 #endif
 
