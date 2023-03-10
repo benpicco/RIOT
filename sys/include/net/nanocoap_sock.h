@@ -180,7 +180,7 @@ extern "C" {
  * @brief   CoAP server thread stack size
  */
 #ifndef CONFIG_NANOCOAP_SERVER_STACK_SIZE
-#define CONFIG_NANOCOAP_SERVER_STACK_SIZE       THREAD_STACKSIZE_DEFAULT
+#define CONFIG_NANOCOAP_SERVER_STACK_SIZE       (2 * THREAD_STACKSIZE_DEFAULT)
 #endif
 
 /**
