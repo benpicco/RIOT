@@ -5,6 +5,7 @@ include ../Makefile.tests_common
 BLOBS += hello.raw
 
 USEMODULE += dac_dds
+USEMODULE += imath
 USEMODULE += shell
 
 LOW_MEMORY_BOARDS := samd10-xmini
