@@ -837,3 +837,38 @@ int nanocoap_server(sock_udp_ep_t *local, uint8_t *buf, size_t bufsize)
 
     return 0;
 }
+
+static kernel_pid_t _coap_server_pid;
+static void *_nanocoap_server_thread(void *local)
+{
+    static msg_t _msg_queue[1 << CONFIG_NANOCOAP_SERVER_QUEUE_EXP];
+    static uint8_t buf[CONFIG_NANOCOAP_SERVER_BUF_SIZE];
+
+    msg_init_queue(_msg_queue, ARRAY_SIZE(_msg_queue));
+    nanocoap_server(local, buf, sizeof(buf));
+
+    return NULL;
+}
+
+kernel_pid_t nanocoap_server_start(const sock_udp_ep_t *local)
+{
+    static char stack[CONFIG_NANOCOAP_SERVER_STACK_SIZE];
+
+    if (_coap_server_pid) {
+        return _coap_server_pid;
+    }
+    _coap_server_pid = thread_create(stack, sizeof(stack), THREAD_PRIORITY_MAIN - 1,
+                                     THREAD_CREATE_STACKTEST, _nanocoap_server_thread,
+                                     (void *)local, "nanoCoAP server");
+    return _coap_server_pid;
+}
+
+void auto_init_nanocoap_server(void)
+{
+    sock_udp_ep_t local = {
+        .port = COAP_PORT,
+        .family = AF_INET6,
+    };
+
+    nanocoap_server_start(&local);
+}
