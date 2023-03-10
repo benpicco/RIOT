@@ -16,6 +16,7 @@ endif
 # enables sam0_eth as default network device
 ifneq (,$(filter netdev_default,$(USEMODULE)))
   USEMODULE += sam0_eth
+  USEMODULE += at86rf215
 endif
 
 # default to using littlefs2 on the external flash and fatfs on SD card

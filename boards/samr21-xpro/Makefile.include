@@ -3,4 +3,6 @@
 # debugger.
 TTY_BOARD_FILTER := --model 'EDBG CMSIS-DAP'
 
+DEBUG_ADAPTER_ID=ATML2127031800010523
+
 include $(RIOTMAKE)/boards/sam0.inc.mk
