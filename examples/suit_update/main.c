@@ -201,6 +201,11 @@ int main(void)
 {
     puts("RIOT SUIT update example application");
 
+    if (SUIT_APP_VER > 1) {
+        extern void blinky_start(void);
+        blinky_start();
+    }
+
 #if defined(MODULE_PERIPH_GPIO_IRQ) && defined(BTN0_PIN)
     /* initialize a button to manually trigger an update */
     gpio_init_int(BTN0_PIN, BTN0_MODE, GPIO_FALLING, cb, NULL);

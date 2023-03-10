@@ -56,6 +56,9 @@ USEMODULE += progress_bar
 # Optional feature to trigger suit update through gpio callback
 FEATURES_OPTIONAL += periph_gpio_irq
 
+FEATURES_OPTIONAL += periph_pwm
+USEMODULE += imath
+
 # Default COAP manifest resource location when fetched through gpio trigger
 CFLAGS += -DSUIT_MANIFEST_RESOURCE=\"$(SUIT_COAP_ROOT)/$(SUIT_NOTIFY_MANIFEST)\"
 
