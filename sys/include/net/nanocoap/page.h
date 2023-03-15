@@ -24,6 +24,8 @@
 #include "net/nanocoap_sock.h"
 #include "ztimer.h"
 
+#include "rs.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -79,12 +81,36 @@ typedef enum {
     STATE_ORPHAN,   /**< upstream is ahead of us */
 } nanocoap_page_state_t;
 
+typedef enum {
+    CODING_NONE,
+    CODING_XOR,
+    CODING_REED_SOLOMON,
+} nanocoap_page_coding_type_t;
+
 typedef struct {
+    uint8_t rs_buf[reed_solomon_bufsize(CONFIG_NANOCOAP_SHARD_BLOCKS_PAYLOAD,
+                                        CONFIG_NANOCOAP_SHARD_BLOCKS_FEC)];
+    uint8_t *blocks[NANOCOAP_SHARD_BLOCKS_MAX];
+} nanocoap_page_rs_ctx_t;
+
+typedef struct {
+    union {
+        nanocoap_page_rs_ctx_t rs;
+    } ctx;
+    nanocoap_page_coding_type_t type;
+} nanocoap_page_coding_ctx_t;
+
+static inline void *nanocoap_page_coding_ctx_get_rs(nanocoap_page_coding_ctx_t *ctx)
+{
+    return ctx->ctx.rs.rs_buf;
+}
+
+typedef struct {
+    uint32_t page;
     uint8_t work_buf[NANOCOAP_SHARD_BLOCKS_MAX *
                      coap_szx2size(CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT)];
     uint8_t token[COAP_TOKEN_LENGTH_MAX];
     BITFIELD(missing, NANOCOAP_SHARD_BLOCKS_MAX);
-    uint32_t page;
     nanocoap_page_state_t state;
     bool is_last;
     uint8_t blocks_data;
@@ -102,6 +128,7 @@ typedef struct {
 typedef struct {
     nanocoap_page_ctx_t ctx;
     coap_shard_request_ctx_t req;
+    nanocoap_page_coding_ctx_t fec;
     nanocoap_sock_t upstream;
     ztimer_t timer;
     event_t event_timeout;
@@ -121,6 +148,7 @@ typedef struct {
 typedef struct {
     nanocoap_page_ctx_t ctx;
     coap_shard_request_ctx_t req;
+    nanocoap_page_coding_ctx_t fec;
 } coap_shard_request_t;
 
 typedef struct {
@@ -136,13 +164,19 @@ static inline void *nanocoap_page_req_get(coap_shard_request_t *req, size_t *len
 
     if (len) {
         *len = sizeof(ctx->work_buf);
+
+        if (req->ctx.blocks_fec) {
+            size_t fec_len = req->ctx.blocks_fec * coap_szx2size(req->req.blksize);
+            assert(*len > fec_len);
+            *len -= fec_len;
+        }
     }
 
     return ctx->work_buf;
 }
 
 int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_len,
-                             const void *fec, size_t fec_len, bool more);
+                       bool more);
 
 ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
                                      coap_request_ctx_t *context,

@@ -112,7 +112,7 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
     if (ctx->state == STATE_TX_WAITING) {
         timeout_us = ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS
                    * US_PER_MS;
-        printf("wait blocks: %u\n", ctx->wait_blocks);
+        DEBUG("wait blocks: %u\n", ctx->wait_blocks);
     }
 
     ctx->state = STATE_TX;
@@ -169,25 +169,103 @@ static bool _shard_put(nanocoap_page_ctx_t *ctx, coap_shard_request_ctx_t *req)
         }
     }
 
-    DEBUG("page %u done\n", ctx->page);
+    DEBUG("page %"PRIu32" done\n", ctx->page);
     ++ctx->page;
 
     return ctx->is_last;
 }
 
+static void _fec_rs_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
+{
+    uint8_t *buf = ctx->work_buf;
+
+    DEBUG("init reed-solomon codec, data blocks: %u, parity blocks: %u, block size: %u\n",
+            ctx->blocks_data, ctx->blocks_fec, blk_len);
+    reed_solomon *rs = reed_solomon_new_static(fec->ctx.rs.rs_buf,
+                                               sizeof(fec->ctx.rs.rs_buf),
+                                               ctx->blocks_data, ctx->blocks_fec);
+    assert(rs);
+
+    /* set up block pointers */
+    for (unsigned i = 0; i < ctx->blocks_data + ctx->blocks_fec; ++i) {
+        fec->ctx.rs.blocks[i] = &buf[i * blk_len];
+        assert(fec->ctx.rs.blocks[i] + blk_len <= &ctx->work_buf[sizeof(ctx->work_buf)]);
+        DEBUG("block %u = %p\n", i, fec->ctx.rs.blocks[i]);
+    }
+}
+
+static bool _fec_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
+{
+    if (ctx->blocks_fec == 0) {
+        return false;
+    }
+
+    _fec_rs_init(ctx, fec, blk_len);
+    return true;
+}
+
+#include "od.h"
+
+static void _fec_encode(coap_shard_request_t *req)
+{
+    const size_t len = coap_szx2size(req->req.blksize);
+
+    reed_solomon *rs = nanocoap_page_coding_ctx_get_rs(&req->fec);
+    int res = reed_solomon_encode(rs, req->fec.ctx.rs.blocks,
+                                  ARRAY_SIZE(req->fec.ctx.rs.blocks), len);
+    assert(res == 0);
+}
+
+static bool _fec_decode(coap_shard_handler_ctx_t *req)
+{
+    nanocoap_page_ctx_t *ctx = &req->ctx;
+    const size_t len = coap_szx2size(req->req.blksize);
+    const unsigned total_blocks = ctx->blocks_data + ctx->blocks_fec;
+
+    if (ctx->blocks_fec == 0) {
+        return false;
+    }
+
+    unsigned missing = bf_popcnt(ctx->missing, total_blocks);
+
+    if (missing == 0) {
+        return true;
+    }
+
+    uint8_t marks[NANOCOAP_SHARD_BLOCKS_MAX];
+
+    for (unsigned i = 0; i < total_blocks; ++i) {
+        marks[i] = bf_isset(ctx->missing, i);
+    }
+
+    DEBUG("reconstruct %u / %u blocks (%u byte each)…\n", missing, total_blocks, len);
+
+    reed_solomon *rs = nanocoap_page_coding_ctx_get_rs(&req->fec);
+
+    if (reed_solomon_decode(rs, req->fec.ctx.rs.blocks, marks, total_blocks, len) == 0) {
+        bf_clear_all(ctx->missing, total_blocks);
+        DEBUG("success!\n");
+        return true;
+    }
+
+    return false;
+}
+
 int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_len,
-                       const void *fec, size_t fec_len, bool more)
+                       bool more)
 {
     const size_t len = coap_szx2size(req->req.blksize);
     nanocoap_page_ctx_t *ctx = &req->ctx;
 
     // TODO: move this out of here
     assert(ctx->work_buf == data);
-    assert(fec == NULL); // TODO
 
     ctx->blocks_data = DIV_ROUND_UP(data_len, len);
-    ctx->blocks_fec = DIV_ROUND_UP(fec_len, len);
     ctx->is_last = !more;
+
+    if (_fec_init(&req->ctx, &req->fec, len)) {
+        _fec_encode(req);
+    }
 
     _is_sending = true;
 
@@ -386,7 +464,9 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
         return;
     }
 
-    if (bf_find_first_set(ctx->missing, shard_blocks) < 0) {
+    unsigned missing = bf_popcnt(ctx->missing, shard_blocks);
+
+    if (missing == 0) {
         DEBUG("page %"PRIu32" already complete\n", ctx->page);
         return;
     }
@@ -466,6 +546,8 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         return 0;
     }
 
+    const size_t block_len = coap_szx2size(block1.szx);
+
     if (page_rx != ctx->page) {
         if ((ctx->state == STATE_IDLE) || (ctx->state == STATE_ORPHAN)) {
             return 0;
@@ -534,7 +616,6 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
             const char *path = coap_request_ctx_get_path(context);
             strncpy(hdl->path, path, sizeof(hdl->path));
             hdl->req.path = hdl->path;
-            hdl->req.blksize = block1.szx;
 
             uint8_t prio = thread_get_priority(thread_get_active()) + 1;
             if (mutex_trylock(&_forwarder_thread_mtx)) {
@@ -566,6 +647,10 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         ctx->blocks_fec = nfec_rx;
         ctx->is_last = !more_shards;
         bf_set_all(ctx->missing, blocks_per_shard);
+        hdl->req.blksize = block1.szx;
+
+        _fec_init(ctx, &hdl->fec, block_len);
+
         ctx->state = STATE_RX;
         /* fall-through */
     case STATE_RX:
@@ -575,6 +660,11 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         if (!memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
             _request_slowdown(hdl, buf, len);
         }
+        return 0;
+    }
+
+    if (blocks_per_shard != ctx->blocks_data + ctx->blocks_fec) {
+        DEBUG("unexpected change of page blocks\n");
         return 0;
     }
 
@@ -592,12 +682,14 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         return 0;
     }
 
-    const size_t block_len = coap_szx2size(block1.szx);
-
     /* store the new block in the current shard */
     bf_unset(ctx->missing, block1.blknum);
     memcpy(&ctx->work_buf[block_len * block1.blknum],
            pkt->payload, pkt->payload_len);
+
+    if (_fec_decode(hdl)) {
+        DEBUG("reconstructed all missing blocks\n");
+    }
 
     /* check if there are any missing blocks in the current shard */
     if (bf_find_first_set(ctx->missing, blocks_per_shard) < 0) {
@@ -609,25 +701,27 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         out->offset = hdl->offset_rx;
         out->data = ctx->work_buf;
         out->len = ctx->blocks_data * block_len;
-        out->more = more_shards;
+        out->more = !ctx->is_last;
 
-        if (more_shards) {
-            hdl->offset_rx += ctx->blocks_data * block_len;
-            if (!_do_forward(hdl)) {
-                ctx->state = STATE_RX_WAITING;
-                ++ctx->page;
-            }
-        } else {
+        if (ctx->is_last) {
             nanocoap_sock_close(&hdl->upstream);
             if (!_do_forward(hdl)) {
                 ctx->state = STATE_IDLE;
                 ctx->token_len = 0;
+            }
+        } else {
+            hdl->offset_rx += ctx->blocks_data * block_len;
+            if (!_do_forward(hdl)) {
+                ctx->state = STATE_RX_WAITING;
+                ++ctx->page;
             }
         }
 
 #ifdef MODULE_NANOCOAP_PAGE_FORWARD
         if (_do_forward(hdl)) {
             ctx->state = STATE_TX;
+            /* we need to re-encode if we lost FEC blocks */
+            _fec_encode((void *)hdl);
             bf_set_all(ctx->missing, blocks_per_shard);
             mutex_unlock(&hdl->fwd_lock);
         }

@@ -180,6 +180,11 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
             .blksize = CONFIG_NANOCOAP_BLOCKSIZE_DEFAULT,
             .sock = sock,
         },
+#ifdef MODULE_NANOCOAP_PAGE_FEC
+        .ctx = {
+            .blocks_fec = CONFIG_NANOCOAP_SHARD_BLOCKS_FEC,
+        },
+#endif
     };
 
     int res;
