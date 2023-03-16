@@ -24,7 +24,9 @@
 #include "net/nanocoap_sock.h"
 #include "ztimer.h"
 
+#ifdef MODULE_NANOCOAP_PAGE_FEC_RS
 #include "rs.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -87,22 +89,32 @@ typedef enum {
     CODING_REED_SOLOMON,
 } nanocoap_page_coding_type_t;
 
+#ifdef MODULE_NANOCOAP_PAGE_FEC_RS
 typedef struct {
     uint8_t rs_buf[reed_solomon_bufsize(CONFIG_NANOCOAP_SHARD_BLOCKS_PAYLOAD,
                                         CONFIG_NANOCOAP_SHARD_BLOCKS_FEC)];
     uint8_t *blocks[NANOCOAP_SHARD_BLOCKS_MAX];
 } nanocoap_page_rs_ctx_t;
+#endif
 
 typedef struct {
     union {
+        char dummy;
+#ifdef MODULE_NANOCOAP_PAGE_FEC_RS
         nanocoap_page_rs_ctx_t rs;
+#endif
     } ctx;
     nanocoap_page_coding_type_t type;
 } nanocoap_page_coding_ctx_t;
 
 static inline void *nanocoap_page_coding_ctx_get_rs(nanocoap_page_coding_ctx_t *ctx)
 {
+#ifdef MODULE_NANOCOAP_PAGE_FEC_RS
     return ctx->ctx.rs.rs_buf;
+#else
+    (void)ctx;
+    return NULL;
+#endif
 }
 
 typedef struct {
@@ -131,7 +143,9 @@ typedef struct {
 typedef struct coap_page_handler_ctx {
     nanocoap_page_ctx_t ctx;
     coap_shard_request_ctx_t req;
+#ifdef MODULE_NANOCOAP_PAGE_FEC
     nanocoap_page_coding_ctx_t fec;
+#endif
     nanocoap_sock_t upstream;
     ztimer_t timer;
     event_t event_timeout;
@@ -155,7 +169,9 @@ typedef struct coap_page_handler_ctx {
 typedef struct {
     nanocoap_page_ctx_t ctx;
     coap_shard_request_ctx_t req;
+#ifdef MODULE_NANOCOAP_PAGE_FEC
     nanocoap_page_coding_ctx_t fec;
+#endif
 } coap_shard_request_t;
 
 static inline void *nanocoap_page_req_get(coap_shard_request_t *req, size_t *len)

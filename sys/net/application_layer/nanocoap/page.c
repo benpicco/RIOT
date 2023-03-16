@@ -27,6 +27,8 @@
 #include "net/nanocoap/page.h"
 #include "net/gnrc/netif.h"
 
+#include "log.h"
+
 #define ENABLE_DEBUG 1
 #include "debug.h"
 
@@ -175,6 +177,7 @@ static bool _shard_put(nanocoap_page_ctx_t *ctx, coap_shard_request_ctx_t *req)
     return ctx->is_last;
 }
 
+#ifdef MODULE_NANOCOAP_PAGE_FEC_RS
 static void _fec_rs_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
 {
     uint8_t *buf = ctx->work_buf;
@@ -193,17 +196,7 @@ static void _fec_rs_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *f
     }
 }
 
-static bool _fec_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
-{
-    if (ctx->blocks_fec == 0) {
-        return false;
-    }
-
-    _fec_rs_init(ctx, fec, blk_len);
-    return true;
-}
-
-static void _fec_encode(coap_shard_request_t *req)
+static void _fec_rs_encode(coap_shard_request_t *req)
 {
     const size_t len = coap_szx2size(req->req.blksize);
 
@@ -213,7 +206,7 @@ static void _fec_encode(coap_shard_request_t *req)
     assert(res == 0);
 }
 
-static bool _fec_decode(coap_shard_handler_ctx_t *req)
+static bool _fec_rs_decode(coap_shard_handler_ctx_t *req)
 {
     nanocoap_page_ctx_t *ctx = &req->ctx;
     const size_t len = coap_szx2size(req->blksize);
@@ -247,6 +240,32 @@ static bool _fec_decode(coap_shard_handler_ctx_t *req)
 
     return false;
 }
+#endif
+
+#ifdef MODULE_NANOCOAP_PAGE_FEC
+static bool _fec_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
+{
+    if (ctx->blocks_fec == 0) {
+        return false;
+    }
+
+    _fec_rs_init(ctx, fec, blk_len);
+    return true;
+}
+
+static void _fec_encode(coap_shard_request_t *req)
+{
+    _fec_rs_encode(req);
+}
+
+static bool _fec_decode(coap_shard_handler_ctx_t *req)
+{
+    return _fec_rs_decode(req);
+}
+#else
+static inline void _fec_encode(coap_shard_request_t *req) { (void)req; }
+static inline bool _fec_decode(coap_shard_handler_ctx_t *req) { (void)req; return false; }
+#endif
 
 int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_len,
                        bool more)
@@ -260,9 +279,11 @@ int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_
     ctx->blocks_data = DIV_ROUND_UP(data_len, len);
     ctx->is_last = !more;
 
+#ifdef MODULE_NANOCOAP_PAGE_FEC
     if (_fec_init(&req->ctx, &req->fec, len)) {
         _fec_encode(req);
     }
+#endif
 
     _is_sending = true;
 
@@ -694,9 +715,9 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         ctx->is_last = !more_shards;
         hdl->blksize = block1.szx;
         bf_set_all(ctx->missing, blocks_per_shard);
-
+#ifdef MODULE_NANOCOAP_PAGE_FEC
         _fec_init(ctx, &hdl->fec, block_len);
-
+#endif
         ctx->state = STATE_RX;
         /* fall-through */
     case STATE_RX:
