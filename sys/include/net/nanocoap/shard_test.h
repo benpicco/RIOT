@@ -34,8 +34,8 @@ typedef struct {
     md5_ctx_t md5;
 } coap_shard_test_ctx_t;
 
-ssize_t nanocoap_shard_block_handler_md5(coap_pkt_t *pkt, uint8_t *buf, size_t len,
-                                         coap_request_ctx_t *context);
+void nanocoap_page_handler_md5(void *buf, size_t len, size_t offset,
+                               bool more, coap_request_ctx_t *context);
 
 #ifdef __cplusplus
 }

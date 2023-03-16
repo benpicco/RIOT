@@ -90,8 +90,8 @@ typedef struct {
     const char *path;               /**< destination path on VFS */
 } coap_vfs_shard_ctx_t;
 
-ssize_t nanocoap_vfs_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
-                                         coap_request_ctx_t *context);
+void nanocoap_vfs_page_handler(void *buf, size_t len, size_t offset,
+                               bool more, coap_request_ctx_t *context);
 
 #ifdef __cplusplus
 }

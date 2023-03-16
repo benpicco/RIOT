@@ -119,13 +119,16 @@ typedef struct {
     uint8_t wait_blocks;
 } nanocoap_page_ctx_t;
 
+typedef void(*nanocoap_page_handler_cb_t)(void *buf, size_t len, size_t offset,
+                                          bool more, coap_request_ctx_t *context);
+
 typedef struct {
     nanocoap_sock_t *sock;
     const char *path;
     uint8_t blksize;
 } coap_shard_request_ctx_t;
 
-typedef struct {
+typedef struct coap_page_handler_ctx {
     nanocoap_page_ctx_t ctx;
     coap_shard_request_ctx_t req;
     nanocoap_page_coding_ctx_t fec;
@@ -134,6 +137,7 @@ typedef struct {
     event_t event_timeout;
     uint32_t timeout;
     uint32_t offset_rx;
+    nanocoap_page_handler_cb_t cb;
 #ifdef MODULE_NANOCOAP_PAGE_FORWARD
     nanocoap_sock_t downstream;
     char path[CONFIG_NANOCOAP_SHARD_PATH_MAX];
@@ -150,13 +154,6 @@ typedef struct {
     coap_shard_request_ctx_t req;
     nanocoap_page_coding_ctx_t fec;
 } coap_shard_request_t;
-
-typedef struct {
-    uintptr_t offset;
-    void *data;
-    size_t len;
-    bool more;
-} coap_shard_result_t;
 
 static inline void *nanocoap_page_req_get(coap_shard_request_t *req, size_t *len)
 {
@@ -178,9 +175,8 @@ static inline void *nanocoap_page_req_get(coap_shard_request_t *req, size_t *len
 int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_len,
                        bool more);
 
-ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
-                                     coap_request_ctx_t *context,
-                                     coap_shard_result_t *out);
+ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
+                                    coap_request_ctx_t *context);
 
 int nanocoap_shard_netif_join(const netif_t *netif);
 

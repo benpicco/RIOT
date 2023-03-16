@@ -227,24 +227,19 @@ error:
     return res;
 }
 
-ssize_t nanocoap_vfs_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
-                                         coap_request_ctx_t *context)
+void nanocoap_vfs_page_handler(void *buf, size_t len, size_t offset,
+                               bool more, coap_request_ctx_t *context)
 {
-    coap_shard_result_t out;
+    (void)offset;
+    (void)context;
 
-    int res = nanocoap_shard_block_handler(pkt, buf, len, context, &out);
-
-    if (out.len) {
-        if (out.offset == 0) {
-            /* TODO: fopen() */
-        }
-
-        fwrite(out.data, out.len, 1, stdout);
-
-        if (!out.more) {
-            /* TODO: fclose() */
-        }
+    if (offset == 0) {
+        /* TODO: fopen() */
     }
 
-    return res;
+    fwrite(buf, len, 1, stdout);
+
+    if (!more) {
+        /* TODO: fclose() */
+    }
 }

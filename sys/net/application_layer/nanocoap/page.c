@@ -512,15 +512,12 @@ static void _timer_cb(void *arg)
     event_post(EVENT_PRIO_MEDIUM, &ctx->event_timeout);
 }
 
-ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
-                                     coap_request_ctx_t *context, coap_shard_result_t *out)
+ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
+                                    coap_request_ctx_t *context)
 {
     coap_shard_handler_ctx_t *hdl = coap_request_ctx_get_context(context);
     const sock_udp_ep_t *remote = coap_request_ctx_get_remote_udp(context);
     nanocoap_page_ctx_t *ctx = &hdl->ctx;
-
-    /* TODO: just use return value */
-    out->len = 0;
 
     if (_invalid_request(pkt, hdl, ctx)) {
         return 0;
@@ -698,10 +695,9 @@ ssize_t nanocoap_shard_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
         ztimer_remove(ZTIMER_MSEC, &hdl->timer);
 
-        out->offset = hdl->offset_rx;
-        out->data = ctx->work_buf;
-        out->len = ctx->blocks_data * block_len;
-        out->more = !ctx->is_last;
+        assert(hdl->cb);
+        hdl->cb(ctx->work_buf, ctx->blocks_data * block_len, hdl->offset_rx,
+                !ctx->is_last, context);
 
         if (ctx->is_last) {
             nanocoap_sock_close(&hdl->upstream);
