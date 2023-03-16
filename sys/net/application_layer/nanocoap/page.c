@@ -190,7 +190,6 @@ static void _fec_rs_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *f
     for (unsigned i = 0; i < ctx->blocks_data + ctx->blocks_fec; ++i) {
         fec->ctx.rs.blocks[i] = &buf[i * blk_len];
         assert(fec->ctx.rs.blocks[i] + blk_len <= &ctx->work_buf[sizeof(ctx->work_buf)]);
-        DEBUG("block %u = %p\n", i, fec->ctx.rs.blocks[i]);
     }
 }
 
@@ -203,8 +202,6 @@ static bool _fec_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec,
     _fec_rs_init(ctx, fec, blk_len);
     return true;
 }
-
-#include "od.h"
 
 static void _fec_encode(coap_shard_request_t *req)
 {
@@ -238,12 +235,12 @@ static bool _fec_decode(coap_shard_handler_ctx_t *req)
         marks[i] = bf_isset(ctx->missing, i);
     }
 
-    DEBUG("reconstruct %u / %u blocks (%u byte each)…\n", missing, total_blocks, len);
+    DEBUG("try to reconstruct %u / %u blocks (%u byte each)…\n", missing, total_blocks, len);
 
     reed_solomon *rs = nanocoap_page_coding_ctx_get_rs(&req->fec);
 
     if (reed_solomon_decode(rs, req->fec.ctx.rs.blocks, marks, total_blocks, len) == 0) {
-        bf_clear_all(ctx->missing, total_blocks);
+        bf_clear_all(ctx->missing, ctx->blocks_data);
         DEBUG("success!\n");
         return true;
     }
@@ -481,7 +478,6 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
           ctx->page, bf_popcnt(ctx->missing, shard_blocks));
     pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
                              COAP_CODE_REQUEST_ENTITY_INCOMPLETE, id);
-
     /* set payload marker */
     *pktpos++ = 0xFF;
     memcpy(pktpos, &ctx->page, sizeof(ctx->page));
@@ -553,7 +549,9 @@ static void _page_done_event(event_t *evp)
     if (_do_forward(hdl)) {
         ctx->state = STATE_TX;
         /* we need to re-encode if we lost FEC blocks */
-        _fec_encode((void *)hdl);
+        if (bf_find_first_set(ctx->missing, blocks_per_shard) >= 0) {
+            _fec_encode((void *)hdl);
+        }
         bf_set_all(ctx->missing, blocks_per_shard);
         mutex_unlock(&hdl->fwd_lock);
     }
@@ -735,8 +733,8 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     memcpy(&ctx->work_buf[block_len * block1.blknum],
            pkt->payload, pkt->payload_len);
 
-    /* check if there are any missing blocks in the current shard */
-    if (bf_find_first_set(ctx->missing, blocks_per_shard) < 0) {
+    /* check if there are any missing data blocks in the current shard */
+    if (bf_find_first_set(ctx->missing, ctx->blocks_data) < 0) {
         DEBUG("page %"PRIu32" done%s, got %"PRIu32" blocks!\n",
               ctx->page, more_shards ? "" : "(last page)", blocks_per_shard);
 
