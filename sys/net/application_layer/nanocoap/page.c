@@ -219,7 +219,7 @@ static void _fec_encode(coap_shard_request_t *req)
 static bool _fec_decode(coap_shard_handler_ctx_t *req)
 {
     nanocoap_page_ctx_t *ctx = &req->ctx;
-    const size_t len = coap_szx2size(req->req.blksize);
+    const size_t len = coap_szx2size(req->blksize);
     const unsigned total_blocks = ctx->blocks_data + ctx->blocks_fec;
 
     if (ctx->blocks_fec == 0) {
@@ -471,6 +471,12 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
         return;
     }
 
+    if (_fec_decode(hdl)) {
+        DEBUG("reconstructed all missing blocks\n");
+        event_post(EVENT_PRIO_MEDIUM, &hdl->event_page_done);
+        return;
+    }
+
     DEBUG("re-request page %"PRIu32" (%u blocks)\n",
           ctx->page, bf_popcnt(ctx->missing, shard_blocks));
     pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
@@ -510,6 +516,48 @@ static void _timer_cb(void *arg)
     --ctx->ctx.wait_blocks;
 
     event_post(EVENT_PRIO_MEDIUM, &ctx->event_timeout);
+}
+
+static void _page_done_event(event_t *evp)
+{
+    coap_shard_handler_ctx_t *hdl = container_of(evp, coap_shard_handler_ctx_t, event_page_done);
+    nanocoap_page_ctx_t *ctx = &hdl->ctx;
+    size_t block_len = coap_szx2size(hdl->blksize);
+    uint8_t blocks_per_shard = ctx->blocks_data + ctx->blocks_fec;
+
+    ztimer_remove(ZTIMER_MSEC, &hdl->timer);
+
+    coap_request_ctx_t context = {
+        .resource = hdl->resource,
+    };
+
+    assert(hdl->cb);
+    hdl->cb(ctx->work_buf, ctx->blocks_data * block_len, hdl->offset_rx,
+            !ctx->is_last, &context);
+
+    if (ctx->is_last) {
+        nanocoap_sock_close(&hdl->upstream);
+        if (!_do_forward(hdl)) {
+            ctx->state = STATE_IDLE;
+            ctx->token_len = 0;
+        }
+    } else {
+        hdl->offset_rx += ctx->blocks_data * block_len;
+        if (!_do_forward(hdl)) {
+            ctx->state = STATE_RX_WAITING;
+            ++ctx->page;
+        }
+    }
+
+#ifdef MODULE_NANOCOAP_PAGE_FORWARD
+    if (_do_forward(hdl)) {
+        ctx->state = STATE_TX;
+        /* we need to re-encode if we lost FEC blocks */
+        _fec_encode((void *)hdl);
+        bf_set_all(ctx->missing, blocks_per_shard);
+        mutex_unlock(&hdl->fwd_lock);
+    }
+#endif
 }
 
 ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
@@ -607,12 +655,15 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         hdl->timer.callback = _timer_cb;
         hdl->timer.arg = ctx;
         hdl->event_timeout.handler = _timeout_event;
+        hdl->event_page_done.handler = _page_done_event;
+        hdl->resource = context->resource;
 
 #ifdef MODULE_NANOCOAP_PAGE_FORWARD
         if (hdl->forward) {
             const char *path = coap_request_ctx_get_path(context);
             strncpy(hdl->path, path, sizeof(hdl->path));
             hdl->req.path = hdl->path;
+            hdl->req.blksize = block1.szx;
 
             uint8_t prio = thread_get_priority(thread_get_active()) + 1;
             if (mutex_trylock(&_forwarder_thread_mtx)) {
@@ -643,8 +694,8 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         ctx->blocks_data = ndata_rx;
         ctx->blocks_fec = nfec_rx;
         ctx->is_last = !more_shards;
+        hdl->blksize = block1.szx;
         bf_set_all(ctx->missing, blocks_per_shard);
-        hdl->req.blksize = block1.szx;
 
         _fec_init(ctx, &hdl->fec, block_len);
 
@@ -684,44 +735,13 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     memcpy(&ctx->work_buf[block_len * block1.blknum],
            pkt->payload, pkt->payload_len);
 
-    if (_fec_decode(hdl)) {
-        DEBUG("reconstructed all missing blocks\n");
-    }
-
     /* check if there are any missing blocks in the current shard */
     if (bf_find_first_set(ctx->missing, blocks_per_shard) < 0) {
         DEBUG("page %"PRIu32" done%s, got %"PRIu32" blocks!\n",
               ctx->page, more_shards ? "" : "(last page)", blocks_per_shard);
 
         ztimer_remove(ZTIMER_MSEC, &hdl->timer);
-
-        assert(hdl->cb);
-        hdl->cb(ctx->work_buf, ctx->blocks_data * block_len, hdl->offset_rx,
-                !ctx->is_last, context);
-
-        if (ctx->is_last) {
-            nanocoap_sock_close(&hdl->upstream);
-            if (!_do_forward(hdl)) {
-                ctx->state = STATE_IDLE;
-                ctx->token_len = 0;
-            }
-        } else {
-            hdl->offset_rx += ctx->blocks_data * block_len;
-            if (!_do_forward(hdl)) {
-                ctx->state = STATE_RX_WAITING;
-                ++ctx->page;
-            }
-        }
-
-#ifdef MODULE_NANOCOAP_PAGE_FORWARD
-        if (_do_forward(hdl)) {
-            ctx->state = STATE_TX;
-            /* we need to re-encode if we lost FEC blocks */
-            _fec_encode((void *)hdl);
-            bf_set_all(ctx->missing, blocks_per_shard);
-            mutex_unlock(&hdl->fwd_lock);
-        }
-#endif
+        event_post(EVENT_PRIO_MEDIUM, &hdl->event_page_done);
     }
 
     return 0;

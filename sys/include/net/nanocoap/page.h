@@ -135,6 +135,7 @@ typedef struct coap_page_handler_ctx {
     nanocoap_sock_t upstream;
     ztimer_t timer;
     event_t event_timeout;
+    event_t event_page_done;
     uint32_t timeout;
     uint32_t offset_rx;
     nanocoap_page_handler_cb_t cb;
@@ -144,6 +145,8 @@ typedef struct coap_page_handler_ctx {
     mutex_t fwd_lock;
     bool forward;                   /**< forwarding enabled */
 #endif
+    const coap_resource_t *resource;    /**< cache associated CoAP resource */
+    uint8_t blksize;
 } coap_shard_handler_ctx_t;
 
 /**
