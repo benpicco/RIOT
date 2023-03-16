@@ -78,16 +78,23 @@ static ssize_t _value_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, coap_re
 
 static coap_vfs_shard_ctx_t _ctx = {
     .path = VFS_DEFAULT_DATA,
+    .super = {
+        .cb = nanocoap_vfs_page_handler,
+    },
 };
 
-static coap_shard_test_ctx_t _ctx_md5;
+static coap_shard_test_ctx_t _ctx_md5 = {
+    .super = {
+        .cb = nanocoap_page_handler_md5,
+    },
+};
 
 /* must be sorted by path (ASCII order) */
 const coap_resource_t coap_resources[] = {
     COAP_WELL_KNOWN_CORE_DEFAULT_HANDLER,
     { "/value", COAP_GET | COAP_PUT | COAP_POST, _value_handler, NULL },
-    { "/shard", COAP_PUT | COAP_MATCH_SUBTREE, nanocoap_vfs_shard_block_handler, &_ctx },
-    { "/md5", COAP_PUT | COAP_MATCH_SUBTREE, nanocoap_shard_block_handler_md5, &_ctx_md5 },
+    { "/shard", COAP_PUT | COAP_MATCH_SUBTREE, nanocoap_page_block_handler, &_ctx },
+    { "/md5", COAP_PUT | COAP_MATCH_SUBTREE, nanocoap_page_block_handler, &_ctx_md5 },
 };
 
 const unsigned coap_resources_numof = ARRAY_SIZE(coap_resources);
