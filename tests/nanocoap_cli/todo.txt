@@ -1,6 +1,5 @@
 - [ ] stop forwarding
-- [ ] error correction
-- [ ] chose new parent? (when shard can't be satisfied)
-- [ ] source connects upstream (?)
 - [ ] track individual node progress and plot it
-- [ ] don't send when next hop is still forwarding
+- [ ] unlock fwd mutex only after upstream is done sending
+- [ ] rebase
+- [ ] test on IoT Lab
