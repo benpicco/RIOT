@@ -1,5 +1,5 @@
 - [ ] stop forwarding
 - [ ] track individual node progress and plot it
 - [ ] unlock fwd mutex only after upstream is done sending
-- [ ] rebase
+- [x] rebase
 - [ ] test on IoT Lab
