@@ -72,11 +72,11 @@ void coding_xor_generate(void *data, size_t len, uint8_t *parity);
  * @param[in] len           Size of the data buffer
  * @param[in,out] parity    Buffer with parity data.
  *                          Must be at least `CODING_XOR_PARITY_LEN(len)` bytes
- * @param[in,out] blocks    Bitfieled to indicate which blocks were received.
+ * @param[in,out] blocks    Bitfieled to indicate which blocks are missing.
  *                          This indicates the presence of both data and parity
  *                          blocks. Parity blocks are appended after the last
  *                          data block.
- *                          If a block was restored it's bit will be set.
+ *                          If a block was restored it's bit will be cleared.
  * @param[in]  block_size   Size of a data/payload block
  * @param[in]  recover_parity If true, missing parity blocks will be re-generated
  *                          from data blocks.

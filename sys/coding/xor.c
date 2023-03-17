@@ -106,7 +106,7 @@ static bool _recover_byte(const uint8_t *in, size_t width, uint8_t height,
 
         /* get index of neighbor byte in transposed matrix */
         size_t idx_in = _transpose_idx(i, height, width);
-        if (!bf_isset(bitfield, idx_in / block_size)) {
+        if (bf_isset(bitfield, idx_in / block_size)) {
             DEBUG("missing chunk %u\n", idx_in / block_size);
             return false;
         }
@@ -129,7 +129,7 @@ static bool _recover_blocks(void *data, size_t len, const uint8_t *parity,
 
     for (size_t i = 0; i < len; i += block_size) {
         /* block is present, nothing to do */
-        if (bf_isset(bitfield, i / block_size)) {
+        if (!bf_isset(bitfield, i / block_size)) {
             continue;
         }
 
@@ -141,7 +141,7 @@ static bool _recover_blocks(void *data, size_t len, const uint8_t *parity,
 
             /* we can only recover the byte if we have the matching parity block */
             size_t parity_block = idx / (CONFIG_CODING_XOR_CHECK_BYTES * block_size);
-            if (!bf_isset(bitfield, num_data_blocks + parity_block)) {
+            if (bf_isset(bitfield, num_data_blocks + parity_block)) {
                 DEBUG("missing parity block %u\n", parity_block);
                 success = false;
                 goto next_block;
@@ -154,7 +154,7 @@ static bool _recover_blocks(void *data, size_t len, const uint8_t *parity,
                 goto next_block;
             }
         }
-        bf_set(bitfield, i / block_size);
+        bf_unset(bitfield, i / block_size);
 
 next_block:
         /* try to recover another block */ ;
@@ -187,7 +187,7 @@ bool coding_xor_recover(void *data, size_t len, uint8_t *parity,
 
     /* recover lost parity blocks */
     for (size_t i = 0; i < num_parity_chunks; ++i) {
-        if (bf_isset(bitfield, num_data_chunks + i)) {
+        if (!bf_isset(bitfield, num_data_chunks + i)) {
             continue;
         }
 
