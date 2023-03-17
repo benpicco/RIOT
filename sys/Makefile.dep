@@ -762,6 +762,11 @@ ifneq (,$(filter nanocoap_page_fec_rs,$(USEMODULE)))
   USEPKG += nanors
 endif
 
+ifneq (,$(filter nanocoap_page_fec_xor,$(USEMODULE)))
+  USEMODULE += nanocoap_page_fec
+  USEMODULE += coding
+endif
+
 ifneq (,$(filter nanocoap_shard_test,$(USEMODULE)))
   # drop me
   USEMODULE += nanocoap_page_test

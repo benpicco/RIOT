@@ -27,6 +27,7 @@
 #ifdef MODULE_NANOCOAP_PAGE_FEC_RS
 #include "rs.h"
 #endif
+#include "coding/xor.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -182,8 +183,17 @@ static inline void *nanocoap_page_req_get(coap_shard_request_t *req, size_t *len
         *len = sizeof(ctx->work_buf);
 
         if (req->ctx.blocks_fec) {
-            size_t fec_len = req->ctx.blocks_fec * coap_szx2size(req->req.blksize);
+            size_t block_size = coap_szx2size(req->req.blksize);
+
+            if (IS_USED(MODULE_NANOCOAP_PAGE_FEC_XOR)) {
+                uint8_t b = *len / ((CONFIG_CODING_XOR_CHECK_BYTES + 1) * block_size);
+                req->ctx.blocks_fec = b;
+                req->ctx.blocks_data = CONFIG_CODING_XOR_CHECK_BYTES * b;
+            }
+
+            size_t fec_len = req->ctx.blocks_fec * block_size;
             assert(*len > fec_len);
+
             *len -= fec_len;
         }
     }

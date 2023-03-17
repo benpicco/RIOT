@@ -177,6 +177,16 @@ static bool _shard_put(nanocoap_page_ctx_t *ctx, coap_shard_request_ctx_t *req)
     return ctx->is_last;
 }
 
+static inline bool _do_forward(coap_shard_handler_ctx_t *hdl)
+{
+#ifdef MODULE_NANOCOAP_PAGE_FORWARD
+    return hdl->forward;
+#else
+    (void)hdl;
+    return false;
+#endif
+}
+
 #ifdef MODULE_NANOCOAP_PAGE_FEC_RS
 static void _fec_rs_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
 {
@@ -241,6 +251,33 @@ static bool _fec_rs_decode(coap_shard_handler_ctx_t *req)
     return false;
 }
 #endif
+#ifdef MODULE_NANOCOAP_PAGE_FEC_XOR
+static void _fec_xor_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
+{
+    (void)fec;
+    (void)blk_len;
+    ctx->blocks_fec = CODING_XOR_PARITY_LEN(ctx->blocks_data);
+}
+
+static void _fec_xor_encode(coap_shard_request_t *req)
+{
+    nanocoap_page_ctx_t *ctx = &req->ctx;
+    const size_t len = coap_szx2size(req->req.blksize);
+    size_t data_len = len * ctx->blocks_data;
+
+    coding_xor_generate(ctx->work_buf, data_len, &ctx->work_buf[data_len]);
+}
+
+static bool _fec_xor_decode(coap_shard_handler_ctx_t *req)
+{
+    nanocoap_page_ctx_t *ctx = &req->ctx;
+    const size_t len = coap_szx2size(req->blksize);
+    size_t data_len = len * ctx->blocks_data;
+
+    return coding_xor_recover(ctx->work_buf, data_len, &ctx->work_buf[data_len],
+                              ctx->missing, len, _do_forward(req));
+}
+#endif
 
 #ifdef MODULE_NANOCOAP_PAGE_FEC
 static bool _fec_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec, size_t blk_len)
@@ -249,18 +286,30 @@ static bool _fec_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *fec,
         return false;
     }
 
+#if defined(MODULE_NANOCOAP_PAGE_FEC_RS)
     _fec_rs_init(ctx, fec, blk_len);
+#elif defined(MODULE_NANOCOAP_PAGE_FEC_XOR)
+    _fec_xor_init(ctx, fec, blk_len);
+#endif
     return true;
 }
 
 static void _fec_encode(coap_shard_request_t *req)
 {
+#if defined(MODULE_NANOCOAP_PAGE_FEC_RS)
     _fec_rs_encode(req);
+#elif defined(MODULE_NANOCOAP_PAGE_FEC_XOR)
+    _fec_xor_encode(req);
+#endif
 }
 
 static bool _fec_decode(coap_shard_handler_ctx_t *req)
 {
+#if defined(MODULE_NANOCOAP_PAGE_FEC_RS)
     return _fec_rs_decode(req);
+#elif defined(MODULE_NANOCOAP_PAGE_FEC_XOR)
+    return _fec_xor_decode(req);
+#endif
 }
 #else
 static inline void _fec_encode(coap_shard_request_t *req) { (void)req; }
@@ -338,15 +387,6 @@ static void *_forwarder_thread(void *arg)
     return NULL;
 }
 #endif
-static inline bool _do_forward(coap_shard_handler_ctx_t *hdl)
-{
-#ifdef MODULE_NANOCOAP_PAGE_FORWARD
-    return hdl->forward;
-#else
-    (void)hdl;
-    return false;
-#endif
-}
 
 int nanocoap_shard_set_forward(coap_shard_handler_ctx_t *hdl, unsigned netif, bool on)
 {
