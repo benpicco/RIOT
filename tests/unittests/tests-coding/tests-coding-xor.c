@@ -28,7 +28,7 @@ static void test_coding_xor_building_blocks(void)
     TEST_ASSERT_EQUAL_INT(0x3A, parity[3]);
     TEST_ASSERT_EQUAL_STRING("0369147A258B", string);
 
-    uint8_t blocks = 0x80;
+    uint8_t blocks = 0x40;
     bool success = coding_xor_recover(string, sizeof(string) - 1, parity,
                                       &blocks, sizeof(string) - 1, false);
     TEST_ASSERT(success);
@@ -45,7 +45,7 @@ static void test_coding_xor_recovery(void)
     const uint8_t num_parity_chunks = sizeof(parity) / chunk_size;
 
     BITFIELD(chunks, num_chunks + num_parity_chunks);
-    memset(chunks, 0, sizeof(chunks));
+    memset(chunks, 0xff, sizeof(chunks));
     memset(string_rx, 0, sizeof(string_rx));
 
     coding_xor_generate(string, sizeof(string) - 1, parity);
@@ -59,11 +59,11 @@ static void test_coding_xor_recovery(void)
         memcpy(string_rx + i * chunk_size,
                string + i * chunk_size,
                chunk_size);
-        bf_set(chunks, i);
+        bf_unset(chunks, i);
     }
     /* we have all parity chunks */
     for (unsigned i = 0; i < num_parity_chunks; ++i) {
-        bf_set(chunks, num_chunks + i);
+        bf_unset(chunks, num_chunks + i);
     }
 
     bool success = coding_xor_recover(string_rx, sizeof(string_rx) - 1,
@@ -118,13 +118,13 @@ static void test_coding_xor_recovery_parity(void)
     const uint8_t num_parity_chunks = sizeof(parity) / chunk_size;
 
     BITFIELD(chunks, num_chunks + num_parity_chunks);
-    memset(chunks, 0, sizeof(chunks));
+    memset(chunks, 0xff, sizeof(chunks));
 
     coding_xor_generate(string, sizeof(string) - 1, parity);
 
     /* we have all data chunks */
     for (unsigned i = 0; i < num_chunks; ++i) {
-        bf_set(chunks, i);
+        bf_unset(chunks, i);
     }
 
     bool success = coding_xor_recover(string, sizeof(string) - 1, parity_rx,
@@ -145,7 +145,7 @@ static void test_coding_xor_recovery_large(void)
     const uint8_t chunk_size = 64;
     const size_t num_chunks = (data_len + parity_len) / chunk_size;
     BITFIELD(chunks, num_chunks);
-    memset(chunks, 0, sizeof(chunks));
+    memset(chunks, 0xff, sizeof(chunks));
 
     TEST_ASSERT_EQUAL_INT(sizeof(txbuf), data_len + parity_len);
 
@@ -162,7 +162,7 @@ static void test_coding_xor_recovery_large(void)
         if (i == 3 || i == 10 || i == 13) {
             memset(data, 0, chunk_size);
         } else {
-            bf_set(chunks, i);
+            bf_unset(chunks, i);
         }
     }
 
