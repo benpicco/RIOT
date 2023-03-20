@@ -102,7 +102,7 @@ extern "C" {
 /**
  * @brief The number of nanoseconds per millisecond
  */
-#define NS_PER_MS           (1000000LU)
+#define NS_PER_MS           (1000000LLU)
 
 /**
  * @brief The number of nanoseconds per second
