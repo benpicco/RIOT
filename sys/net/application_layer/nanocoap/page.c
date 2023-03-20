@@ -779,11 +779,14 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     DEBUG("got block %"PRIu32".%"PRIu32"/%"PRIu32" - %"PRIu32" left\n",
           page_rx, block1.blknum, blocks_per_shard - 1, blocks_left);
 
-    /* set timeout for retransmission request */
-    uint32_t timeout_ms = 1 + blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS
-                        + (random_uint32() & 0x7);
-    ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
-    ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
+    /* we accept stray blocks, but can't take them into account for page timing */
+    if (!memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
+        /* set timeout for retransmission request */
+        uint32_t timeout_ms = 1 + blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS
+                            + (random_uint32() & 0x7);
+        ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
+        ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
+    }
 
     if (!bf_isset(ctx->missing, block1.blknum)) {
         DEBUG("old block received\n");
