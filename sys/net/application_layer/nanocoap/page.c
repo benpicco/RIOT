@@ -564,15 +564,16 @@ static void _timeout_event(event_t *evp)
 
 static void _timer_cb(void *arg)
 {
-    coap_shard_handler_ctx_t *ctx = arg;
+    coap_shard_handler_ctx_t *hdl = arg;
 
     /* don't retry indefinitely */
-    if (!ctx->ctx.wait_blocks) {
+    if (!hdl->ctx.wait_blocks) {
+        DEBUG("retries exhausted\n");
         return;
     }
-    --ctx->ctx.wait_blocks;
+    --hdl->ctx.wait_blocks;
 
-    event_post(EVENT_PRIO_MEDIUM, &ctx->event_timeout);
+    event_post(EVENT_PRIO_MEDIUM, &hdl->event_timeout);
 }
 
 static void _page_done_event(event_t *evp)
@@ -683,7 +684,7 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
             nanocoap_sock_close(&hdl->upstream);
             nanocoap_sock_connect(&hdl->upstream, NULL, &bcast);
             ctx->state = STATE_ORPHAN;
-            ctx->wait_blocks = 8;
+            ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
             _request_missing(hdl, buf, len);
             break;
         case STATE_TX_WAITING:
