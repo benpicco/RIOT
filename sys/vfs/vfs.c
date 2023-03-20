@@ -1196,7 +1196,7 @@ void auto_init_vfs(void)
 void auto_unmount_vfs(void)
 {
     for (unsigned i = 0; i < MOUNTPOINTS_NUMOF; ++i) {
-        vfs_umount(&vfs_mountpoints_xfa[i]);
+        vfs_umount(&vfs_mountpoints_xfa[i], true);
     }
 }
 
