@@ -64,7 +64,7 @@ extern "C" {
  *          don't receive a page block after that, we give up.
  */
 #ifndef CONFIG_NANOCOAP_PAGE_RETRIES
-#define CONFIG_NANOCOAP_PAGE_RETRIES            (8)
+#define CONFIG_NANOCOAP_PAGE_RETRIES            (16)
 #endif
 
 #ifndef CONFIG_NANOCOAP_SHARD_XFER_TIMEOUT_SECS
