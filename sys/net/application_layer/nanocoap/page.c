@@ -681,8 +681,7 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         case STATE_RX:
             LOG_WARNING("upstrem is ahead, we are orphan now\n");
             ztimer_remove(ZTIMER_MSEC, &hdl->timer);
-            nanocoap_sock_close(&hdl->upstream);
-            nanocoap_sock_connect(&hdl->upstream, NULL, &bcast);
+            sock_udp_set_remote(&hdl->upstream.udp, &bcast);
             ctx->state = STATE_ORPHAN;
             ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
             _request_missing(hdl, buf, len);
@@ -744,9 +743,8 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
     switch (ctx->state) {
     case STATE_ORPHAN:
-        nanocoap_sock_close(&hdl->upstream);
-        DEBUG("connect upstream on %u\n", remote->netif);
-        nanocoap_sock_connect(&hdl->upstream, NULL, remote);
+        sock_udp_set_remote(&hdl->upstream.udp, remote);
+        DEBUG("re-connect upstream on %u\n", remote->netif);
         ctx->state = STATE_RX;
         break;
     case STATE_IDLE:
