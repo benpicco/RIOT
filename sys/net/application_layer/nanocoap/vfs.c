@@ -207,9 +207,6 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
         if (vfs_read(fd, &dummy, 1) == 1) {
             vfs_lseek(fd, -1, SEEK_CUR);
         } else {
-            /* add padding */
-            memset((uint8_t *)work_buf + res, 0, work_buf_len - res);
-            res = work_buf_len;
             more = false;
         }
 
