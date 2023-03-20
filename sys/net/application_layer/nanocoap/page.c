@@ -561,8 +561,8 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
     nanocoap_sock_request_cb(&hdl->upstream, &pkt, NULL, NULL);
 
     /* set timeout for retransmission request */
-    uint32_t timeout_ms = (shard_blocks / 2) * CONFIG_NANOCOAP_FRAME_GAP_MS
-                        + (random_uint32() & 0x7);
+    uint32_t timeout_ms = ((2 * shard_blocks) / 3) * CONFIG_NANOCOAP_FRAME_GAP_MS
+                        + (random_uint32() & 0x3) + 1;
     ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
 }
 
