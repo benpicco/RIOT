@@ -15,6 +15,7 @@
 
 #include "net/netdev/ieee802154_submac.h"
 #include "event/thread.h"
+#include "time_units.h"
 
 static const ieee802154_submac_cb_t _cb;
 
@@ -259,6 +260,12 @@ static int _recv(netdev_t *netdev, void *buf, size_t len, void *info)
         netdev_rx_info->rssi = ieee802154_rssi_to_dbm(rx_info.rssi);
 
         netdev_rx_info->lqi = rx_info.lqi;
+
+        if (IS_USED(MODULE_NETDEV_IEEE802154_RX_TIMESTAMP)) {
+            /* just use a best effort timestamp until we have a way to get this from the radio */
+            uint64_t now = ztimer_now(ZTIMER_MSEC) * NS_PER_MS;
+            netdev_ieee802154_rx_info_set_timestamp(netdev_rx_info, now);
+        }
     }
 
     return res;
