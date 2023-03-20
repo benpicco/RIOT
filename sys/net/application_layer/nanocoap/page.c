@@ -34,6 +34,8 @@
 
 static bool _is_sending;
 
+static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t len);
+
 static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
 {
     nanocoap_page_ctx_t *ctx = arg;
@@ -47,26 +49,36 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
         return NANOCOAP_SOCK_RX_MORE;
     case 408:   /* request entity incomplete */
         if (shard_num != ctx->page) {
-            DEBUG("lost blocks can't be satisfied (want %u blocks from shard %"PRIu32", have shard %"PRIu32")\n",
-                   bf_popcnt(pkt->payload, shard_blocks), shard_num, ctx->page);
+            LOG_ERROR("[%x] lost blocks can't be satisfied (want %u blocks from shard %"PRIu32", have shard %"PRIu32")\n",
+                      coap_get_id(pkt), bf_popcnt(pkt->payload, shard_blocks), shard_num, ctx->page);
             break;
         }
 
         bf_or_atomic(ctx->missing, ctx->missing, pkt->payload, shard_blocks);
-        DEBUG("neighbor re-requested %u blocks, total to send: %u\n",
-              bf_popcnt(pkt->payload, shard_blocks), bf_popcnt(ctx->missing, shard_blocks));
+        DEBUG("[%x] neighbor re-requested %u blocks, total to send: %u\n",
+              coap_get_id(pkt), bf_popcnt(pkt->payload, shard_blocks), bf_popcnt(ctx->missing, shard_blocks));
 
         ctx->state = STATE_TX;
         break;
     case 429:   /* too many requests */
-        DEBUG("neighbor requested slowdown (still has %u blocks to send)\n",
-              unaligned_get_u16(pkt->payload));
+        DEBUG("neighbor requested slowdown (still has %u blocks of page %u to send) we are at %u\n",
+              unaligned_get_u16(pkt->payload), shard_num, ctx->page);
 
         ctx->state = STATE_TX_WAITING;
         ctx->wait_blocks = MAX(ctx->wait_blocks, shard_blocks + unaligned_get_u16(pkt->payload));
-        bf_set_all(ctx->missing, shard_blocks);
 
-        return NANOCOAP_SOCK_RX_AGAIN;
+        /* we have to re-transmit all blocks if neighbor is not yet ready to receive them */
+        if (shard_num != ctx->page) {
+            bf_set_all(ctx->missing, shard_blocks);
+        }
+
+        if (!_is_sending) {
+            uint8_t buffer[32];
+            coap_shard_handler_ctx_t *hdl = container_of(ctx, coap_shard_handler_ctx_t, ctx);
+            _request_slowdown(hdl, buffer, sizeof(buffer));
+        }
+
+        return -EAGAIN;
     default:
         DEBUG("unknown code: %d\n", coap_get_code(pkt));
         return NANOCOAP_SOCK_RX_AGAIN;
@@ -94,7 +106,7 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
     const unsigned total_blocks = ctx->blocks_data + ctx->blocks_fec;
     unsigned blocks_left = bf_popcnt(ctx->missing, total_blocks) - 1;
 
-    int res;
+    int res = 0;
     bool more_shards = !ctx->is_last;
     uint16_t id = nanocoap_sock_next_msg_id(req->sock);
 
@@ -111,16 +123,16 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         ctx->state = STATE_TX_WAITING;
     }
 
-    if (ctx->state == STATE_TX_WAITING) {
-        timeout_us = ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS
-                   * US_PER_MS;
-        DEBUG("wait blocks: %u\n", ctx->wait_blocks);
-    }
-
-    ctx->state = STATE_TX;
-    ctx->wait_blocks = total_blocks;
-
     do {
+        if (ctx->state == STATE_TX_WAITING) {
+            timeout_us = ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS
+                       * US_PER_MS;
+            DEBUG("wait blocks: %u\n", ctx->wait_blocks);
+        }
+
+        ctx->state = STATE_TX;
+        ctx->wait_blocks = total_blocks;
+
         /* build CoAP header */
         coap_pkt_t pkt = {
             .hdr = (void *)buf,
@@ -145,12 +157,12 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         *pktpos++ = 0xFF;
         pkt.payload = pktpos;
 
-        DEBUG("send block %"PRIu32".%u\n", ctx->page, i);
+        DEBUG("send block %"PRIu32".%u (%u / %u left)\n", ctx->page, i, blocks_left, total_blocks);
         bf_unset(ctx->missing, i);
 
         res = nanocoap_sock_request_cb_timeout(req->sock, &pkt, _block_resp_cb, ctx,
-                                               timeout_us, false);
-    } while (0);
+                                               timeout_us, res == -EAGAIN);
+    } while (res == -EAGAIN);
 
     return res;
 }
