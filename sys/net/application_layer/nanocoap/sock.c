@@ -216,6 +216,7 @@ ssize_t nanocoap_sock_handle_response(nanocoap_sock_t *sock, const uint16_t id,
     void *payload, *buf_ctx = NULL;
     coap_pkt_t pkt;
 
+    DEBUG("nanocoap: wait for response (timeout: %"PRIu32" µs)\n", timeout_us);
     int res = _sock_recv_buf(sock, &payload, &buf_ctx, timeout_us);
     if (res == -ETIMEDOUT) {
         *state = NANOCOAP_RESPONSE_TIMEOUT;
@@ -226,6 +227,10 @@ ssize_t nanocoap_sock_handle_response(nanocoap_sock_t *sock, const uint16_t id,
     *state = NANOCOAP_RESPONSE_RX_AGAIN;
 
     if (res < 0) {
+        /* handle 'no timeout' state like timeout as it occurs when there is no time left */
+        if (timeout_us == 0 && res == -EAGAIN) {
+            *state = NANOCOAP_RESPONSE_TIMEOUT;
+        }
         goto out;
     }
 
