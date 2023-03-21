@@ -116,22 +116,11 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         .iol_len  = len,
     };
 
-    /* TODO: longer timeout for last page block / waiting state */
-    uint32_t timeout_us = CONFIG_NANOCOAP_FRAME_GAP_MS * US_PER_MS;
+    uint32_t deadline_ms = ztimer_now(ZTIMER_MSEC) + CONFIG_NANOCOAP_FRAME_GAP_MS;
 
     if (blocks_left == 0) {
         ctx->state = STATE_TX_WAITING;
     }
-
-    do {
-        if (ctx->state == STATE_TX_WAITING) {
-            timeout_us = ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS
-                       * US_PER_MS;
-            DEBUG("wait blocks: %u\n", ctx->wait_blocks);
-        }
-
-        ctx->state = STATE_TX;
-        ctx->wait_blocks = total_blocks;
 
         /* build CoAP header */
         coap_pkt_t pkt = {
@@ -159,10 +148,23 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
 
         DEBUG("send block %"PRIu32".%u (%u / %u left)\n", ctx->page, i, blocks_left, total_blocks);
         bf_unset(ctx->missing, i);
+        nanocoap_sock_send_pkt(req->sock, &pkt);
 
-        res = nanocoap_sock_request_cb_timeout(req->sock, &pkt, _block_resp_cb, ctx,
-                                               timeout_us, res == -EAGAIN);
-    } while (res == -EAGAIN);
+    nanocoap_response_state_t state = 0;
+    do {
+        if (ctx->state == STATE_TX_WAITING) {
+            deadline_ms = ztimer_now(ZTIMER_MSEC)
+                        + ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS;
+            DEBUG("wait blocks: %u\n", ctx->wait_blocks);
+        }
+
+        ctx->state = STATE_TX;
+        ctx->wait_blocks = total_blocks;
+
+        res = nanocoap_sock_handle_response(req->sock, id, ctx->token, ctx->token_len,
+                                            _block_resp_cb, ctx, _deadline_left_us(deadline_ms),
+                                            &state);
+    } while (state != NANOCOAP_RESPONSE_TIMEOUT || ctx->state == STATE_TX_WAITING);
 
     return res;
 }
