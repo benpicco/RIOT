@@ -188,6 +188,7 @@ static int _nanocoap_put_handler(int argc, char **argv)
 SHELL_COMMAND(ncget, "download a file from a CoAP server", _nanocoap_get_handler);
 SHELL_COMMAND(ncput, "upload a file to a CoAP server", _nanocoap_put_handler);
 
+#ifdef MODULE_NANOCOAP_PAGE
 static int _nanocoap_put_non_handler(int argc, char **argv)
 {
     int res;
@@ -236,3 +237,4 @@ static int _nanocoap_put_non_handler(int argc, char **argv)
 }
 
 SHELL_COMMAND(ncput_non, "Multicast a file to a CoAP server", _nanocoap_put_non_handler);
+#endif
