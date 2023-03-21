@@ -529,14 +529,27 @@ ssize_t nanocoap_sock_request(nanocoap_sock_t *sock, coap_pkt_t *pkt, size_t len
  * @param[in]       cb      Callback executed for response packet
  * @param[in]       arg     Optional callback argumnent
  * @param[in]       timeout Time (in µs) to wait for a response
- * @param[in]       more    Receive more responses without sending the packet again
  *
  * @returns     length of response on success
  * @returns     <0 on error
  */
 ssize_t nanocoap_sock_request_cb_timeout(nanocoap_sock_t *sock, coap_pkt_t *pkt,
-                                         coap_request_cb_t cb, void *arg, uint32_t timeout,
-                                         bool more);
+                                         coap_request_cb_t cb, void *arg, uint32_t timeout);
+
+typedef enum {
+    NANOCOAP_RESPONSE_TIMEOUT,      /**< Timeout waiting for response, triggers resend */
+    NANOCOAP_RESPONSE_RX_AGAIN,     /**< No valid response yet, try RX again with remaining timeout */
+    NANOCOAP_RESPONSE_SEPARATE,     /**< ACK received, waiting for separate response */
+    NANOCOAP_RESPONSE_OK,           /**< valid response received */
+} nanocoap_response_state_t;
+
+int nanocoap_sock_send_pkt(nanocoap_sock_t *sock, coap_pkt_t *pkt);
+
+ssize_t nanocoap_sock_handle_response(nanocoap_sock_t *sock, const uint16_t id,
+                                      const void *token, uint8_t token_len,
+                                      coap_request_cb_t cb, void *arg, uint32_t timeout_us,
+                                      nanocoap_response_state_t *state);
+
 
 /**
  * @brief   Simple synchronous CoAP request with callback
@@ -559,7 +572,7 @@ static inline ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t
     /* random timeout, deadline for receive retries */
     uint32_t timeout = random_uint32_range(CONFIG_COAP_ACK_TIMEOUT_MS * US_PER_MS,
                                            CONFIG_COAP_ACK_TIMEOUT_MS * CONFIG_COAP_RANDOM_FACTOR_1000);
-    return nanocoap_sock_request_cb_timeout(sock, pkt, cb, arg, timeout, false);
+    return nanocoap_sock_request_cb_timeout(sock, pkt, cb, arg, timeout);
 }
 
 /**
