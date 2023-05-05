@@ -552,6 +552,9 @@ ssize_t nanocoap_sock_request_cb(nanocoap_sock_t *sock, coap_pkt_t *pkt,
 /**
  * @brief   Simple synchronous CoAP request
  *
+ * @deprecated  Will be removed after the 2023.10 release.
+ *              Please use @ref nanocoap_sock_request() instead.
+ *
  * @param[in,out]   pkt     Packet struct containing the request. Is reused for
  *                          the response
  * @param[in]       local   Local UDP endpoint, may be NULL
