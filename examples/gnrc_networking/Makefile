@@ -2,10 +2,23 @@
 APPLICATION = gnrc_networking
 
 # If no BOARD is found in the environment, use this default:
-BOARD ?= native
+BOARD ?= saml21-xpro
 
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
+
+USEMODULE += usbus_cdc_ecm
+USEMODULE += gnrc_ipv6_auto_subnets
+
+# work around hang in at86rf215
+USEMODULE += gnrc_netif_pktq
+# propagate routes to upstream network
+CFLAGS += -DCONFIG_GNRC_IPV6_NIB_ADD_RIO_IN_RA=1
+
+CFLAGS += -DCONFIG_GNRC_IPV6_NIB_SLAAC=1
+CFLAGS += -DCONFIG_GNRC_IPV6_AUTO_SUBNETS_PREFIX_MIN_LEN=64
+
+DEBUG_ADAPTER_ID ?= ATML2241061800003483
 
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present

@@ -2,7 +2,7 @@
 APPLICATION = gnrc_border_router
 
 # If no BOARD is found in the environment, use this default:
-BOARD ?= native
+BOARD ?= saml21-xpro
 
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
@@ -18,6 +18,15 @@ endif
 # Set the SSID and password of your WiFi network here
 WIFI_SSID ?= "Your_WiFi_name"
 WIFI_PASS ?= "Your_secure_password"
+
+DEBUG_ADAPTER_ID ?= ATML2241051800000235
+UPLINK=cdc-ecm
+PREFIX_CONF=auto_subnets
+
+# work around hang in at86rf215
+USEMODULE += gnrc_netif_pktq
+# propagate routes to upstream network
+CFLAGS += -DCONFIG_GNRC_IPV6_NIB_ADD_RIO_IN_RA=1
 
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
