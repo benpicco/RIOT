@@ -48,6 +48,10 @@ extern "C" {
 #define BTN0_MODE           GPIO_IN_PU
 /** @} */
 
+#define AT86RF215_PARAM_CS          (GPIO_PIN(0, 5))
+#define AT86RF215_PARAM_INT         (GPIO_PIN(1, 4))
+#define AT86RF215_PARAM_RESET       (GPIO_PIN(0, 12))
+
 #ifdef __cplusplus
 }
 #endif
