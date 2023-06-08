@@ -61,7 +61,7 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
         ctx->state = STATE_TX;
         break;
     case 429:   /* too many requests */
-        DEBUG("neighbor requested slowdown (still has %u blocks of page %u to send) we are at %u\n",
+        DEBUG("neighbor requested slowdown (still has %u blocks of page %"PRIu32" to send) we are at %"PRIu32"\n",
               unaligned_get_u16(pkt->payload), shard_num, ctx->page);
 
         ctx->state = STATE_TX_WAITING;
@@ -161,8 +161,9 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         ctx->state = STATE_TX;
         ctx->wait_blocks = total_blocks;
 
+        uint32_t timeout_us = _deadline_left_us(deadline_ms);
         res = nanocoap_sock_handle_response(req->sock, id, ctx->token, ctx->token_len,
-                                            _block_resp_cb, ctx, _deadline_left_us(deadline_ms),
+                                            _block_resp_cb, ctx, timeout_us,
                                             &state);
     } while (state != NANOCOAP_RESPONSE_TIMEOUT || ctx->state == STATE_TX_WAITING);
 
@@ -549,8 +550,8 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
         return;
     }
 
-    DEBUG("re-request page %"PRIu32" (%u blocks)\n",
-          ctx->page, bf_popcnt(ctx->missing, shard_blocks));
+    DEBUG("[%x] re-request page %"PRIu32" (%u blocks)\n",
+          id, ctx->page, bf_popcnt(ctx->missing, shard_blocks));
     pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
                              COAP_CODE_REQUEST_ENTITY_INCOMPLETE, id);
     /* set payload marker */
