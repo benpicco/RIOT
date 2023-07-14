@@ -36,6 +36,11 @@ static bool _is_sending;
 
 static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t len);
 
+static bool _addr_match(const coap_shard_handler_ctx_t *hdl, const sock_udp_ep_t *remote)
+{
+    return !memcmp(&remote->addr, &hdl->upstream.udp.remote.addr, sizeof(remote->addr));
+}
+
 static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
 {
     nanocoap_page_ctx_t *ctx = arg;
@@ -63,6 +68,11 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
     case 429:   /* too many requests */
         DEBUG("neighbor requested slowdown (still has %u blocks of page %"PRIu32" to send) we are at %"PRIu32"\n",
               unaligned_get_u16(pkt->payload), shard_num, ctx->page);
+
+        if (shard_num + 1 < ctx->page) {
+            DEBUG("neighbor is too far behind, ignore request\n");
+            return NANOCOAP_SOCK_RX_AGAIN;
+        }
 
         ctx->state = STATE_TX_WAITING;
         ctx->wait_blocks = MAX(ctx->wait_blocks, shard_blocks + unaligned_get_u16(pkt->payload));
@@ -424,8 +434,14 @@ int nanocoap_shard_set_forward(coap_shard_handler_ctx_t *hdl, unsigned netif, bo
         return 0;
     }
 
+    if (hdl->ctx.page > 0) {
+        DEBUG("don't allow late forwarding\n");
+        return 0;
+    }
+
     int res = nanocoap_sock_connect(&hdl->downstream, NULL, &remote);
     if (res == 0) {
+        DEBUG("enable forwarding\n");
         hdl->req.sock = &hdl->downstream;
         hdl->forward = true;
     }
@@ -486,7 +502,7 @@ static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_
     uint16_t id = nanocoap_sock_next_msg_id(&hdl->upstream);
     uint16_t blocks_left = bf_popcnt(ctx->missing, ctx->blocks_data + ctx->blocks_fec);
 
-    DEBUG("request slowdown (%u blocks left to send)\n", blocks_left);
+    DEBUG("request slowdown (%u blocks of page %u left to send)\n", blocks_left, ctx->page);
 
     uint8_t *pktpos = buf;
 
@@ -512,7 +528,7 @@ static void _request_slowdown(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_
     nanocoap_sock_request_cb(&hdl->upstream, &pkt, NULL, NULL);
 }
 
-static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t len)
+static bool _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t len)
 {
     (void)len;
 
@@ -534,20 +550,21 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
     };
 
     if ((ctx->state != STATE_RX) && (ctx->state != STATE_ORPHAN)) {
-        return;
+        DEBUG("wrong state (%x) to request missing blocks\n", ctx->state);
+        return false;
     }
 
     unsigned missing = bf_popcnt(ctx->missing, shard_blocks);
 
     if (missing == 0) {
         DEBUG("page %"PRIu32" already complete\n", ctx->page);
-        return;
+        return true;
     }
 
     if (_fec_decode(hdl)) {
         DEBUG("reconstructed all missing blocks\n");
         event_post(EVENT_PRIO_MEDIUM, &hdl->event_page_done);
-        return;
+        return true;
     }
 
     DEBUG("[%x] re-request page %"PRIu32" (%u blocks)\n",
@@ -567,6 +584,8 @@ static void _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
     uint32_t timeout_ms = ((2 * shard_blocks) / 3) * CONFIG_NANOCOAP_FRAME_GAP_MS
                         + (random_uint32() & 0x3) + 1;
     ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
+
+    return false;
 }
 
 static void _timeout_event(event_t *evp)
@@ -619,11 +638,15 @@ static void _page_done_event(event_t *evp)
         if (!_do_forward(hdl)) {
             ctx->state = STATE_RX_WAITING;
             ++ctx->page;
+            bf_set_all(ctx->missing, blocks_per_shard);
+            DEBUG("new page: %u\n", ctx->page);
         }
     }
 
 #ifdef MODULE_NANOCOAP_PAGE_FORWARD
     if (_do_forward(hdl)) {
+        DEBUG("entering forwarding state\n");
+
         ctx->state = STATE_TX;
         /* we need to re-encode if we lost FEC blocks */
         if (bf_find_first_set(ctx->missing, blocks_per_shard) >= 0) {
@@ -678,7 +701,7 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         }
 
         /* ignore wrong page by node that is not our upstream */
-        if (memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
+        if (!_addr_match(hdl, remote)) {
             return 0;
         }
 
@@ -694,16 +717,28 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         switch (ctx->state) {
         case STATE_RX_WAITING:
         case STATE_RX:
-            LOG_WARNING("upstrem is ahead, we are orphan now\n");
+            LOG_WARNING("upstream is ahead, we are orphan now\n");
+            sock_udp_ep_t tmp;
+            sock_udp_get_remote(&hdl->upstream.udp, &tmp);
+
             ztimer_remove(ZTIMER_MSEC, &hdl->timer);
             sock_udp_set_remote(&hdl->upstream.udp, &bcast);
             ctx->state = STATE_ORPHAN;
             ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
-            _request_missing(hdl, buf, len);
+            if (_request_missing(hdl, buf, len) && (page_rx <= ctx->page + 1)) {
+                sock_udp_set_remote(&hdl->upstream.udp, &tmp);
+                DEBUG("no longer orphan\n");
+            }
             break;
         case STATE_TX_WAITING:
         case STATE_TX:
-            _request_slowdown(hdl, buf, len);
+            if (page_rx <= ctx->page + 1) {
+                _request_slowdown(hdl, buf, len);
+            } else {
+                /* TODO: properly handle this */
+                LOG_WARNING("upstrem is ahead, still sending old page!\n");
+                ctx->state = STATE_ORPHAN;
+            }
             break;
         default:
             break;
@@ -772,13 +807,14 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 #ifdef MODULE_NANOCOAP_PAGE_FEC
         _fec_init(ctx, &hdl->fec, block_len);
 #endif
+        ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
         ctx->state = STATE_RX;
         /* fall-through */
     case STATE_RX:
         break;
     case STATE_TX_WAITING:
     case STATE_TX:
-        if (!memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
+        if (_addr_match(hdl, remote)) {
             _request_slowdown(hdl, buf, len);
         }
         return 0;
@@ -789,20 +825,33 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         return 0;
     }
 
-    DEBUG("got block %"PRIu32".%"PRIu32"/%"PRIu32" - %"PRIu32" left\n",
+    DEBUG("got block %"PRIu32".%"PRIu32"/%"PRIu32" - %"PRIu32" left to send",
           page_rx, block1.blknum, blocks_per_shard - 1, blocks_left);
 
-    /* we accept stray blocks, but can't take them into account for page timing */
-    if (!memcmp(remote, &hdl->upstream.udp.remote, sizeof(*remote))) {
-        /* set timeout for retransmission request */
-        uint32_t timeout_ms = 1 + blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS
-                            + (random_uint32() & 0x7);
-        ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
-        ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
+    /* switch upstream if it is fresh or our upstream does not satisfy requests */
+    bool addr_match = _addr_match(hdl, remote);
+    bool fresh_block = bf_isset(ctx->missing, block1.blknum);
+    if (!addr_match &&
+        (fresh_block || ctx->wait_blocks < (CONFIG_NANOCOAP_PAGE_RETRIES - 0))) {
+        DEBUG(" SWITCH UPSTREAM ");
+        sock_udp_set_remote(&hdl->upstream.udp, remote);
+        addr_match = true;
     }
 
-    if (!bf_isset(ctx->missing, block1.blknum)) {
-        DEBUG("old block received\n");
+    /* we accept stray blocks, but can't take them into account for page timing */
+    if (addr_match) {
+        /* set timeout for retransmission request */
+        uint32_t timeout_ms = 1 + blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS
+                            + (random_uint32() & 0x3);
+        ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
+        ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
+        DEBUG(" (retry in %"PRIu32" ms)", timeout_ms);
+    } else {
+        DEBUG(" (foreign upstream)");
+    }
+
+    if (!fresh_block) {
+        DEBUG(" - old block received\n");
         return 0;
     }
 
@@ -813,11 +862,13 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
     /* check if there are any missing data blocks in the current shard */
     if (bf_find_first_set(ctx->missing, ctx->blocks_data) < 0) {
-        DEBUG("page %"PRIu32" done%s, got %"PRIu32" blocks!\n",
+        DEBUG("\npage %"PRIu32" done%s, got %"PRIu32" blocks!\n",
               ctx->page, more_shards ? "" : "(last page)", blocks_per_shard);
 
         ztimer_remove(ZTIMER_MSEC, &hdl->timer);
         event_post(EVENT_PRIO_MEDIUM, &hdl->event_page_done);
+    } else {
+        DEBUG(" - %"PRIu32" still missing\n", bf_popcnt(ctx->missing, ctx->blocks_data));
     }
 
     return 0;
