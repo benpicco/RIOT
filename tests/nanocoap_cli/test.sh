@@ -14,14 +14,15 @@ init)
     reset
     tmux kill-session -t ZEPSession
 
-    make -j all
+    make -j all BOARD=native
 
     ./topogen -w 25 -h 25 -r 10 -v 5 -n $NUM -s $SEED > test.topo
 
     tmux new-session -d -s ZEPSession ./zep_dispatch -s $SEED -t test.topo ::1 17754
 
     for i in $(seq $NUM); do
-        tmux set-option history-limit 5000 \; new-window -d -t ZEPSession: bin/native/tests_nanocoap_cli.elf --id=$i -z [::1]:17754
+        MAC=$(for j in {1..8}; do echo -n "$i "; done | xargs | tr ' ' ':')
+        tmux set-option history-limit 5000 \; new-window -d -t ZEPSession: bin/native/tests_nanocoap_cli.elf --id=$i --eui64=$MAC -z [::1]:17754
     done
 
     sleep 5
