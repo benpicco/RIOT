@@ -27,6 +27,7 @@
 #include <string.h>
 
 #include "bitarithm.h"
+#include "macros/math.h"
 #include "net/nanocoap.h"
 
 #define ENABLE_DEBUG 0
@@ -405,7 +406,7 @@ int coap_get_blockopt(coap_pkt_t *pkt, uint16_t option, uint32_t *blknum, uint8_
 
 int coap_get_page(coap_pkt_t *pkt, uint32_t *page,
                   uint32_t *blocks_data, uint32_t *blocks_fec,
-                  uint32_t *blocks_left)
+                  uint8_t **to_send)
 {
     uint8_t *optpos = coap_find_option(pkt, COAP_OPT_PAGE);
     if (!optpos) {
@@ -430,12 +431,6 @@ int coap_get_page(coap_pkt_t *pkt, uint32_t *page,
     uint8_t data_len = (*data_start >> 3) & 0x1;
     uint8_t fec_len  = (*data_start >> 4) & 0x1;
     uint8_t res      = (*data_start >> 5) & 0x1;
-    uint8_t left_len = 1;
-
-    if (option_len != (1 + page_len + data_len + fec_len + left_len)) {
-        DEBUG("nanocoap: invalid option length\n");
-        return -1;
-    }
 
     data_start += 1;
     *page = _decode_uint(data_start, page_len);
@@ -446,14 +441,21 @@ int coap_get_page(coap_pkt_t *pkt, uint32_t *page,
     data_start += data_len;
     *blocks_fec = _decode_uint(data_start, fec_len);
 
+    uint8_t left_len = DIV_ROUND_UP(*blocks_data + *blocks_fec, 8);
+
+    if (option_len != (1 + page_len + data_len + fec_len + left_len)) {
+        DEBUG("nanocoap: invalid option length\n");
+        return -1;
+    }
+
     data_start += fec_len;
-    *blocks_left = _decode_uint(data_start, left_len);
+    *to_send = data_start;
 
     return res;
 }
 
 size_t coap_opt_put_page(uint8_t *buf, uint16_t lastonum, uint32_t page, uint32_t blocks_data,
-                         uint32_t blocks_fec, uint32_t blocks_left, bool more)
+                         uint32_t blocks_fec, const uint8_t *to_send, bool more)
 {
     uint8_t odata[14] = {0};
     uint8_t *cur = odata + 1;
@@ -461,14 +463,7 @@ size_t coap_opt_put_page(uint8_t *buf, uint16_t lastonum, uint32_t page, uint32_
     uint8_t page_len = _encode_uint(&page);
     uint8_t data_len = _encode_uint(&blocks_data);
     uint8_t fec_len  = _encode_uint(&blocks_fec);
-    uint8_t left_len = _encode_uint(&blocks_left);
-
-    /* don't collapse if 0 blocks are left */
-    if (left_len == 0) {
-        left_len = 1;
-    }
-
-    assert(left_len == 1);
+    uint8_t to_send_len = DIV_ROUND_UP(blocks_data + blocks_fec, 8);
 
     memcpy(cur, &page, page_len);
     cur += page_len;
@@ -476,8 +471,8 @@ size_t coap_opt_put_page(uint8_t *buf, uint16_t lastonum, uint32_t page, uint32_
     cur += data_len;
     memcpy(cur, &blocks_fec, fec_len);
     cur += fec_len;
-    memcpy(cur, &blocks_left, left_len);
-    cur += left_len;
+    memcpy(cur, to_send, to_send_len);
+    cur += to_send_len;
 
     odata[0] = (page_len << 0)
              | (data_len << 3)

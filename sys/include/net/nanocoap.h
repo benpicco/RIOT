@@ -1048,7 +1048,7 @@ int coap_get_blockopt(coap_pkt_t *pkt, uint16_t option, uint32_t *blknum, uint8_
  */
 int coap_get_page(coap_pkt_t *pkt, uint32_t *page,
                   uint32_t *blocks_data, uint32_t *blocks_fec,
-                  uint32_t *blocks_left);
+                  uint8_t **to_send);
 
 /**
  * @brief    Check whether any of the packet's options that are critical
@@ -1800,11 +1800,11 @@ static inline size_t coap_put_option_ct(uint8_t *buf, uint16_t lastonum,
  * @param[in]   page            current page number
  * @param[in]   blocks_data     number of data blocks in page
  * @param[in]   blocks_fec      number of coding blocks in page
- * @param[in]   blocks_left     number of blocks left to transfer in the current page
+ * @param[in]   to_send         bitmap of blocks left to transfer in the current page
  * @param[in]   more            page is not the last page
  */
 size_t coap_opt_put_page(uint8_t *buf, uint16_t lastonum, uint32_t page, uint32_t blocks_data,
-                         uint32_t blocks_fec, uint32_t blocks_left, bool more);
+                         uint32_t blocks_fec, const uint8_t *to_send, bool more);
 /**@}*/
 
 /**
