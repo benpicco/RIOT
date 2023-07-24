@@ -141,13 +141,15 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         uint8_t *pktpos = (void *)pkt.hdr;
         uint16_t lastonum = 0;
 
+        bf_unset(ctx->missing, i);
+
         pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
                                  COAP_METHOD_PUT, id);
         pktpos += coap_opt_put_uri_pathquery(pktpos, &lastonum, req->path);
         pktpos += coap_opt_put_uint(pktpos, lastonum, COAP_OPT_BLOCK1,
                                     (i << 4) | req->blksize | (more ? 0x8 : 0));
         pktpos += coap_opt_put_page(pktpos, COAP_OPT_BLOCK1, ctx->page, ctx->blocks_data,
-                                    ctx->blocks_fec, blocks_left, more_shards);
+                                    ctx->blocks_fec, ctx->missing, more_shards);
 
         /* all ACK responses (2.xx, 4.xx and 5.xx) are ignored */
         pktpos += coap_opt_put_uint(pktpos, COAP_OPT_PAGE, COAP_OPT_NO_RESPONSE, 26);
@@ -157,7 +159,6 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         pkt.payload = pktpos;
 
         DEBUG("send block %"PRIu32".%u (%u / %u left)\n", ctx->page, i, blocks_left, total_blocks);
-        bf_unset(ctx->missing, i);
         nanocoap_sock_send_pkt(req->sock, &pkt);
 
     nanocoap_response_state_t state = 0;
@@ -678,8 +679,10 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     }
 
     uint32_t page_rx, ndata_rx, nfec_rx, blocks_per_shard, blocks_left;
-    int more_shards = coap_get_page(pkt, &page_rx, &ndata_rx, &nfec_rx, &blocks_left);
+    uint8_t *to_send;
+    int more_shards = coap_get_page(pkt, &page_rx, &ndata_rx, &nfec_rx, &to_send);
     blocks_per_shard = ndata_rx + nfec_rx;
+    blocks_left = bf_popcnt(to_send, blocks_per_shard);
 
     if (more_shards < 0) {
         DEBUG("no page option\n");
