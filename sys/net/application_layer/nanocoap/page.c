@@ -434,9 +434,17 @@ int nanocoap_shard_set_forward(coap_shard_handler_ctx_t *hdl, unsigned netif, bo
         return 0;
     }
 
-    if (hdl->ctx.page > 0) {
-        DEBUG("don't allow late forwarding\n");
-        return 0;
+    uint8_t prio = thread_get_priority(thread_get_active()) + 1;
+
+    if (mutex_trylock(&_forwarder_thread_mtx)) {
+        /* make sure fwd thread is locked */
+        mutex_trylock(&hdl->fwd_lock);
+
+        thread_create(_forwarder_thread_stack, sizeof(_forwarder_thread_stack),
+                      prio, THREAD_CREATE_STACKTEST, _forwarder_thread, hdl,
+                              "shard_fwd");
+    } else {
+        DEBUG("forwarding already ongoing\n");
     }
 
     int res = nanocoap_sock_connect(&hdl->downstream, NULL, &remote);
@@ -768,24 +776,10 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         hdl->resource = context->resource;
 
 #ifdef MODULE_NANOCOAP_PAGE_FORWARD
-        if (hdl->forward) {
-            const char *path = coap_request_ctx_get_path(context);
-            strncpy(hdl->path, path, sizeof(hdl->path));
-            hdl->req.path = hdl->path;
-            hdl->req.blksize = block1.szx;
-
-            uint8_t prio = thread_get_priority(thread_get_active()) + 1;
-            if (mutex_trylock(&_forwarder_thread_mtx)) {
-                /* make sure fwd thread is locked */
-                mutex_trylock(&hdl->fwd_lock);
-
-                thread_create(_forwarder_thread_stack, sizeof(_forwarder_thread_stack),
-                              prio, THREAD_CREATE_STACKTEST, _forwarder_thread, hdl,
-                              "shard_fwd");
-            } else {
-                DEBUG("forwarding already ongoing\n");
-            }
-        }
+        const char *path = coap_request_ctx_get_path(context);
+        strncpy(hdl->path, path, sizeof(hdl->path));
+        hdl->req.path = hdl->path;
+        hdl->req.blksize = block1.szx;
 #endif
         DEBUG("connect upstream on %u\n", remote->netif);
         nanocoap_sock_connect(&hdl->upstream, NULL, remote);
