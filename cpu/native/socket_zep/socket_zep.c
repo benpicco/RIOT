@@ -334,7 +334,7 @@ static void _socket_isr(int fd, void *arg)
     }
 
     zepdev->rcv_len = res;
-    dev->cb(dev, IEEE802154_RADIO_INDICATION_TX_START);
+    dev->cb(dev, IEEE802154_RADIO_INDICATION_RX_START);
 
     /* send ACK after 192 µs */
     if ((((uint8_t *)(zep + 1))[0] & IEEE802154_FCF_ACK_REQ) != 0) {
