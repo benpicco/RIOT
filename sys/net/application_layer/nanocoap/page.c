@@ -632,11 +632,19 @@ static void _page_done_event(event_t *evp)
         .resource = hdl->resource,
     };
 
+    if (ctx->state != STATE_RX) {
+        DEBUG("stale page done event\n");
+        return;
+    }
+
+    DEBUG("page done event\n");
+
     assert(hdl->cb);
     hdl->cb(ctx->work_buf, ctx->blocks_data * block_len, hdl->offset_rx,
             !ctx->is_last, &context);
 
     if (ctx->is_last) {
+        DEBUG("last page done\n");
         nanocoap_sock_close(&hdl->upstream);
         if (!_do_forward(hdl)) {
             ctx->state = STATE_IDLE;
