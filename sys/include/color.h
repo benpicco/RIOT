@@ -24,6 +24,7 @@
 #define COLOR_H
 
 #include <stdint.h>
+#include "macros/utils.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -164,6 +165,13 @@ static inline void color_rgb_set_brightness(const color_rgb_t *rgb, color_rgb_t 
     out->r = ((unsigned)rgb->r * level + 128) >> 8;
     out->g = ((unsigned)rgb->g * level + 128) >> 8;
     out->b = ((unsigned)rgb->b * level + 128) >> 8;
+}
+
+static inline void color_rgb_add(color_rgb_t *out, const color_rgb_t *a, const color_rgb_t *b)
+{
+    out->r = MIN((unsigned)a->r + b->r, 255);
+    out->g = MIN((unsigned)a->g + b->g, 255);
+    out->b = MIN((unsigned)a->b + b->b, 255);
 }
 
 /**

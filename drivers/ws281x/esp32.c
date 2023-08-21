@@ -63,6 +63,7 @@ static uint8_t _rmt_channel(ws281x_t *dev)
         }
     }
     assert(0);
+    return 0;
 }
 #endif
 
