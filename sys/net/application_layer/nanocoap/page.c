@@ -164,6 +164,8 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
     nanocoap_response_state_t state = 0;
     do {
         if (ctx->state == STATE_TX_WAITING) {
+            ctx->wait_blocks *= 2;
+//            ctx->wait_blocks = (ctx->wait_blocks * 3) / 2;
             deadline_ms = ztimer_now(ZTIMER_MSEC)
                         + ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS;
             DEBUG("wait blocks: %u\n", ctx->wait_blocks);
@@ -589,6 +591,8 @@ static bool _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
 
     nanocoap_sock_request_cb(&hdl->upstream, &pkt, NULL, NULL);
 
+    hdl->req_sent = true;
+
     /* set timeout for retransmission request */
     uint32_t timeout_ms = ((2 * shard_blocks) / 3) * CONFIG_NANOCOAP_FRAME_GAP_MS
                         + (random_uint32() & 0x3) + 1;
@@ -675,6 +679,21 @@ static void _page_done_event(event_t *evp)
 #endif
 }
 
+static uint8_t _missing_blocks(const uint8_t *missing, const uint8_t *to_send, uint8_t size, uint8_t cur)
+{
+    uint8_t tmp[4];
+    bf_and(tmp, missing, to_send, size);
+
+    /* previous blocks might as well have been missed */
+    for (unsigned i = 0; i <= cur; ++i) {
+        if (bf_isset(missing, i)) {
+            bf_set(tmp, i);
+        }
+    }
+
+    return bf_popcnt(missing, size) - bf_popcnt(tmp, size);
+}
+
 ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
                                     coap_request_ctx_t *context)
 {
@@ -689,14 +708,14 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     uint32_t page_rx, ndata_rx, nfec_rx, blocks_per_shard, blocks_left;
     uint8_t *to_send;
     int more_shards = coap_get_page(pkt, &page_rx, &ndata_rx, &nfec_rx, &to_send);
-    blocks_per_shard = ndata_rx + nfec_rx;
-    blocks_left = bf_popcnt(to_send, blocks_per_shard);
 
     if (more_shards < 0) {
         DEBUG("no page option\n");
         return 0;
     }
 
+    blocks_per_shard = ndata_rx + nfec_rx;
+    blocks_left = bf_popcnt(to_send, blocks_per_shard);
     coap_block1_t block1;
     if (coap_get_block1(pkt, &block1) < 0) {
         DEBUG("no block option\n");
@@ -836,23 +855,54 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     /* switch upstream if it is fresh or our upstream does not satisfy requests */
     bool addr_match = _addr_match(hdl, remote);
     bool fresh_block = bf_isset(ctx->missing, block1.blknum);
-    if (!addr_match &&
-        (fresh_block || ctx->wait_blocks < (CONFIG_NANOCOAP_PAGE_RETRIES - 0))) {
-        DEBUG(" SWITCH UPSTREAM ");
-        sock_udp_set_remote(&hdl->upstream.udp, remote);
-        addr_match = true;
+
+    if (!addr_match) {
+
+        ++hdl->foreign_blocks;
+        if (fresh_block && (hdl->foreign_blocks > 3)) {
+            ++hdl->should_switch;
+        } else if (hdl->req_sent && (hdl->foreign_blocks > 6)) {
+            ++hdl->should_switch;
+        } else if (hdl->foreign_blocks > 10) {
+            ++hdl->should_switch;
+        }
+
+        if (hdl->should_switch) {
+            DEBUG(" SWITCH UPSTREAM\n");
+            sock_udp_set_remote(&hdl->upstream.udp, remote);
+            addr_match = true;
+            hdl->should_switch = 0;
+        }
     }
 
     /* we accept stray blocks, but can't take them into account for page timing */
     if (addr_match) {
+        uint8_t missing = 0;
+        hdl->foreign_blocks = 0;
+
+        if (hdl->req_sent) {
+            hdl->req_sent = false;
+            missing = _missing_blocks(ctx->missing, to_send, blocks_per_shard, block1.blknum);
+
+            DEBUG(" %u blocks were ignored by upstream, %u skipped\n", missing, block1.blknum);
+            if (missing) {
+                ++hdl->should_switch;
+            }
+        }
+
         /* set timeout for retransmission request */
-        uint32_t timeout_ms = 1 + blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS
-                            + (random_uint32() & 0x3);
+        uint32_t timeout_ms;
+        if (missing) {
+            timeout_ms = (random_uint32() & 0x3) + 1;
+        } else {
+            timeout_ms = 1 + blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS
+                         + (random_uint32() & 0x3);
+        }
         ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
         ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
         DEBUG(" (retry in %"PRIu32" ms)", timeout_ms);
     } else {
-        DEBUG(" (foreign upstream)");
+        DEBUG(" (%uth block of foreign upstream)", hdl->foreign_blocks);
     }
 
     if (!fresh_block) {

@@ -162,6 +162,9 @@ typedef struct coap_page_handler_ctx {
 #endif
     const coap_resource_t *resource;    /**< cache associated CoAP resource */
     uint8_t blksize;
+    uint8_t should_switch;
+    uint8_t foreign_blocks;
+    bool req_sent;
 } coap_shard_handler_ctx_t;
 
 /**
