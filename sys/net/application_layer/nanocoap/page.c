@@ -27,10 +27,139 @@
 #include "net/nanocoap/page.h"
 #include "net/gnrc/netif.h"
 
+#include "event/periodic_callback.h"
+
 #include "log.h"
 
-#define ENABLE_DEBUG 1
-#include "debug.h"
+#define ENABLE_DEBUG 0
+//#include "debug.h"
+#define DEBUG(...) do { if (ENABLE_DEBUG) { log_debug_write(__VA_ARGS__); } } while (0)
+
+#include <stdarg.h>
+#include <fcntl.h>
+#include "periph/rtc.h"
+#include "vfs_default.h"
+
+static char addr_str[IPV6_ADDR_MAX_STR_LEN];
+static char *_remote_to_string(const nanocoap_sock_t *sock)
+{
+    return ipv6_addr_to_str(addr_str, (ipv6_addr_t *)&sock->udp.remote.addr, sizeof(addr_str));
+}
+
+static unsigned _get_node_id(void)
+{
+    extern pid_t _native_id;
+    return _native_id;
+}
+
+static void _fd_write(int log_fd, const char *format, va_list args)
+{
+    static bool print_timestamp = true;
+    static char buffer[128];
+    int res;
+
+    if (print_timestamp) {
+        struct tm now;
+        uint16_t ms;
+        rtc_get_time_ms(&now, &ms);
+
+        res = snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d.%03d| ",
+                       now.tm_hour, now.tm_min, now.tm_sec, ms);
+        vfs_write(log_fd, buffer, res);
+    }
+
+    res = vsnprintf(buffer, sizeof(buffer), format, args);
+
+    vfs_write(log_fd, buffer, res);
+
+    print_timestamp = strchr(format, '\n');
+}
+
+static void log_fd_write(const char *format, ...)
+{
+    static int log_fd;
+    if (log_fd <= 0) {
+        log_fd = vfs_open(VFS_DEFAULT_DATA "/coap.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    }
+
+    va_list args;
+    va_start(args, format);
+    _fd_write(log_fd, format, args);
+    va_end(args);
+}
+
+static void log_debug_write(const char *format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    _fd_write(STDOUT_FILENO, format, args);
+    va_end(args);
+}
+
+static const char *_state_to_string(nanocoap_page_state_t state)
+{
+    switch (state) {
+    case STATE_IDLE:
+        return "I";
+    case STATE_RX:
+        return "RX";
+    case STATE_RX_WAITING:
+        return "rw";
+    case STATE_TX:
+        return "TX";
+    case STATE_TX_WAITING:
+        return "tw";
+    case STATE_ORPHAN:
+        return "O";
+    default:
+        return "??";
+    }
+}
+
+static void _debug_event_cb(void *ctx)
+{
+    nanocoap_page_ctx_t *page_ctx = ctx;
+    static char buffer[128];
+
+    if (ctx == NULL) {
+        return;
+    }
+
+    static int log_fd;
+    if (log_fd <= 0) {
+        log_fd = vfs_open(VFS_DEFAULT_DATA "/page.log", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    }
+
+    if (log_fd < 0) {
+        return;
+    }
+
+    coap_shard_handler_ctx_t *hdl = container_of(page_ctx, coap_shard_handler_ctx_t, ctx);
+    struct tm now;
+    int res;
+
+    rtc_get_time(&now);
+    res = snprintf(buffer, sizeof(buffer), "n%02u\t%02d:%02d:%02d\t%u\t%s\t%s\n",
+                   _get_node_id(),
+                   now.tm_hour, now.tm_min, now.tm_sec,
+                   page_ctx->page,
+                   _remote_to_string(&hdl->upstream),
+                   _state_to_string(page_ctx->state));
+    vfs_write(log_fd, buffer, res);
+}
+
+static event_periodic_callback_t _debug_log_event;
+static void _debug_output_set_ctx(void *ctx)
+{
+    _debug_log_event.event.arg = ctx;
+}
+
+static void _debug_output_init(void)
+{
+    event_periodic_callback_init(&_debug_log_event, ZTIMER_MSEC, EVENT_PRIO_MEDIUM,
+                                 _debug_event_cb, NULL);
+    event_periodic_callback_start(&_debug_log_event, 1000);
+}
 
 static bool _is_sending;
 
@@ -813,6 +942,9 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 #endif
         DEBUG("connect upstream on %u\n", remote->netif);
         nanocoap_sock_connect(&hdl->upstream, NULL, remote);
+
+        /* start collecting data */
+        _debug_output_set_ctx(ctx);
     }
 
     switch (ctx->state) {
@@ -938,6 +1070,8 @@ int nanocoap_shard_netif_join(const netif_t *netif)
 
 int nanocoap_shard_netif_join_all(void)
 {
+    _debug_output_init();
+
     netif_t *netif = NULL;
     while ((netif = netif_iter(netif))) {
         int res = nanocoap_shard_netif_join(netif);
