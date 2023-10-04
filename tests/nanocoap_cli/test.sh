@@ -8,6 +8,7 @@ export USE_ZEP=1
 
 n=0
 ELFFILE=bin/native/tests_nanocoap_cli.elf
+TOPOGEN=1
 
 while [[ $# -gt 1 ]]; do
   case $1 in
@@ -22,6 +23,10 @@ while [[ $# -gt 1 ]]; do
     -e|--elf)
         ELFFILE=$2
         shift 2
+        ;;
+    -T)
+        TOPOGEN=0
+        shift 1
         ;;
   esac
 done
@@ -42,8 +47,11 @@ init)
 
 #    ./topogen -w 250 -h 5 -r 10 -v 5 -n $NUM -s $SEED > test.topo
      DIM=$(echo "4*sqrt($NUM)" | bc)
-    ./topogen -g -w $DIM -h $DIM -r 5 -v 0 -n $NUM -s $SEED > test.topo
-    tail -n $NUM test.topo | cut -d ' ' -f 2 | cut -f 1,2,3,4 > test.topo.map
+
+    if [[ $TOPOGEN -eq 1 ]]; then
+        ./topogen -g -w $DIM -h $DIM -r 5 -v 0 -n $NUM -s $SEED > test.topo
+        tail -n $NUM test.topo | cut -d ' ' -f 2 | cut -f 1,2,3,4 > test.topo.map
+    fi
 
     tmux new-session -d -s $SESSION ./zep_dispatch -p $PIDFILE -s $SEED -t test.topo ::1 $ZEP_PORT
 
@@ -53,11 +61,8 @@ init)
     done
 
     sleep 7
-    ;;
-attach|a)
-    tmux a -t $SESSION:$2
-    ;;
-start)
+#    ;;
+#start)
     echo Start Test
     START=$(date +%s.%m)
 
@@ -74,6 +79,9 @@ start)
     END=$(date +%s.%m)
     DIFF=$(echo "$END - $START" | bc)
     echo "finished in $DIFF seconds"
+    ;;
+attach|a)
+    tmux a -t $SESSION:$2
     ;;
 graph)
     kill -SIGUSR1 $(cat $PIDFILE)
