@@ -21,6 +21,7 @@
 #define NET_NANOCOAP_PAGE_H
 
 #include "bitfield.h"
+#include "event/timeout.h"
 #include "net/nanocoap_sock.h"
 #include "ztimer.h"
 
@@ -149,6 +150,7 @@ typedef struct coap_page_handler_ctx {
 #endif
     nanocoap_sock_t upstream;
     ztimer_t timer;
+    event_timeout_t page_done_delay;
     event_t event_timeout;
     event_t event_page_done;
     uint32_t timeout;

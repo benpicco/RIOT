@@ -782,6 +782,7 @@ static void _page_done_event(event_t *evp)
         if (!_do_forward(hdl)) {
             ctx->state = STATE_IDLE;
             ctx->token_len = 0;
+            ctx->page = 0;
         }
     } else {
         hdl->offset_rx += ctx->blocks_data * block_len;
@@ -934,6 +935,9 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         hdl->event_page_done.handler = _page_done_event;
         hdl->resource = context->resource;
 
+        event_timeout_ztimer_init(&hdl->page_done_delay, ZTIMER_MSEC,
+                                  EVENT_PRIO_MEDIUM, &hdl->event_page_done);
+
 #ifdef MODULE_NANOCOAP_PAGE_FORWARD
         const char *path = coap_request_ctx_get_path(context);
         strncpy(hdl->path, path, sizeof(hdl->path));
@@ -1053,7 +1057,11 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
               ctx->page, more_shards ? "" : "(last page)", blocks_per_shard);
 
         ztimer_remove(ZTIMER_MSEC, &hdl->timer);
-        event_post(EVENT_PRIO_MEDIUM, &hdl->event_page_done);
+
+        if (!ztimer_is_set(hdl->page_done_delay.clock, &hdl->page_done_delay.timer)) {
+            event_timeout_set(&hdl->page_done_delay, blocks_left * CONFIG_NANOCOAP_FRAME_GAP_MS);
+        }
+//        event_post(EVENT_PRIO_MEDIUM, &hdl->event_page_done);
     } else {
         DEBUG(" - %"PRIu32" still missing\n", bf_popcnt(ctx->missing, ctx->blocks_data));
     }
