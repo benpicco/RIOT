@@ -68,7 +68,7 @@ static double node_distance(const struct node *a, const struct node *b)
 
 static double node_distance_weight(const struct node *a, const struct node *b)
 {
-    double w = 1 - node_distance(a, b) / a->r;
+    double w = 1 - node_distance(a, b) / (a->r * a->r);
 
     if (w < 0) {
         return 0;
