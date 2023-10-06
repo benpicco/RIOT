@@ -281,7 +281,18 @@ ssize_t sock_udp_recv_buf_aux(sock_udp_t *sock, void **data, void **buf_ctx,
         _aux.rssi = &aux->rssi;
     }
 #endif
-    res = gnrc_sock_recv((gnrc_sock_reg_t *)sock, &pkt, timeout, &tmp, &_aux);
+    unsigned now = ztimer_now(ZTIMER_USEC);
+    while (1) {
+        res = gnrc_sock_recv((gnrc_sock_reg_t *)sock, &pkt, timeout, &tmp, &_aux);
+        /* HACK: gnrc_sock_recv() sometimes returnes -ETIMEDOUT too early */
+        now = ztimer_now(ZTIMER_USEC) - now;
+        if (res == -ETIMEDOUT && now < (timeout - timeout/10))  {
+            timeout -= now;
+            continue;
+        }
+        break;
+    }
+
     if (res < 0) {
         return res;
     }
