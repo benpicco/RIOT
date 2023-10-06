@@ -255,11 +255,6 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         .iol_len  = len,
     };
 
-    uint32_t deadline_ms = ztimer_now(ZTIMER_MSEC) + CONFIG_NANOCOAP_FRAME_GAP_MS;
-
-    if (blocks_left == 0) {
-        ctx->state = STATE_TX_WAITING;
-    }
 
         /* build CoAP header */
         coap_pkt_t pkt = {
@@ -291,23 +286,36 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         nanocoap_sock_send_pkt(req->sock, &pkt);
 
     nanocoap_response_state_t state = 0;
+    uint32_t deadline_ms = ztimer_now(ZTIMER_MSEC) + CONFIG_NANOCOAP_FRAME_GAP_MS;
+
+    if (blocks_left == 0) {
+        ctx->state = STATE_TX_WAITING;
+        res = -EAGAIN;
+        ctx->wait_blocks = 2 * total_blocks;
+    }
+
     do {
-        if (ctx->state == STATE_TX_WAITING) {
-            ctx->wait_blocks *= 2;
+        uint32_t timeout_us;
+
+        if (res == -EAGAIN) {
+            /* downstream node requested slowdown */
+//            ctx->wait_blocks *= 2;
 //            ctx->wait_blocks = (ctx->wait_blocks * 3) / 2;
             deadline_ms = ztimer_now(ZTIMER_MSEC)
                         + ctx->wait_blocks * CONFIG_NANOCOAP_FRAME_GAP_MS;
             DEBUG("wait blocks: %u\n", ctx->wait_blocks);
+            ctx->wait_blocks = total_blocks; // hack - don't reuse this var!
         }
 
-        ctx->state = STATE_TX;
-        ctx->wait_blocks = total_blocks;
-
-        uint32_t timeout_us = _deadline_left_us(deadline_ms);
+        timeout_us = _deadline_left_us(deadline_ms);
         res = nanocoap_sock_handle_response(req->sock, id, ctx->token, ctx->token_len,
                                             _block_resp_cb, ctx, timeout_us,
                                             &state);
-    } while (state != NANOCOAP_RESPONSE_TIMEOUT || ctx->state == STATE_TX_WAITING);
+        if (blocks_left == 0) {
+            DEBUG("state = %d, res = %d, timeout = %lu µs\n", state, res, timeout_us);
+        }
+    } while (state != NANOCOAP_RESPONSE_TIMEOUT);
+    ctx->state = STATE_TX;
 
     return res;
 }
@@ -523,18 +531,34 @@ static char _forwarder_thread_stack[THREAD_STACKSIZE_DEFAULT];
 static void *_forwarder_thread(void *arg)
 {
     coap_shard_handler_ctx_t *hdl = arg;
+    nanocoap_page_ctx_t *ctx = &hdl->ctx;
 
     while (hdl->forward) {
         mutex_lock(&hdl->fwd_lock);
 
-        DEBUG("start forwarding page %"PRIu32"\n", hdl->ctx.page);
+        DEBUG("start forwarding page %"PRIu32"\n", ctx->page);
         if (_shard_put(&hdl->ctx, &hdl->req)) {
-            DEBUG("forwarding done\n");
-            hdl->ctx.state = STATE_IDLE;
-            hdl->ctx.token_len = 0;
+
+            if (ctx->is_last) {
+                DEBUG("forwarding done\n");
+                ctx->state = STATE_IDLE;
+                ctx->token_len = 0;
+                ctx->page = 0;
+            } else {
+                /* hack: disable forwarding - branch not used currently */
+                hdl->forward = false;
+                nanocoap_sock_close(hdl->req.sock);
+                hdl->req.sock = NULL;
+                ctx->state = STATE_RX_WAITING;
+            }
+
             break;
         } else {
-            hdl->ctx.state = STATE_RX_WAITING;
+            uint8_t blocks_per_shard = ctx->blocks_data + ctx->blocks_fec;
+            ctx->state = STATE_RX_WAITING;
+            ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
+            bf_set_all(ctx->missing, blocks_per_shard);
+            event_post(EVENT_PRIO_MEDIUM, &hdl->event_timeout);
         }
     }
 
@@ -713,6 +737,8 @@ static bool _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
                              COAP_CODE_REQUEST_ENTITY_INCOMPLETE, id);
     /* set payload marker */
     *pktpos++ = 0xFF;
+
+    /* TODO: use CBOR */
     memcpy(pktpos, &ctx->page, sizeof(ctx->page));
 
     pkt.payload = pktpos;
@@ -724,7 +750,7 @@ static bool _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
 
     /* set timeout for retransmission request */
     uint32_t timeout_ms = ((2 * shard_blocks) / 3) * CONFIG_NANOCOAP_FRAME_GAP_MS
-                        + (random_uint32() & 0x3) + 1;
+                        + (random_uint32() & 0x1F) + 1;
     ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
 
     return false;
