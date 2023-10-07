@@ -755,6 +755,7 @@ ifneq (,$(filter nanocoap_page,$(USEMODULE)))
   USEMODULE += bitfield
   USEMODULE += nanocoap_sock
   USEMODULE += event_thread
+  USEMODULE += event_timeout_ztimer
 endif
 
 ifneq (,$(filter nanocoap_page_fec_rs,$(USEMODULE)))
