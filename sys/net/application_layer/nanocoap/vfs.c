@@ -197,7 +197,9 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
         goto error;
     }
 
-    _preheat_nc(sock);
+    if (0) {
+        _preheat_nc(sock);
+    }
 
     bool more = true;
     while (more && (res = vfs_read(fd, work_buf, work_buf_len)) > 0) {
@@ -210,7 +212,7 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
             more = false;
         }
 
-        DEBUG("nanocoap: send %u byte shard%s\n", res, more ? "" : " (last shard)");
+        DEBUG("nanocoap: send %u byte page%s\n", res, more ? "" : " (last page)");
         res = nanocoap_shard_put(&ctx, work_buf, res, more);
         if (res < 0) {
             break;
