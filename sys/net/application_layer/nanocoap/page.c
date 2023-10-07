@@ -211,14 +211,12 @@ static int _block_resp_cb(void *arg, coap_pkt_t *pkt)
             bf_set_all(ctx->missing, shard_blocks);
         }
 
-#if 0
-        /* ??? */
+        /* upstream should slowdown too */
         if (!_is_sending) {
             uint8_t buffer[32];
             coap_shard_handler_ctx_t *hdl = container_of(ctx, coap_shard_handler_ctx_t, ctx);
             _request_slowdown(hdl, buffer, sizeof(buffer));
         }
-#endif
 
         return -EAGAIN;
     default:
