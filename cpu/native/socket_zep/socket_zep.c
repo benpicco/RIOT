@@ -245,6 +245,9 @@ static void _send_ack(void *arg)
     uint8_t ack[3];
     zep_v2_data_hdr_t hdr;
 
+    if (zepdev->state != ZEPDEV_STATE_RX_RECV) {
+        return;
+    }
     assert(zepdev->state == ZEPDEV_STATE_RX_RECV);
     assert((rxbuf[0] & IEEE802154_FCF_ACK_REQ) != 0);
 
