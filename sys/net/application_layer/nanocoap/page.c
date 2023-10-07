@@ -506,6 +506,8 @@ int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_
 
     unsigned total_blocks = ctx->blocks_data + ctx->blocks_fec;
 
+    _debug_output_set_ctx(ctx);
+
     /* initialize token */
     if (!ctx->token_len) {
         random_bytes(ctx->token, 4);
@@ -519,6 +521,7 @@ int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_
 
     if (!more) {
         _is_sending = false;
+        _debug_output_set_ctx(NULL);
     }
 
     return 0;
@@ -875,6 +878,7 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
 
     blocks_per_shard = ndata_rx + nfec_rx;
     blocks_left = bf_popcnt(to_send, blocks_per_shard);
+
     coap_block1_t block1;
     if (coap_get_block1(pkt, &block1) < 0) {
         DEBUG("no block option\n");
@@ -984,7 +988,9 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     case STATE_ORPHAN:
         sock_udp_set_remote(&hdl->upstream.udp, remote);
         DEBUG("re-connect upstream on %u\n", remote->netif);
+        ctx->wait_blocks = CONFIG_NANOCOAP_PAGE_RETRIES;
         ctx->state = STATE_RX;
+        event_post(EVENT_PRIO_MEDIUM, &hdl->event_timeout);
         break;
     case STATE_IDLE:
     case STATE_RX_WAITING:
@@ -1004,6 +1010,7 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     case STATE_TX_WAITING:
     case STATE_TX:
         if (_addr_match(hdl, remote)) {
+            /* we are still sending the current frame */
             _request_slowdown(hdl, buf, len);
         }
         return 0;
