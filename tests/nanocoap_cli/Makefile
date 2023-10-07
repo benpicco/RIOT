@@ -11,6 +11,8 @@ USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules
 USEMODULE += gnrc_ipv6_default
 
+FEATURES_REQUIRED += periph_rtc
+FEATURES_REQUIRED += periph_rtc_ms
 USEMODULE += event_periodic_callback
 
 # Instead of simulating an Ethernet connection, we can also simulate
@@ -30,6 +32,9 @@ ifeq (1,$(USE_ZEP))
   USEMODULE += gnrc_rpl
   USEMODULE += auto_init_gnrc_rpl
 
+#  USEMODULE += gnrc_rpl_mrhof
+#  USEMODULE += netstats_neighbor_lqi
+
   ifneq (,$(ZEP_MAC))
     TERMFLAGS += --eui64=$(ZEP_MAC)
   endif
@@ -47,6 +52,7 @@ endif
 USEMODULE += nanocoap_sock
 USEMODULE += nanocoap_page
 USEMODULE += nanocoap_page_forward
+USEMODULE += nanocoap_page_fec_rs
 
 USEMODULE += gnrc_icmpv6_echo ps
 CFLAGS += -DNETDEV_TAP_MAX=2
