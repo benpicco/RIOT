@@ -139,7 +139,7 @@ static void _debug_event_cb(void *ctx)
     int res;
 
     rtc_get_time(&now);
-    res = snprintf(buffer, sizeof(buffer), "n%02u\t%02d:%02d:%02d\t%u\t%s\t%s\n",
+    res = snprintf(buffer, sizeof(buffer), "n%03u\t%02d:%02d:%02d\t%u\t%s\t%s\n",
                    _get_node_id(),
                    now.tm_hour, now.tm_min, now.tm_sec,
                    page_ctx->page,
