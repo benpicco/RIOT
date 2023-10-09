@@ -16,7 +16,7 @@ for (( i=start_seconds; i<=end_seconds; i++ )); do
 	# Convert the current time in seconds since the Epoch to the desired timestamp format
 	current_timestamp=$(date -d "@$i" +"%H:%M:%S")
 
-	y_coord=$((2*(i - start_seconds)))
+	y_coord=$((1*(i - start_seconds)))
 
 	grep -h $current_timestamp native/*/page.lo | sort | cut -f 1,2,3,5 | sed s/$current_timestamp/$y_coord/g | sed s/\+//g | join test.topo.map - >> "$data_file"
 done
@@ -25,9 +25,13 @@ num_nodes=$(cut -f1 -d' ' $data_file | sort | uniq | wc -l)
 
 gnuplot -e "set terminal pngcairo enhanced size $((num_nodes*44)),$((seconds*34))" \
         -e "set output '${plot_file}'" \
+	-e "set xrange [0:$((2*num_nodes+2))]" \
+	-e "set yrange [0:$((seconds+2))]" \
+	-e "set xlabel 'position'" \
+	-e "set ylabel 'time in s'" \
         -e "rgbfudge(x) = x*51*32768 + (11-x)*51*128 + int(abs(5.5-x)*510/9.)" \
         -e "set style fill transparent solid 0.25 noborder" \
-        -e "plot '${data_file}' using 2:(\$5*3):(sqrt(\$4)/3):(rgbfudge(\$6)) with circles fc rgb variable notitle, \
-                 '${data_file}' using 2:(\$5*3):7 with labels notitle"
+        -e "plot '${data_file}' using 2:(\$5):(sqrt(\$4)/3):(rgbfudge(\$6)) with circles fc rgb variable notitle, \
+                 '${data_file}' using 2:(\$5):7 with labels notitle"
 
 eom $plot_file
