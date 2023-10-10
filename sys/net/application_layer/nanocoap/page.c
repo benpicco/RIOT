@@ -48,8 +48,12 @@ static char *_remote_to_string(const nanocoap_sock_t *sock)
 
 static unsigned _get_node_id(void)
 {
+#ifdef BOARD_NATIVE
     extern pid_t _native_id;
     return _native_id;
+#else
+    return 0;
+#endif
 }
 
 static void _fd_write(int log_fd, const char *format, va_list args)
@@ -140,7 +144,7 @@ static void _debug_event_cb(void *ctx)
     int res;
 
     rtc_get_time(&now);
-    res = snprintf(buffer, sizeof(buffer), "n%03u\t%02d:%02d:%02d\t%u\t%s\t%s\n",
+    res = snprintf(buffer, sizeof(buffer), "n%03u\t%02d:%02d:%02d\t%"PRIu32"\t%s\t%s\n",
                    _get_node_id(),
                    now.tm_hour, now.tm_min, now.tm_sec,
                    page_ctx->page,
