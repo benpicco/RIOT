@@ -393,10 +393,14 @@ static bool _fec_rs_decode(coap_shard_handler_ctx_t *req)
         return false;
     }
 
-    unsigned missing = bf_popcnt(ctx->missing, total_blocks);
+    unsigned missing = bf_popcnt(ctx->missing, ctx->blocks_data); //total_blocks);
 
     if (missing == 0) {
         return true;
+    }
+
+    if (missing > ctx->blocks_fec) {
+        return false;
     }
 
     uint8_t marks[NANOCOAP_SHARD_BLOCKS_MAX];
