@@ -9,11 +9,16 @@ export USE_ZEP=1
 n=0
 ELFFILE=bin/native/tests_nanocoap_cli.elf
 TOPOGEN=1
+RANGE=10
 
 while [[ $# -gt 1 ]]; do
   case $1 in
     -n|--num)
         NUM=$2
+        shift 2
+        ;;
+    -r|--range)
+        RANGE=$2
         shift 2
         ;;
     -i|--id)
@@ -49,7 +54,7 @@ init)
      DIM=$(echo "4*sqrt($NUM)" | bc)
 
     if [[ $TOPOGEN -eq 1 ]]; then
-        ./topogen -g -w $DIM -h $DIM -r 5 -v 0 -n $NUM -s $SEED > test.topo
+        ./topogen -g -w $DIM -h $DIM -r $RANGE -v 0 -n $NUM -s $SEED > test.topo
         tail -n $NUM test.topo | cut -d ' ' -f 2 | cut -f 1,2,3,4 > test.topo.map
     fi
 
@@ -60,7 +65,7 @@ init)
         tmux set-option history-limit 8192 \; new-window -d -t $SESSION: $ELFFILE --id=$i --eui64=$MAC -z [::1]:$ZEP_PORT
     done
 
-    sleep 7
+    sleep 10
 #    ;;
 #start)
     echo Start Test
@@ -78,7 +83,7 @@ init)
     tmux capture-pane -p -t $SESSION:0 | grep tx_total
     END=$(date +%s.%m)
     DIFF=$(echo "$END - $START" | bc)
-    echo "finished in $DIFF seconds"
+    echo "range $RANGE finished in $DIFF seconds"
     ;;
 attach|a)
     tmux a -t $SESSION:$2
