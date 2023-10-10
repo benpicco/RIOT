@@ -883,9 +883,6 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
         return 0;
     }
 
-    blocks_per_shard = ndata_rx + nfec_rx;
-    blocks_left = bf_popcnt(to_send, blocks_per_shard);
-
     coap_block1_t block1;
     if (coap_get_block1(pkt, &block1) < 0) {
         DEBUG("no block option\n");
@@ -898,6 +895,8 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     }
 
     const size_t block_len = coap_szx2size(block1.szx);
+    blocks_per_shard = ndata_rx + nfec_rx;
+    blocks_left = blocks_per_shard - block1.blknum - 1;
 
     if (page_rx != ctx->page) {
         if ((ctx->state == STATE_IDLE) || (ctx->state == STATE_ORPHAN)) {
