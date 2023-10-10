@@ -11,8 +11,8 @@ USEMODULE += auto_init_gnrc_netif
 # Specify the mandatory networking modules
 USEMODULE += gnrc_ipv6_default
 
-FEATURES_REQUIRED += periph_rtc
-FEATURES_REQUIRED += periph_rtc_ms
+FEATURES_OPTIONAL += periph_rtc
+FEATURES_OPTIONAL += periph_rtc_ms
 USEMODULE += event_periodic_callback
 
 # Instead of simulating an Ethernet connection, we can also simulate
