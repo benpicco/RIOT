@@ -370,6 +370,7 @@ static void _fec_rs_init(nanocoap_page_ctx_t *ctx, nanocoap_page_coding_ctx_t *f
                                                sizeof(fec->ctx.rs.rs_buf),
                                                ctx->blocks_data, ctx->blocks_fec);
     assert(rs);
+    (void)rs;
 
     /* set up block pointers */
     for (unsigned i = 0; i < ctx->blocks_data + ctx->blocks_fec; ++i) {
@@ -386,6 +387,7 @@ static void _fec_rs_encode(coap_shard_request_t *req)
     int res = reed_solomon_encode(rs, req->fec.ctx.rs.blocks,
                                   ARRAY_SIZE(req->fec.ctx.rs.blocks), len);
     assert(res == 0);
+    (void)res;
 }
 
 static bool _fec_rs_decode(coap_shard_handler_ctx_t *req)
@@ -500,6 +502,7 @@ int nanocoap_shard_put(coap_shard_request_t *req, const void *data, size_t data_
 
     // TODO: move this out of here
     assert(ctx->work_buf == data);
+    (void)data;
 
     ctx->blocks_data = DIV_ROUND_UP(data_len, len);
     ctx->is_last = !more;
