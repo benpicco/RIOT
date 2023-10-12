@@ -297,6 +297,8 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
     if (blocks_left == 0) {
         ctx->state = STATE_TX_WAITING;
         res = -EAGAIN;
+        /* give downstream node time to also receive retrans requests */
+        /* TODO: does this make sense? */
         ctx->wait_blocks = 2 * total_blocks;
     }
 
@@ -762,6 +764,7 @@ static bool _request_missing(coap_shard_handler_ctx_t *hdl, uint8_t *buf, size_t
     hdl->req_sent = true;
 
     /* set timeout for retransmission request */
+    /* TODO: is 2/3 of the page size really a good value? */
     uint32_t timeout_ms = ((2 * shard_blocks) / 3) * CONFIG_NANOCOAP_FRAME_GAP_MS
                         + (random_uint32() & 0x1F) + 1;
     ztimer_set(ZTIMER_MSEC, &hdl->timer, timeout_ms);
@@ -1017,6 +1020,7 @@ ssize_t nanocoap_page_block_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len,
     case STATE_TX:
         if (_addr_match(hdl, remote)) {
             /* we are still sending the current frame */
+            /* TODO: is this really needed? */
             _request_slowdown(hdl, buf, len);
         }
         return 0;

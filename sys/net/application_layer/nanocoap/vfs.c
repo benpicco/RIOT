@@ -217,7 +217,7 @@ int nanocoap_vfs_put_multicast(nanocoap_sock_t *sock, const char *path, const ch
         if (res < 0) {
             break;
         }
-        work_buf = nanocoap_page_req_get(&ctx, NULL);
+        work_buf = nanocoap_page_req_get(&ctx, NULL);   // TODO: not needed anymore?
     }
 
 error:
