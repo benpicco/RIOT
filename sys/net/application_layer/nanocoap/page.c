@@ -627,7 +627,8 @@ int nanocoap_shard_set_forward(coap_shard_handler_ctx_t *hdl, unsigned netif, bo
     return res;
 #else
     (void)hdl;
-    (void)remote;
+    (void)netif;
+    (void)on;
     return -ENOTSUP;
 #endif
 }
