@@ -261,35 +261,34 @@ static int _block_request(coap_shard_request_ctx_t *req, nanocoap_page_ctx_t *ct
         .iol_len  = len,
     };
 
+    /* build CoAP header */
+    coap_pkt_t pkt = {
+        .hdr = (void *)buf,
+        .snips = &snip,
+    };
 
-        /* build CoAP header */
-        coap_pkt_t pkt = {
-            .hdr = (void *)buf,
-            .snips = &snip,
-        };
+    uint8_t *pktpos = (void *)pkt.hdr;
+    uint16_t lastonum = 0;
 
-        uint8_t *pktpos = (void *)pkt.hdr;
-        uint16_t lastonum = 0;
+    bf_unset(ctx->missing, i);
 
-        bf_unset(ctx->missing, i);
+    pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
+                             COAP_METHOD_PUT, id);
+    pktpos += coap_opt_put_uri_pathquery(pktpos, &lastonum, req->path);
+    pktpos += coap_opt_put_uint(pktpos, lastonum, COAP_OPT_BLOCK1,
+                                (i << 4) | req->blksize | (more ? 0x8 : 0));
+    pktpos += coap_opt_put_page(pktpos, COAP_OPT_BLOCK1, ctx->page, ctx->blocks_data,
+                                ctx->blocks_fec, ctx->missing, more_shards);
 
-        pktpos += coap_build_hdr(pkt.hdr, COAP_TYPE_NON, ctx->token, ctx->token_len,
-                                 COAP_METHOD_PUT, id);
-        pktpos += coap_opt_put_uri_pathquery(pktpos, &lastonum, req->path);
-        pktpos += coap_opt_put_uint(pktpos, lastonum, COAP_OPT_BLOCK1,
-                                    (i << 4) | req->blksize | (more ? 0x8 : 0));
-        pktpos += coap_opt_put_page(pktpos, COAP_OPT_BLOCK1, ctx->page, ctx->blocks_data,
-                                    ctx->blocks_fec, ctx->missing, more_shards);
+    /* all ACK responses (2.xx, 4.xx and 5.xx) are ignored */
+    pktpos += coap_opt_put_uint(pktpos, COAP_OPT_PAGE, COAP_OPT_NO_RESPONSE, 26);
 
-        /* all ACK responses (2.xx, 4.xx and 5.xx) are ignored */
-        pktpos += coap_opt_put_uint(pktpos, COAP_OPT_PAGE, COAP_OPT_NO_RESPONSE, 26);
+    /* set payload marker */
+    *pktpos++ = 0xFF;
+    pkt.payload = pktpos;
 
-        /* set payload marker */
-        *pktpos++ = 0xFF;
-        pkt.payload = pktpos;
-
-        DEBUG("send block %"PRIu32".%u (%u / %u left)\n", ctx->page, i, blocks_left, total_blocks);
-        nanocoap_sock_send_pkt(req->sock, &pkt);
+    DEBUG("send block %"PRIu32".%u (%u / %u left)\n", ctx->page, i, blocks_left, total_blocks);
+    nanocoap_sock_send_pkt(req->sock, &pkt);
 
     nanocoap_response_state_t state = 0;
     uint32_t deadline_ms = ztimer_now(ZTIMER_MSEC) + CONFIG_NANOCOAP_FRAME_GAP_MS;
