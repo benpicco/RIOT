@@ -75,6 +75,7 @@ static void _fd_write(int log_fd, const char *format, va_list args)
     print_timestamp = strchr(format, '\n');
 }
 
+__attribute__((unused))
 static void log_fd_write(const char *format, ...)
 {
     static int log_fd;
