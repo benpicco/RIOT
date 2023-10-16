@@ -58,7 +58,7 @@ void nanocoap_page_handler_md5(void *data, size_t len, size_t offset,
 
     md5_update(md5, data, len);
 
-    fwrite(data, len, 1, stdout);
+//    fwrite(data, len, 1, stdout);
 
     if (ctx->fd) {
         vfs_write(ctx->fd, data, len);
