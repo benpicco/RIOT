@@ -124,7 +124,6 @@ ssize_t gnrc_sock_recv(gnrc_sock_reg_t *reg, gnrc_pktsnip_t **pkt_out,
     default: /* non-blocking with timeout */
 #if TIMEOUT_SUPPORTED
         if (ztimer_mbox_get_timeout(ZTIMER_USEC, &reg->mbox, &msg, timeout)) {
-            puts("Timeout");
             return -ETIMEDOUT;
         }
 #else
