@@ -288,6 +288,7 @@ ssize_t sock_udp_recv_buf_aux(sock_udp_t *sock, void **data, void **buf_ctx,
         now = ztimer_now(ZTIMER_USEC) - now;
         if (res == -ETIMEDOUT && now < (timeout - timeout/10))  {
             timeout -= now;
+            printf(">>> timeout happened %u µs early <<<\n", timeout);
             continue;
         }
         break;
