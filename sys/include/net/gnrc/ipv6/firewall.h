@@ -51,12 +51,11 @@ extern "C" {
 /**
  * @brief Firewall rule struct
  */
-typedef struct {
+typedef struct __attribute__((aligned(4))) {
     ipv6_addr_t addr;   /**< address to match    */
     ipv6_addr_t mask;   /**< bitmask for address */
     uint8_t prio;       /**< rule priority       */
     uint8_t flags;      /**< rule flags          */
-    uint8_t padding[2]; /**< padding for XFA     */
 } gnrc_ipv6_firewall_rule_t;
 
 /**
