@@ -90,6 +90,12 @@ gnrc_pktsnip_t *gnrc_ipv6_ext_opt_process(gnrc_pktsnip_t *pkt,
             case IPV6_EXT_OPT_PADN:
                 /* nothing to do, offset will be progressed below */
                 break;
+            case IPV6_EXT_OPT_RPL:
+                if (IS_USED(MODULE_GNRC_IPV6_EXT_OPT_RPL)) {
+                    ipv6_ext_opt_rpl_t *opt = (ipv6_ext_opt_rpl_t *)&opts[offset];
+                    gnrc_ipv6_ext_opt_rpl_cb(pkt, opt);
+                }
+                break;
             default: {
                 bool send_error = false;
 

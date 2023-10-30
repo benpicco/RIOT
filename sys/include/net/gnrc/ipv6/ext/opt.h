@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #include "net/gnrc/pkt.h"
+#include "net/ipv6/ext/opt.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +52,18 @@ extern "C" {
  */
 gnrc_pktsnip_t *gnrc_ipv6_ext_opt_process(gnrc_pktsnip_t *pkt,
                                           uint8_t protnum);
+
+/**
+ * @brief   Callback to be executed when a RPL hop-by-hop option
+ *          is received.
+ *
+ *          To be implemented by the routing protocol, must
+ *          update the option's rank with the last hop's metric.
+ *
+ * @param[in]      pkt  The received packet
+ * @param[in, out] opt  The RPL hop-by-op option
+ */
+void gnrc_ipv6_ext_opt_rpl_cb(gnrc_pktsnip_t *pkt, ipv6_ext_opt_rpl_t *opt);
 
 #ifdef __cplusplus
 }
