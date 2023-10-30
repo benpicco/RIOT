@@ -36,7 +36,7 @@ extern "C" {
 #define IPV6_EXT_OPT_PAD1           (0x00U) /**< Pad1 */
 #define IPV6_EXT_OPT_PADN           (0x01U) /**< PadN */
 #define IPV6_EXT_OPT_JUMBO          (0xC2U) /**< Jumbo payload */
-#define IPV6_EXT_OPT_RPL            (0x63U) /**< RPL Option */
+#define IPV6_EXT_OPT_RPL            (0x23U) /**< RPL Option */
 #define IPV6_EXT_OPT_TEL            (0x04U) /**< Tunnel Encapsulation Limit */
 #define IPV6_EXT_OPT_RTR_ALERT      (0x05U) /**< Router Alert */
 #define IPV6_EXT_OPT_QUICK_START    (0x26U) /**< Quick-Start */
@@ -49,6 +49,22 @@ extern "C" {
 #define IPV6_EXT_OPT_IP_DFF         (0xEEU) /**< IP_DFF */
 #define IPV6_EXT_OPT_PDM            (0x0FU) /**< Performance and Diagnostic Metrics */
 /** @} */
+
+/**
+ * @brief RPL hop-by-hop Option
+ * @see <a href="https://datatracker.ietf.org/doc/html/rfc6553#section-3">
+ *          RFC6553, section 3, Format of the RPL Option
+ *      </a>
+ */
+typedef struct __attribute__((packed)) {
+    uint8_t flags;              /**< RPL Option flags */
+    uint8_t instance_id;        /**< id of the instance */
+    network_uint16_t rank;      /**< rank of the parent emitting the DIO */
+} ipv6_ext_opt_rpl_t;
+
+#define IPV6_EXT_OPT_RPL_FLAG_DOWN      (1 << 7)    /**< Packet is traveling DOWN the DODAG */
+#define IPV6_EXT_OPT_RPL_FLAG_RNK_ERR   (1 << 6)    /**< Rank error is detected */
+#define IPV6_EXT_OPT_RPL_FLAG_FWD_ERR   (1 << 5)    /**< Node cannot forward the packet */
 
 /**
  * @name Processing actions
