@@ -29,6 +29,8 @@ USEMODULE += netstats_l2
 USEMODULE += netstats_ipv6
 USEMODULE += netstats_rpl
 
+USEMODULE += gnrc_ipv6_ext_opt_rpl
+
 # Optionally include DNS support. This includes resolution of names at an
 # upstream DNS server and the handling of RDNSS options in Router Advertisements
 # to auto-configure that upstream DNS server.
