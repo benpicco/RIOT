@@ -18,6 +18,8 @@
 #include "net/gnrc/pktbuf.h"
 #include "net/protnum.h"
 
+#include "net/gnrc/ipv6/ext/opt.h"
+
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
@@ -76,6 +78,10 @@ gnrc_pktsnip_t *gnrc_ipv6_hdr_build(gnrc_pktsnip_t *payload, const ipv6_addr_t *
     hdr->v_tc_fl = byteorder_htonl(0x60000000); /* set version, tc and fl in one go*/
     hdr->nh = PROTNUM_RESERVED;
     hdr->hl = 0;
+
+    if (IS_USED(MODULE_GNRC_IPV6_EXT_OPT_RPL)) {
+        ipv6 = gnrc_ipv6_ext_opt_add_hopopt(ipv6);
+    }
 
     return ipv6;
 }
