@@ -65,6 +65,8 @@ gnrc_pktsnip_t *gnrc_ipv6_ext_opt_process(gnrc_pktsnip_t *pkt,
  */
 void gnrc_ipv6_ext_opt_rpl_cb(gnrc_pktsnip_t *pkt, ipv6_ext_opt_rpl_t *opt);
 
+gnrc_pktsnip_t *gnrc_ipv6_ext_opt_add_hopopt(gnrc_pktsnip_t *pkt);
+
 #ifdef __cplusplus
 }
 #endif
