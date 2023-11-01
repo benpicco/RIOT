@@ -253,7 +253,6 @@ ssize_t gnrc_sock_send(gnrc_pktsnip_t *payload, sock_ip_ep_t *local,
     switch (local->family) {
 #ifdef SOCK_HAS_IPV6
         case AF_INET6: {
-            ipv6_hdr_t *hdr;
             pkt = gnrc_ipv6_hdr_build(payload, (ipv6_addr_t *)&local->addr.ipv6,
                                       (ipv6_addr_t *)&remote->addr.ipv6);
             if (pkt == NULL) {
@@ -266,8 +265,6 @@ ssize_t gnrc_sock_send(gnrc_pktsnip_t *payload, sock_ip_ep_t *local,
             else {
                 type = payload->type;
             }
-            hdr = pkt->data;
-            hdr->nh = nh;
             break;
         }
 #endif
