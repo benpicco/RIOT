@@ -1397,7 +1397,8 @@ static bool _resolve_addr(const ipv6_addr_t *dst, gnrc_netif_t *netif,
         return false;
     }
 
-    if (IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_ARSM)) {
+    /* don't send multicast neighbor solicitation on 6lo */
+    if (!gnrc_netif_is_6lo(netif)) {
         _probe_nbr(entry, reset);
     }
 
