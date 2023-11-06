@@ -1,6 +1,6 @@
 PKG_NAME=lwext4
-PKG_URL=https://github.com/gkostka/lwext4.git
-PKG_VERSION=58bcf89a121b72d4fb66334f1693d3b30e4cb9c5
+PKG_URL=https://github.com/RT-Thread-packages/lwext4.git
+PKG_VERSION=3b7938080e80fb72bad5bb5506e6e782a544a47d
 PKG_LICENSE=GPLv2
 
 CFLAGS += -Wno-cast-align
