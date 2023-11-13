@@ -336,10 +336,7 @@ static bool _is_ipv6_hdr(gnrc_pktsnip_t *hdr)
 /* find the last extension header, if present */
 static gnrc_pktsnip_t *_last_ext_hdr(gnrc_pktsnip_t *ipv6)
 {
-    if (!IS_USED(MODULE_GNRC_IPV6_EXT_OPT)) {
-        return NULL;
-    }
-
+#ifdef MODULE_GNRC_IPV6_EXT_OPT
     if (ipv6->next == NULL || ipv6->next->type != GNRC_NETTYPE_IPV6_EXT) {
         return NULL;
     }
@@ -349,6 +346,10 @@ static gnrc_pktsnip_t *_last_ext_hdr(gnrc_pktsnip_t *ipv6)
     }
 
     return ipv6;
+#else
+    (void)ipv6;
+    return NULL;
+#endif
 }
 
 static int _fill_ipv6_hdr(gnrc_netif_t *netif, gnrc_pktsnip_t *ipv6)
