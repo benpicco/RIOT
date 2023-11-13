@@ -19,6 +19,8 @@ endif
 WIFI_SSID ?= "Your_WiFi_name"
 WIFI_PASS ?= "Your_secure_password"
 
+USEMODULE += gnrc_ipv6_ext_opt_rpl
+
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
 USEMODULE += netdev_default

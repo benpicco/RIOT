@@ -23,8 +23,20 @@
 #include "shell.h"
 #include "msg.h"
 
+#include "byteorder.h"
+#include "net/gnrc/ipv6/ext/opt.h"
+
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
+
+void gnrc_ipv6_ext_opt_rpl_cb(gnrc_pktsnip_t *pkt, ipv6_ext_opt_rpl_t *opt)
+{
+    (void)pkt;
+    uint16_t rank = byteorder_ntohs(opt->rank);
+
+    printf("got RPL opt with rank %u\n", rank);
+    opt->rank = byteorder_htons(++rank);
+}
 
 int main(void)
 {
