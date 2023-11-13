@@ -36,7 +36,7 @@ USEMODULE += ps
 
 # Optionally include RPL as a routing protocol. When includede gnrc_uhcpc will
 # configure the node as a RPL DODAG root when receiving a prefix.
-#USEMODULE += gnrc_rpl
+USEMODULE += gnrc_rpl
 
 # Optionally include DNS support. This includes resolution of names at an
 # upstream DNS server and the handling of RDNSS options in Router Advertisements
