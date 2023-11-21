@@ -211,6 +211,10 @@ void saul_init_devs(void)
         extern void auto_init_mcp47xx(void);
         auto_init_mcp47xx();
     }
+    if (IS_USED(MODULE_MCP9601)) {
+        extern void auto_init_mcp9601(void);
+        auto_init_mcp9601();
+    }
     if (IS_USED(MODULE_MHZ19)) {
         extern void auto_init_mhz19(void);
         auto_init_mhz19();
