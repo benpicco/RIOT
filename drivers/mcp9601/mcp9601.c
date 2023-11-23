@@ -20,7 +20,7 @@
 #include "mcp9601_params.h"
 #include "mcp9601_regs.h"
 
-#define ENABLE_DEBUG 0
+#define ENABLE_DEBUG 1
 #include "debug.h"
 
 #define I2C_BUS     (dev->params->i2c_bus)
@@ -45,7 +45,7 @@ static int _write_reg_checked(mcp9601_t *dev, uint16_t reg, uint8_t byte)
 int mcp9601_init(mcp9601_t *dev, const mcp9601_params_t *params)
 {
     int res = 0;
-    uint16_t device_id;
+    uint8_t device_id;
 
     dev->params = params;
     i2c_acquire(I2C_BUS);
@@ -56,7 +56,7 @@ int mcp9601_init(mcp9601_t *dev, const mcp9601_params_t *params)
     }
     i2c_read_bytes(I2C_BUS, I2C_ADDR, &device_id, sizeof(device_id), 0);
 
-    if (device_id != htons(MCP9601_PARAMS_DEVICE_ID)) {
+    if (device_id != MCP9601_PARAMS_DEVICE_ID) {
         DEBUG("mcp9601: invalid device id: %x\n", device_id);
         res = -EFAULT;
         goto out;

@@ -37,7 +37,7 @@ extern "C" {
 /** Content of the Device ID and Revision ID register
    [8 bits: Device ID][8 bits: Revision ID] */
 #ifndef MCP9601_PARAMS_DEVICE_ID
-#define MCP9601_PARAMS_DEVICE_ID  (0x4110)
+#define MCP9601_PARAMS_DEVICE_ID  (0x41)
 #endif
 
 /**
