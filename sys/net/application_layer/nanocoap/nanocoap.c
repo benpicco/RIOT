@@ -441,8 +441,11 @@ int coap_iterate_uri_query(coap_pkt_t *pkt, void **opt_pos,
     memcpy(key, key_data, key_len);
     key[key_len] = 0;
 
-    if (!value_data || !value) {
+    if (!value_data) {
         return 1;
+    }
+    if (!value) {
+        return 2;
     }
 
     if (value_len >= value_len_max) {
