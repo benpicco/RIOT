@@ -90,6 +90,13 @@ static void test_nanocoap__hdr_2(void)
     TEST_ASSERT_EQUAL_STRING("&foo=bar&baz=blub", (char *)query_tmp);
 
     void *pos = NULL;
+
+    res = coap_iterate_uri_query(&pkt, &pos, key, sizeof(key), value, 3);
+    TEST_ASSERT_EQUAL_INT(-E2BIG, res);
+    res = coap_iterate_uri_query(&pkt, &pos, key, 3, value, sizeof(value));
+    TEST_ASSERT_EQUAL_INT(-E2BIG, res);
+
+    pos = NULL;
     res = coap_iterate_uri_query(&pkt, &pos, key, sizeof(key), value, sizeof(value));
     TEST_ASSERT_EQUAL_INT(2, res);
     TEST_ASSERT_EQUAL_STRING("foo", key);
