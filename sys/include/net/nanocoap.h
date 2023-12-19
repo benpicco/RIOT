@@ -864,7 +864,11 @@ static inline ssize_t coap_get_uri_query_string(coap_pkt_t *pkt, char *target,
 /**
  * @brief   Iterate over a packet's URI Query options
  *
- * URI Query options will have the format `key=value`.
+ * This expects that the Uri-Query options follow the widespread format `key=value`
+ * or just `key`
+ *
+ * Key and Value will be copied into the supplied buffers as a NULL-terminated
+ * string.
  *
  * @param[in]   pkt           packet to read from
  * @param[out]  ctx           opaque, must be set to `NULL` on first call
