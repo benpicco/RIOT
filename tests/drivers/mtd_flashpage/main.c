@@ -218,7 +218,7 @@ static void test_mtd_write_read_page(void)
 #endif
 }
 
-#if CONFIG_SLOT_AUX_LEN
+#ifdef MODULE_PERIPH_FLASHPAGE_AUX
 static bool mem_is_all_set(const uint8_t *buf, uint8_t c, size_t n)
 {
     for (const uint8_t *end = buf + n; buf != end; ++buf) {
@@ -300,7 +300,7 @@ Test *tests_mtd_flashpage_tests(void)
         new_TestFixture(test_mtd_write_erase),
         new_TestFixture(test_mtd_write_read),
         new_TestFixture(test_mtd_write_read_page),
-#if CONFIG_SLOT_AUX_LEN
+#ifdef MODULE_PERIPH_FLASHPAGE_AUX
         new_TestFixture(test_mtd_aux_slot),
 #endif
     };

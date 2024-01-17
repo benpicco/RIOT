@@ -4,6 +4,8 @@ USEMODULE += mtd_flashpage
 USEMODULE += mtd_write_page
 USEMODULE += embunit
 
+FEATURES_OPTIONAL += periph_flashpage_aux
+
 # define an auxiliary slot on the internal flash
 SLOT_AUX_LEN := 0x8000
 
