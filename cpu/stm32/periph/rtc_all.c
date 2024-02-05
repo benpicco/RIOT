@@ -414,15 +414,7 @@ void rtc_poweroff(void)
 
 void ISR_NAME(void)
 {
-#if !defined(CPU_FAM_STM32L5) && !defined(CPU_FAM_STM32G0)
-    if (RTC_REG_ISR & RTC_ISR_ALRAF) {
-        if (isr_ctx.cb != NULL) {
-            isr_ctx.cb(isr_ctx.arg);
-        }
-        RTC_REG_ISR &= ~RTC_ISR_ALRAF;
-    }
-    EXTI_REG_PR = EXTI_PR_BIT; /* only clear the associated bit */
-#else
+#if defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32G0)
     if (RTC_REG_SR & RTC_SR_ALRAF) {
         if (isr_ctx.cb != NULL) {
             isr_ctx.cb(isr_ctx.arg);
@@ -433,6 +425,14 @@ void ISR_NAME(void)
         /* Lock to avoid parasitic write access */
         stmclk_dbp_lock();
     }
+#else
+    if (RTC_REG_ISR & RTC_ISR_ALRAF) {
+        if (isr_ctx.cb != NULL) {
+            isr_ctx.cb(isr_ctx.arg);
+        }
+        RTC_REG_ISR &= ~RTC_ISR_ALRAF;
+    }
+    EXTI_REG_PR = EXTI_PR_BIT; /* only clear the associated bit */
 #endif
     cortexm_isr_end();
 }
