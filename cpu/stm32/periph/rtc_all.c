@@ -66,8 +66,6 @@
 /* map some RTC register names and bitfield */
 #if defined(CPU_FAM_STM32G4) || defined(CPU_FAM_STM32G0)
 #define RTC_REG_ISR         RTC->ICSR
-#define RTC_REG_SR          RTC->SR
-#define RTC_REG_SCR         RTC->SCR
 #define RTC_ISR_RSF         RTC_ICSR_RSF
 #define RTC_ISR_INIT        RTC_ICSR_INIT
 #define RTC_ISR_INITF       RTC_ICSR_INITF
@@ -75,8 +73,6 @@
 #define RTC_ISR_ALRAF       RTC_SR_ALRAF
 #elif defined(CPU_FAM_STM32L5)
 #define RTC_REG_ISR         RTC->ICSR
-#define RTC_REG_SR          RTC->SR
-#define RTC_REG_SCR         RTC->SCR
 #define RTC_ISR_RSF         RTC_ICSR_RSF
 #define RTC_ISR_INIT        RTC_ICSR_INIT
 #define RTC_ISR_INITF       RTC_ICSR_INITF
@@ -353,10 +349,10 @@ int rtc_set_alarm(struct tm *time, rtc_alarm_cb_t cb, void *arg)
                    val2bcd(time->tm_sec,  RTC_ALRMAR_SU_Pos, ALRM_S_MASK));
 
     /* Enable Alarm A */
-#if !defined(CPU_FAM_STM32L5)
-    RTC_REG_ISR &= ~(RTC_ISR_ALRAF);
+#ifdef RTC_SCR_CALRAF
+    RTC->SCR = RTC_SCR_CALRAF;
 #else
-    RTC_REG_SCR = RTC_SCR_CALRAF;
+    RTC_REG_ISR &= ~(RTC_ISR_ALRAF);
 #endif
     RTC->CR |= (RTC_CR_ALRAE | RTC_CR_ALRAIE);
 
@@ -386,10 +382,10 @@ void rtc_clear_alarm(void)
 
     RTC->CR &= ~(RTC_CR_ALRAE | RTC_CR_ALRAIE);
 
-#if !defined(CPU_FAM_STM32L5)
-    while (!(RTC_REG_ISR & RTC_ISR_ALRAWF)) {}
+#ifdef RTC_SCR_CALRAF
+    RTC->SCR = RTC_SCR_CALRAF;
 #else
-    RTC_REG_SCR = RTC_SCR_CALRAF;
+    while (!(RTC_REG_ISR & RTC_ISR_ALRAWF)) {}
 #endif
 
     isr_ctx.cb = NULL;
@@ -414,14 +410,14 @@ void rtc_poweroff(void)
 
 void ISR_NAME(void)
 {
-#if defined(CPU_FAM_STM32L5) || defined(CPU_FAM_STM32G0)
-    if (RTC_REG_SR & RTC_SR_ALRAF) {
+#ifdef RTC_SCR_CALRAF
+    if (RTC->SR & RTC_SR_ALRAF) {
         if (isr_ctx.cb != NULL) {
             isr_ctx.cb(isr_ctx.arg);
         }
         /* RTC registers are write access protected, DBP bit must be set to enable access */
         stmclk_dbp_unlock();
-        RTC_REG_SCR = RTC_SCR_CALRAF;
+        RTC->SCR = RTC_SCR_CALRAF;
         /* Lock to avoid parasitic write access */
         stmclk_dbp_lock();
     }
