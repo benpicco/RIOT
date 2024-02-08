@@ -40,7 +40,6 @@ config MODULE_SLIPDEV_STDIO
     bool "SLIP network device"
     depends on MODULE_SLIPDEV
     select USE_STDOUT_BUFFERED
-    select MODULE_ISRPIPE
 
 config MODULE_STDIO_NULL
     bool "Null"
