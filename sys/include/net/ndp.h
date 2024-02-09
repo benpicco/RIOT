@@ -37,6 +37,7 @@ extern "C" {
 #define NDP_RTR_ADV_FLAGS_MASK      (0xc0)
 #define NDP_RTR_ADV_FLAGS_M         (0x80)  /**< managed address configuration */
 #define NDP_RTR_ADV_FLAGS_O         (0x40)  /**< other configuration */
+#define NDP_RTR_ADV_FLAGS_PROXY     (0x04)  /**< RA was proxied, see [RFC 4389, section 4.1.3.3](https://datatracker.ietf.org/doc/html/rfc4389#section-4.1.3.3) */
 /**
  * @}
  */
