@@ -94,6 +94,9 @@ endif
 ifneq (,$(filter gnrc_ipv6_auto_subnets,$(USEMODULE)))
   DIRS += routing/ipv6_auto_subnets
 endif
+ifneq (,$(filter gnrc_ipv6_nd_proxy,$(USEMODULE)))
+  DIRS += routing/ipv6_nd_proxy
+endif
 ifneq (,$(filter gnrc_sixlowpan,$(USEMODULE)))
   DIRS += network_layer/sixlowpan
 endif

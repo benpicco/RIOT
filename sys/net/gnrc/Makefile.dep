@@ -148,6 +148,10 @@ ifneq (,$(filter gnrc_ipv6_auto_subnets,$(USEMODULE)))
   endif
 endif
 
+ifneq (,$(filter gnrc_ipv6_nd_proxy,$(USEMODULE)))
+  USEMODULE += gnrc_ipv6_nib_rtr_adv_pio_cb
+endif
+
 ifneq (,$(filter gnrc_netif,$(USEMODULE)))
   USEMODULE += netif
   USEMODULE += l2util
