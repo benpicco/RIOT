@@ -1004,7 +1004,7 @@ static void _handle_nbr_sol(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
     }
     /* check if target is assigned only now in case the length was wrong */
     tgt_idx = gnrc_netif_ipv6_addr_idx(netif, &nbr_sol->tgt);
-    if (tgt_idx < 0) {
+    if (tgt_idx < 0 && !IS_USED(MODULE_GNRC_IPV6_ND_PROXY)) {
         DEBUG("nib: Target address %s is not assigned to the local interface\n",
               ipv6_addr_to_str(addr_str, &nbr_sol->tgt, sizeof(addr_str)));
         return;
@@ -1117,8 +1117,14 @@ static void _handle_nbr_sol(gnrc_netif_t *netif, const ipv6_hdr_t *ipv6,
         else if (sl2ao) {
             _handle_sl2ao(netif, ipv6, (const icmpv6_hdr_t *)nbr_sol, sl2ao);
         }
+
+        if (tgt_idx < 0 && IS_USED(MODULE_GNRC_IPV6_ND_PROXY)) {
+            gnrc_ndp_nbr_adv_send(&nbr_sol->tgt, netif, &ipv6->src,
+                                  ipv6_addr_is_multicast(&ipv6->dst),
+                                  reply_aro);
+        }
         /* check if target address is anycast */
-        if (netif->ipv6.addrs_flags[tgt_idx] & GNRC_NETIF_IPV6_ADDRS_FLAGS_ANYCAST) {
+        else if (netif->ipv6.addrs_flags[tgt_idx] & GNRC_NETIF_IPV6_ADDRS_FLAGS_ANYCAST) {
             _send_delayed_nbr_adv(netif, &nbr_sol->tgt, ipv6, reply_aro);
         }
         else {

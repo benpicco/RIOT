@@ -357,7 +357,8 @@ void gnrc_ndp_nbr_adv_send(const ipv6_addr_t *tgt, gnrc_netif_t *netif,
     do {    /* XXX: hidden goto */
         int tgt_idx;
 
-        if ((tgt_idx = gnrc_netif_ipv6_addr_idx(netif, tgt)) < 0) {
+        if ((tgt_idx = gnrc_netif_ipv6_addr_idx(netif, tgt)) < 0 &&
+            !IS_USED(MODULE_GNRC_IPV6_ND_PROXY)) {
             DEBUG("ndp: tgt not assigned to interface. Abort sending\n");
             break;
         }
@@ -393,7 +394,7 @@ void gnrc_ndp_nbr_adv_send(const ipv6_addr_t *tgt, gnrc_netif_t *netif,
                 if the target address is not an anycast address, and
                 we do not provide a proxy service for the target (TODO), and
                 the Target Link Layer Address Option is included. */
-                if (!(netif->ipv6.addrs_flags[tgt_idx] &
+                if (tgt_idx >= 0 && !(netif->ipv6.addrs_flags[tgt_idx] &
                     GNRC_NETIF_IPV6_ADDRS_FLAGS_ANYCAST)) {
                     /* If the receipt of an NA has an existing cache entry
                     which is not in the INCOMPLETE state, and the supplied TLLAO
