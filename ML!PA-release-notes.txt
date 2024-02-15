@@ -18,3 +18,4 @@ RIOT-2024.01-mlpa-5 - Merge Notes
  - merge benpicco/nanocoap_sock-pathquery
  - merge benpicco/pyterm-session
  - merge benpicco/gnrc_loopback-linklocal
+ - cherry-pick 69a3bb71cde48013126b12b6834c01e248dc8dad (nanopb code generation fix)
