@@ -4,6 +4,9 @@ NATIVEINCLUDES += -I$(RIOTBASE)/core/include/
 NATIVEINCLUDES += -I$(RIOTBASE)/sys/include/
 NATIVEINCLUDES += -I$(RIOTBASE)/drivers/include/
 
+export CCACHE ?= diet
+export DIET ?= diet
+
 ifeq ($(OS),Darwin)
   DEBUGGER ?= lldb
 else
