@@ -76,7 +76,15 @@ static void _native_mod_ctx_leave_sigh(ucontext_t *ctx)
 #if defined(__arm__)
     _native_saved_eip = ((ucontext_t *)ctx)->uc_mcontext.arm_pc;
     ((ucontext_t *)ctx)->uc_mcontext.arm_pc = (unsigned int)&_native_sig_leave_handler;
-#else /* Linux/x86 */
+#elif defined(__dietlibc__) /* Linux/x86 - dietlibc */
+  #ifdef __x86_64__
+    _native_saved_eip = ((struct sigcontext *)ctx)->rip;
+    ((struct sigcontext *)ctx)->rip = (unsigned int)&_native_sig_leave_handler;
+  #else
+    _native_saved_eip = ((struct sigcontext *)ctx)->eip;
+    ((struct sigcontext *)ctx)->eip = (unsigned int)&_native_sig_leave_handler;
+  #endif
+#else /* Linux/x86 - GLIBC */
   #ifdef __x86_64__
     _native_saved_eip = ctx->uc_mcontext.gregs[REG_RIP];
     ctx->uc_mcontext.gregs[REG_RIP] = (unsigned long)&_native_sig_leave_handler;

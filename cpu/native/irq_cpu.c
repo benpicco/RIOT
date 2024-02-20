@@ -352,7 +352,15 @@ void native_isr_entry(int sig, siginfo_t *info, void *context)
 #if defined(__arm__)
     _native_saved_eip = ((ucontext_t *)context)->uc_mcontext.arm_pc;
     ((ucontext_t *)context)->uc_mcontext.arm_pc = (unsigned int)&_native_sig_leave_tramp;
-#else /* Linux/x86 */
+#elif defined(__dietlibc__) /* Linux/x86 - dietlibc */
+  #ifdef __x86_64__
+    _native_saved_eip = ((struct sigcontext *)context)->rip;
+    ((struct sigcontext *)context)->rip = (unsigned int)&_native_sig_leave_tramp;
+  #else
+    _native_saved_eip = ((struct sigcontext *)context)->eip;
+    ((struct sigcontext *)context)->eip = (unsigned int)&_native_sig_leave_tramp;
+  #endif
+#else /* Linux/x86 - GLIBC */
   #ifdef __x86_64__
     _native_saved_eip = ((ucontext_t *)context)->uc_mcontext.gregs[REG_RIP];
     ((ucontext_t *)context)->uc_mcontext.gregs[REG_RIP] = (uintptr_t)&_native_sig_leave_tramp;
