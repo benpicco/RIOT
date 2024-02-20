@@ -51,16 +51,30 @@
 #define ENABLE_DEBUG 0
 #include "debug.h"
 
-ssize_t (*real_read)(int fd, void *buf, size_t count);
-ssize_t (*real_write)(int fd, const void *buf, size_t count);
+#if __dietlibc__
+extern ssize_t __libc_read(int fd,void*buf,size_t len);
+extern ssize_t __libc_write(int fd, const void *buf, size_t count);
+extern void* __libc_malloc(size_t size);
+extern void* __libc_calloc(size_t nmemb, size_t _size);
+extern void *__libc_realloc(void*ptr,size_t size);
+extern void __libc_free(void *ptr);
+extern void __libc_exit(int code);
+
+#define MAYBE_STATIC(name) = __libc_ ## name
+#else
+#define MAYBE_STATIC(name)
+#endif
+
+ssize_t (*real_read)(int fd, void *buf, size_t count) MAYBE_STATIC(read);
+ssize_t (*real_write)(int fd, const void *buf, size_t count) MAYBE_STATIC(write);
 size_t (*real_fread)(void *ptr, size_t size, size_t nmemb, FILE *stream);
 ssize_t (*real_recv)(int sockfd, void *buf, size_t len, int flags);
 void (*real_clearerr)(FILE *stream);
-__attribute__((noreturn)) void (*real_exit)(int status);
-void (*real_free)(void *ptr);
-void* (*real_malloc)(size_t size);
-void* (*real_calloc)(size_t nmemb, size_t size);
-void* (*real_realloc)(void *ptr, size_t size);
+__attribute__((noreturn)) void (*real_exit)(int status) MAYBE_STATIC(exit);
+void (*real_free)(void *ptr) MAYBE_STATIC(free);
+void* (*real_malloc)(size_t size) MAYBE_STATIC(malloc);
+void* (*real_calloc)(size_t nmemb, size_t size) MAYBE_STATIC(calloc);
+void* (*real_realloc)(void *ptr, size_t size) MAYBE_STATIC(realloc);
 void (*real_freeaddrinfo)(struct addrinfo *res);
 void (*real_freeifaddrs)(struct ifaddrs *ifa);
 void (*real_srandom)(unsigned int seed);
@@ -286,14 +300,13 @@ ssize_t _native_writev(int fd, const struct iovec *iov, int iovcnt)
     return r;
 }
 
-#if defined(__FreeBSD__)
-#undef putchar
-#endif
+#ifndef putchar
 int putchar(int c)
 {
     char tmp = c;
     return _native_write(STDOUT_FILENO, &tmp, sizeof(tmp));
 }
+#endif
 
 int putc(int c, FILE *fp)
 {
@@ -311,15 +324,6 @@ int puts(const char *s)
 
 int fgetc(FILE *fp)
 {
-    return getc(fp);
-}
-
-int getchar(void) {
-    return getc(stdin);
-}
-
-int getc(FILE *fp)
-{
     char c;
 
     if (_native_read(fileno(fp), &c, sizeof(c)) <= 0) {
@@ -328,6 +332,19 @@ int getc(FILE *fp)
 
     return c;
 }
+
+#ifndef getchar
+int getchar(void) {
+    return fgetc(stdin);
+}
+#endif
+
+#ifndef getc
+int getc(FILE *fp)
+{
+    return fgetc(fp);
+}
+#endif
 
 /* Solve 'format string is not a string literal' as it is validly used in this
  * function */
@@ -514,6 +531,7 @@ int _gettimeofday(struct timeval *tp, void *restrict tzp)
  */
 void _native_init_syscalls(void)
 {
+#ifndef __dietlibc__
     *(void **)(&real_read) = dlsym(RTLD_NEXT, "read");
     *(void **)(&real_write) = dlsym(RTLD_NEXT, "write");
     *(void **)(&real_malloc) = dlsym(RTLD_NEXT, "malloc");
@@ -576,4 +594,5 @@ void _native_init_syscalls(void)
     *(void **)(&real_readdir) = dlsym(RTLD_NEXT, "readdir");
     *(void **)(&real_closedir) = dlsym(RTLD_NEXT, "closedir");
     *(void **)(&real_statvfs) = dlsym(RTLD_NEXT, "statvfs");
+#endif
 }
