@@ -184,9 +184,11 @@ void *malloc(size_t size)
             return NULL;
         }
         else {
+#ifndef __dietlibc__
             _native_in_malloc = 1;
             *(void **)(&real_malloc) = dlsym(RTLD_NEXT, "malloc");
             _native_in_malloc = 0;
+#endif
         }
     }
 
@@ -216,9 +218,11 @@ void *calloc(size_t nmemb, size_t size)
             return NULL;
         }
         else {
+#ifndef __dietlibc__
             _native_in_calloc = 1;
             *(void **)(&real_calloc) = dlsym(RTLD_NEXT, "calloc");
             _native_in_calloc = 0;
+#endif
         }
     }
 
