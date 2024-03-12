@@ -453,7 +453,7 @@ int coap_iterate_uri_query(coap_pkt_t *pkt, void **opt_pos,
     }
     memcpy(value, value_data, value_len);
     value[value_len] = 0;
-    return 2;
+    return 2; /* Key and values found */
 }
 
 int coap_get_blockopt(coap_pkt_t *pkt, uint16_t option, uint32_t *blknum, uint8_t *szx)
