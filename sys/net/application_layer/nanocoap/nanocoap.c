@@ -414,7 +414,7 @@ int coap_iterate_uri_query(coap_pkt_t *pkt, void **opt_pos,
     void *key_data = coap_iterate_option(pkt, COAP_OPT_URI_QUERY,
                                          (uint8_t **)opt_pos, &len);
     if (!key_data) {
-        return 0;
+        return 0; /* No key found */
     }
 
     const char *value_data = memchr(key_data, '=', len);
