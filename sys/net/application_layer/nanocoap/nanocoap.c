@@ -445,7 +445,7 @@ int coap_iterate_uri_query(coap_pkt_t *pkt, void **opt_pos,
         return 1; /* Key was found but no values */
     }
     if (!value) {
-        return 2;
+        return 2; /* Key and values found */
     }
 
     if (value_len >= value_len_max) {
