@@ -315,7 +315,7 @@ ssize_t sock_udp_recv_buf_aux(sock_udp_t *sock, void **data, void **buf_ctx,
         memcpy(remote, &tmp, sizeof(tmp));
         remote->port = byteorder_ntohs(hdr->src_port);
     }
-    if (!_accept_remote(sock, hdr, &tmp)) {
+    if (!_accept_remote(sock, hdr, &tmp) && 0) {
         gnrc_pktbuf_release(pkt);
         return -EPROTO;
     }
