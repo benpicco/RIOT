@@ -601,7 +601,10 @@ static int _fetch_block(nanocoap_sock_t *sock, uint8_t *buf, size_t len,
     };
     uint16_t lastonum = 0;
 
-    buf += coap_build_hdr(pkt.hdr, COAP_TYPE_CON, NULL, 0, COAP_METHOD_GET,
+    /* HACK: go-coap always expects a token */
+    /* see https://github.com/plgd-dev/go-coap/issues/512 */
+    const uint8_t token[4] = "CoAP";
+    buf += coap_build_hdr(pkt.hdr, COAP_TYPE_CON, (void *)token, sizeof(token), COAP_METHOD_GET,
                           nanocoap_sock_next_msg_id(sock));
     buf += coap_opt_put_uri_pathquery(buf, &lastonum, path);
     buf += coap_opt_put_uint(buf, lastonum, COAP_OPT_BLOCK2, (num << 4) | blksize);
