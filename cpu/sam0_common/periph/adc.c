@@ -311,21 +311,39 @@ static Adc *_adc(uint8_t dev)
 #endif
 }
 
+static inline void _config_line(Adc *dev, adc_t line, bool diffmode, bool freerun)
+{
+    dev->INPUTCTRL.reg = ADC_GAIN_FACTOR_DEFAULT
+                       | adc_channels[line].inputctrl
+                       | (diffmode ? 0 : ADC_NEG_INPUT);
+#if defined(ADC_CTRLB_DIFFMODE)
+    dev->CTRLB.bit.DIFFMODE = diffmode;
+#elif defined(ADC_CTRLC_DIFFMODE)
+    dev->CTRLC.bit.DIFFMODE = diffmode;
+#endif
+
+#if defined(ADC_CTRLB_FREERUN)
+    dev->CTRLB.bit.FREERUN = freerun;
+#else
+    dev->CTRLC.bit.FREERUN = freerun;
+#endif
+    _wait_syncbusy(dev);
+
+    /* clear stale flag */
+    dev->INTFLAG.reg = ADC_INTFLAG_RESRDY;
+}
+
 static int32_t _sample(adc_t line)
 {
     Adc *dev = _dev(line);
     bool diffmode = adc_channels[line].inputctrl & ADC_INPUTCTRL_DIFFMODE;
 
-    dev->INPUTCTRL.reg = ADC_GAIN_FACTOR_DEFAULT
-                       | adc_channels[line].inputctrl
-                       | (diffmode ? 0 : ADC_NEG_INPUT);
-#ifdef ADC_CTRLB_DIFFMODE
-    dev->CTRLB.bit.DIFFMODE = diffmode;
-#endif
-    _wait_syncbusy(dev);
+    /* configure ADC line */
+    _config_line(dev, line, diffmode, 0);
 
     /* Start the conversion */
-    dev->SWTRIG.reg = ADC_SWTRIG_START;
+    dev->SWTRIG.reg = ADC_SWTRIG_START
+                    | ADC_SWTRIG_FLUSH;
 
     /* Wait for the result */
     while (!(dev->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
@@ -343,7 +361,7 @@ static int32_t _sample(adc_t line)
     return result;
 }
 
-static uint8_t _shift_from_res(adc_res_t res)
+static int8_t _shift_from_res(adc_res_t res)
 {
     /* 16 bit mode is implemented as oversampling */
     if ((res & 0x3) == 1) {
@@ -396,6 +414,66 @@ int32_t adc_continuous_sample(adc_t line)
     assert(mutex_trylock(&_lock) == 0);
 
     return _sample(line) << _shift;
+}
+
+void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len)
+{
+    assert(line < ADC_NUMOF);
+    assert(mutex_trylock(&_lock) == 0);
+
+    Adc *dev = _dev(line);
+    bool diffmode = adc_channels[line].inputctrl & ADC_INPUTCTRL_DIFFMODE;
+
+    /* configure ADC line */
+    _config_line(dev, line, diffmode, 1);
+
+    /* Start the conversion */
+    dev->SWTRIG.reg = ADC_SWTRIG_START;
+
+    while (len--) {
+
+        /* Wait for the result */
+        while (!(dev->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
+
+        *buf++ = dev->RESULT.reg << _shift;
+    }
+}
+
+void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t len)
+{
+    assert(line[0] < ADC_NUMOF);
+    assert(line[1] < ADC_NUMOF);
+    assert(mutex_trylock(&_lock) == 0);
+
+    Adc *dev[2];
+    dev[0] = _dev(line[0]);
+    dev[1] = _dev(line[1]);
+    assert(dev[0] != dev[1]);
+
+    bool diffmode[2];
+    diffmode[0] = adc_channels[line[0]].inputctrl & ADC_INPUTCTRL_DIFFMODE;
+    diffmode[1] = adc_channels[line[1]].inputctrl & ADC_INPUTCTRL_DIFFMODE;
+
+    /* configure ADC lines */
+    _config_line(dev[0], line[0], diffmode[0], 1);
+    _config_line(dev[1], line[1], diffmode[1], 1);
+
+    ADC1->CTRLA.bit.SLAVEEN = 1;
+
+    /* Start the conversion */
+    ADC0->SWTRIG.reg = ADC_SWTRIG_START;
+    ADC1->SWTRIG.reg = ADC_SWTRIG_START;
+
+    while (len--) {
+
+        /* Wait for the result */
+        while (!(ADC0->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
+
+        *buf[0]++ = dev[0]->RESULT.reg << _shift;
+        *buf[1]++ = dev[1]->RESULT.reg << _shift;
+    }
+
+    ADC1->CTRLA.bit.SLAVEEN = 0;
 }
 
 void adc_continuous_stop(void)

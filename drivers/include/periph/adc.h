@@ -148,6 +148,10 @@ void adc_continuous_begin(adc_res_t res);
  */
 int32_t adc_continuous_sample(adc_t line);
 
+void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len);
+
+void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t len);
+
 /**
  * @brief   Disable the ADC to save power
  *
