@@ -435,7 +435,7 @@ static void _get_adcs(bool *adc0, bool *adc1)
 }
 
 static uint8_t _shift;
-void adc_continuous_begin(adc_res_t res)
+void adc_continuous_begin(adc_res_t res, uint32_t f_adc)
 {
     bool adc0, adc1;
     _get_adcs(&adc0, &adc1);
@@ -443,10 +443,10 @@ void adc_continuous_begin(adc_res_t res)
     mutex_lock(&_lock);
 
     if (adc0) {
-        _adc_configure(_adc(0), res, 0);
+        _adc_configure(_adc(0), res, f_adc);
     }
     if (adc1) {
-        _adc_configure(_adc(1), res, 0);
+        _adc_configure(_adc(1), res, f_adc);
     }
 
     _shift = _shift_from_res(res);
