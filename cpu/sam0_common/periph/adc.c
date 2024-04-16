@@ -483,16 +483,6 @@ void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len)
     }
 }
 
-static void _slaveen(Adc *dev, bool on)
-{
-    dev->CTRLA.reg &= ~(ADC_CTRLA_ENABLE | ADC_CTRLA_SLAVEEN);
-    _wait_syncbusy(dev);
-
-    dev->CTRLA.reg |= ADC_CTRLA_ENABLE
-                   | (on ? ADC_CTRLA_SLAVEEN : 0);
-    _wait_syncbusy(dev);
-}
-
 void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t len)
 {
     assert(line[0] < ADC_NUMOF);
@@ -512,11 +502,11 @@ void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t le
     _config_line(dev[0], line[0], diffmode[0], 1);
     _config_line(dev[1], line[1], diffmode[1], 1);
 
-    /* put ADC1 in client mode */
-    _slaveen(ADC1, 1);
+    ADC1->CTRLA.bit.SLAVEEN = 1;
 
     /* Start the conversion */
     ADC0->SWTRIG.reg = ADC_SWTRIG_START;
+    ADC1->SWTRIG.reg = ADC_SWTRIG_START;
 
     while (len--) {
 
@@ -527,8 +517,7 @@ void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t le
         *buf[1]++ = dev[1]->RESULT.reg << _shift;
     }
 
-    /* restore ADC1 config */
-    _slaveen(ADC1, 0);
+    ADC1->CTRLA.bit.SLAVEEN = 0;
 }
 
 void adc_continuous_stop(void)
