@@ -223,7 +223,8 @@ static int _adc_configure(Adc *dev, adc_res_t res, uint32_t f_tgt)
         return -1;
     }
 
-    _adc_poweroff(dev);
+    dev->CTRLA.reg = 0; // ~ADC_CTRLA_ENABLE;
+    _wait_syncbusy(dev);
 
     if (dev->CTRLA.reg & ADC_CTRLA_SWRST ||
         dev->CTRLA.reg & ADC_CTRLA_ENABLE ) {
@@ -386,8 +387,7 @@ static int32_t _sample(adc_t line)
     _config_line(dev, line, diffmode, 0);
 
     /* Start the conversion */
-    dev->SWTRIG.reg = ADC_SWTRIG_START
-                    | ADC_SWTRIG_FLUSH;
+    dev->SWTRIG.reg = ADC_SWTRIG_START;
 
     /* Wait for the result */
     while (!(dev->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
@@ -478,11 +478,13 @@ void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len)
 
         /* Wait for the result */
         while (!(dev->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
+        dev->INTFLAG.reg = ADC_INTFLAG_RESRDY;
 
         *buf++ = dev->RESULT.reg << _shift;
     }
 }
 
+#if defined(ADC0) && defined(ADC1)
 void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t len)
 {
     assert(line[0] < ADC_NUMOF);
@@ -502,8 +504,6 @@ void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t le
     _config_line(dev[0], line[0], diffmode[0], 1);
     _config_line(dev[1], line[1], diffmode[1], 1);
 
-    ADC1->CTRLA.bit.SLAVEEN = 1;
-
     /* Start the conversion */
     ADC0->SWTRIG.reg = ADC_SWTRIG_START;
     ADC1->SWTRIG.reg = ADC_SWTRIG_START;
@@ -511,14 +511,17 @@ void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t le
     while (len--) {
 
         /* Wait for the result */
-        while (!(ADC0->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
-
+        while (!(dev[0]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
         *buf[0]++ = dev[0]->RESULT.reg << _shift;
-        *buf[1]++ = dev[1]->RESULT.reg << _shift;
-    }
 
-    ADC1->CTRLA.bit.SLAVEEN = 0;
+        while (!(dev[1]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
+        *buf[1]++ = dev[1]->RESULT.reg << _shift;
+
+        dev[0]->INTFLAG.reg = ADC_INTFLAG_RESRDY;
+        dev[1]->INTFLAG.reg = ADC_INTFLAG_RESRDY;
+    }
 }
+#endif
 
 void adc_continuous_stop(void)
 {
