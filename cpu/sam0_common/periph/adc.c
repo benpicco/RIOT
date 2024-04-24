@@ -70,7 +70,7 @@ static void _adc_poweroff(Adc *dev)
     _wait_syncbusy(dev);
 
     /* Disable */
-    dev->CTRLA.reg &= ~ADC_CTRLA_ENABLE;
+    dev->CTRLA.reg = 0;
     _wait_syncbusy(dev);
 
     /* Disable bandgap */
@@ -223,13 +223,12 @@ static int _adc_configure(Adc *dev, adc_res_t res, uint32_t f_tgt)
         return -1;
     }
 
-    dev->CTRLA.reg = 0; // ~ADC_CTRLA_ENABLE;
+    dev->CTRLA.reg = 0;
     _wait_syncbusy(dev);
 
-    if (dev->CTRLA.reg & ADC_CTRLA_SWRST ||
-        dev->CTRLA.reg & ADC_CTRLA_ENABLE ) {
+    while (dev->CTRLA.reg & ADC_CTRLA_SWRST ||
+           dev->CTRLA.reg & ADC_CTRLA_ENABLE) {
         DEBUG("adc: not ready\n");
-        return -1;
     }
 
     _setup_clock(dev, f_tgt);
@@ -452,6 +451,22 @@ void adc_continuous_begin(adc_res_t res, uint32_t f_adc)
     _shift = _shift_from_res(res);
 }
 
+void adc_dual_continuous_begin(adc_res_t res, uint32_t f_adc)
+{
+    mutex_lock(&_lock);
+
+    _adc_configure(ADC0, res, f_adc);
+    _adc_configure(ADC1, res, f_adc);
+
+    ADC1->CTRLA.reg = 0;
+    _wait_syncbusy(ADC1);
+
+    ADC1->CTRLA.reg = ADC_CTRLA_SLAVEEN
+                    | ADC_CTRLA_ENABLE;
+
+    _shift = _shift_from_res(res);
+}
+
 int32_t adc_continuous_sample(adc_t line)
 {
     assert(line < ADC_NUMOF);
@@ -485,7 +500,7 @@ void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len)
 }
 
 #if defined(ADC0) && defined(ADC1)
-void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t len)
+void adc_dual_continuous_sample_multi(adc_t line[2], uint16_t *buf[2], size_t len)
 {
     assert(line[0] < ADC_NUMOF);
     assert(line[1] < ADC_NUMOF);
@@ -506,15 +521,12 @@ void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t le
 
     /* Start the conversion */
     ADC0->SWTRIG.reg = ADC_SWTRIG_START;
-    ADC1->SWTRIG.reg = ADC_SWTRIG_START;
 
     while (len--) {
 
         /* Wait for the result */
         while (!(dev[0]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
         *buf[0]++ = dev[0]->RESULT.reg << _shift;
-
-        while (!(dev[1]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
         *buf[1]++ = dev[1]->RESULT.reg << _shift;
 
         dev[0]->INTFLAG.reg = ADC_INTFLAG_RESRDY;

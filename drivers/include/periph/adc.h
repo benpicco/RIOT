@@ -138,6 +138,8 @@ int32_t adc_sample(adc_t line, adc_res_t res);
  */
 void adc_continuous_begin(adc_res_t res, uint32_t f_adc);
 
+void adc_dual_continuous_begin(adc_res_t res, uint32_t f_adc);
+
 /**
  * @brief   Sample an ADC line without powering off the ADC afterward
  *
@@ -151,7 +153,7 @@ int32_t adc_continuous_sample(adc_t line);
 
 void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len);
 
-void adc_continuous_sample_multi_dual(adc_t line[2], uint16_t *buf[2], size_t len);
+void adc_dual_continuous_sample_multi(adc_t line[2], uint16_t *buf[2], size_t len);
 
 /**
  * @brief   Disable the ADC to save power
