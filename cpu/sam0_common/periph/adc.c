@@ -58,10 +58,7 @@ static inline void _wait_syncbusy(Adc *dev)
      * The ADC SYNCBUSY.SWTRIG gets stuck to '1' after wake-up from Standby Sleep mode.
      * SAMD5x/SAME5x errata: DS80000748 (page 10)
      */
-    do {
-        /* XXX: Why do we need to wait before accessing SYNCBUSY after hibernate? */
-        for (volatile unsigned int i = 0; i < 50; i++) {}
-    } while (dev->SYNCBUSY.reg & ~ADC_SYNCBUSY_SWTRIG);
+    while (dev->SYNCBUSY.reg & ~ADC_SYNCBUSY_SWTRIG) {}
 #endif
 }
 
@@ -377,6 +374,21 @@ static inline void _config_line(Adc *dev, adc_t line, bool diffmode, bool freeru
     dev->INTFLAG.reg = ADC_INTFLAG_RESRDY;
 }
 
+static int32_t _sample_dev(Adc *dev, bool diffmode)
+{
+    uint16_t sample = dev->RESULT.reg;
+    int result;
+
+    /* in differential mode we lose one bit for the sign */
+    if (diffmode) {
+        result = 2 * (int16_t)sample;
+    } else {
+        result = sample;
+    }
+
+    return result;
+}
+
 static int32_t _sample(adc_t line)
 {
     Adc *dev = _dev(line);
@@ -391,17 +403,7 @@ static int32_t _sample(adc_t line)
     /* Wait for the result */
     while (!(dev->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
 
-    uint16_t sample = dev->RESULT.reg;
-    int result;
-
-    /* in differential mode we lose one bit for the sign */
-    if (diffmode) {
-        result = 2 * (int16_t)sample;
-    } else {
-        result = sample;
-    }
-
-    return result;
+    return _sample_dev(dev, diffmode);
 }
 
 static int8_t _shift_from_res(adc_res_t res)
@@ -451,22 +453,6 @@ void adc_continuous_begin(adc_res_t res, uint32_t f_adc)
     _shift = _shift_from_res(res);
 }
 
-void adc_dual_continuous_begin(adc_res_t res, uint32_t f_adc)
-{
-    mutex_lock(&_lock);
-
-    _adc_configure(ADC0, res, f_adc);
-    _adc_configure(ADC1, res, f_adc);
-
-    ADC1->CTRLA.reg = 0;
-    _wait_syncbusy(ADC1);
-
-    ADC1->CTRLA.reg = ADC_CTRLA_SLAVEEN
-                    | ADC_CTRLA_ENABLE;
-
-    _shift = _shift_from_res(res);
-}
-
 int32_t adc_continuous_sample(adc_t line)
 {
     assert(line < ADC_NUMOF);
@@ -493,13 +479,135 @@ void adc_continuous_sample_multi(adc_t line, uint16_t *buf, size_t len)
 
         /* Wait for the result */
         while (!(dev->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
-        dev->INTFLAG.reg = ADC_INTFLAG_RESRDY;
 
-        *buf++ = dev->RESULT.reg << _shift;
+        *buf++ = _sample_dev(dev, diffmode) << _shift;
+        dev->INTFLAG.reg = ADC_INTFLAG_RESRDY;
     }
 }
 
+static void _has_adcs(bool *adc0, bool *adc1,
+                      const adc_t *lines, uint8_t lines_numof)
+{
+#ifndef ADC1
+    *adc0 = true;
+    *adc1 = false;
+    return;
+#else
+    *adc0 = false;
+    *adc1 = false;
+    for (unsigned i = 0; i < lines_numof; ++i) {
+        if (_dev(lines[i]) == ADC0) {
+            *adc0 = true;
+        } else if (_dev(lines[i]) == ADC1) {
+            *adc1 = true;
+        }
+    }
+#endif
+}
+
+void adc_sample_multi(const adc_t *lines, uint8_t lines_numof,
+                      uint16_t **bufs, size_t buf_len,
+                      adc_res_t res, uint32_t f_adc)
+{
+    mutex_lock(&_lock);
+
+    _shift = _shift_from_res(res);
+
+    bool adc0, adc1;
+    _has_adcs(&adc0, &adc1, lines, lines_numof);
+
+    if (adc0) {
+        _adc_configure(_adc(0), res, f_adc);
+    }
+    if (adc1) {
+        _adc_configure(_adc(1), res, f_adc);
+    }
+
+    bool lockstep = false;
+    if (lines_numof == 2 &&
+        _dev(lines[0]) != _dev(lines[1])) {
+        /* let ADC0 control ADC1 in lock-step */
+        ADC1->CTRLA.reg = 0;
+        _wait_syncbusy(ADC1);
+
+        ADC1->CTRLA.reg = ADC_CTRLA_SLAVEEN
+                        | ADC_CTRLA_ENABLE;
+        lockstep = true;
+    }
+
+    Adc *dev[lines_numof];
+    bool diffmode[lines_numof];
+    for (unsigned i = 0; i < lines_numof; ++i) {
+        dev[i] = _dev(lines[i]);
+        diffmode[i] = adc_channels[lines[i]].inputctrl & ADC_INPUTCTRL_DIFFMODE;
+    }
+
+    if (lockstep || lines_numof == 1) {
+
+        for (unsigned i = 0; i < lines_numof; ++i) {
+            /* configure ADC line */
+            _config_line(dev[i], lines[i], diffmode[i], 1);
+
+            /* Start the conversion */
+            dev[i]->SWTRIG.reg = ADC_SWTRIG_START;
+        }
+
+        while (buf_len--) {
+
+            /* Wait for the result */
+            while (!(dev[0]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
+            dev[0]->INTFLAG.reg = ADC_INTFLAG_RESRDY;
+
+            for (unsigned i = 0; i < lines_numof; ++i) {
+                *bufs[i]++ = _sample_dev(dev[i], diffmode[i]) << _shift;
+            }
+        }
+    } else {
+        while (buf_len--) {
+
+            for (unsigned i = 0; i < lines_numof; ++i) {
+                /* configure ADC line */
+                _config_line(dev[i], lines[i], diffmode[i], 1);
+
+                /* Start the conversion */
+                dev[i]->SWTRIG.reg = ADC_SWTRIG_START;
+
+                /* Wait for the result */
+                while (!(dev[i]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
+                dev[i]->INTFLAG.reg = ADC_INTFLAG_RESRDY;
+                *bufs[i]++ = _sample_dev(dev[i], diffmode[i]) << _shift;
+            }
+        }
+    }
+
+    if (adc0) {
+        _adc_poweroff(_adc(0));
+    }
+    if (adc1) {
+        _adc_poweroff(_adc(1));
+    }
+
+    mutex_unlock(&_lock);
+}
+
+
 #if defined(ADC0) && defined(ADC1)
+void adc_dual_continuous_begin(adc_res_t res, uint32_t f_adc)
+{
+    mutex_lock(&_lock);
+
+    _adc_configure(ADC0, res, f_adc);
+    _adc_configure(ADC1, res, f_adc);
+
+    ADC1->CTRLA.reg = 0;
+    _wait_syncbusy(ADC1);
+
+    ADC1->CTRLA.reg = ADC_CTRLA_SLAVEEN
+                    | ADC_CTRLA_ENABLE;
+
+    _shift = _shift_from_res(res);
+}
+
 void adc_dual_continuous_sample_multi(adc_t line[2], uint16_t *buf[2], size_t len)
 {
     assert(line[0] < ADC_NUMOF);
@@ -526,8 +634,9 @@ void adc_dual_continuous_sample_multi(adc_t line[2], uint16_t *buf[2], size_t le
 
         /* Wait for the result */
         while (!(dev[0]->INTFLAG.reg & ADC_INTFLAG_RESRDY)) {}
-        *buf[0]++ = dev[0]->RESULT.reg << _shift;
-        *buf[1]++ = dev[1]->RESULT.reg << _shift;
+
+        *buf[0]++ = _sample_dev(dev[0], diffmode[0]) << _shift;
+        *buf[1]++ = _sample_dev(dev[1], diffmode[1]) << _shift;
 
         dev[0]->INTFLAG.reg = ADC_INTFLAG_RESRDY;
         dev[1]->INTFLAG.reg = ADC_INTFLAG_RESRDY;
