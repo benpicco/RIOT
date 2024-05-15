@@ -228,8 +228,10 @@ static int _sam0_eth_confirm_send(netdev_t *netdev, void *info)
 
     /* Transmit Frame Corruption, Collision Occurred, Transmit Underrun */
     if (tsr & (GMAC_TSR_TFC | GMAC_TSR_COL | GMAC_TSR_UND)) {
+	    printf("TX error: %lx\n", tsr);
         return -EIO;
     }
+    puts("TX Done");
 
     return 1;
 }

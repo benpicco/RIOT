@@ -82,15 +82,13 @@ static struct eth_buf_desc rx_desc[ETH_RX_BUFFER_COUNT] __attribute__((aligned(G
 static struct eth_buf_desc tx_desc[ETH_TX_BUFFER_COUNT] __attribute__((aligned(GMAC_DESC_ALIGNMENT)));
 
 static struct eth_buf_desc *rx_curr;
-static struct eth_buf_desc *tx_curr;
 
 /* Declare our own indexes to point to a RX/TX buffer descriptor.
    GMAC IP have its own indexes on its side */
-static uint8_t  tx_idx;
 static uint8_t  rx_idx;
+static uint8_t  tx_idx;
 
 static uint8_t  rx_buf[ETH_RX_BUFFER_COUNT][ETH_RX_BUFFER_SIZE] __attribute__((aligned(GMAC_BUF_ALIGNMENT)));
-static uint8_t  tx_buf[ETH_TX_BUFFER_COUNT][ETH_TX_BUFFER_SIZE] __attribute__((aligned(GMAC_BUF_ALIGNMENT)));
 extern sam0_eth_netdev_t _sam0_eth_dev;
 
 static bool _is_sleeping;
@@ -179,19 +177,16 @@ static void _init_desc_buf(void)
     for (i=0; i < ETH_RX_BUFFER_COUNT; i++) {
         rx_desc[i].address = ((uint32_t) (rx_buf[i]) & DESC_RX_ADDR_ADDR_MASK);
     }
-    /* Set WRAP flag to indicate last buffer */
-    rx_desc[i-1].address |= DESC_RX_ADDR_WRAP;
-    rx_curr = &rx_desc[0];
-    /* Initialize TX buffer descriptors */
     for (i=0; i < ETH_TX_BUFFER_COUNT; i++) {
-        tx_desc[i].address = (uint32_t) tx_buf[i];
+        tx_desc[i].status = DESC_TX_STATUS_USED;
     }
+    tx_desc[ETH_TX_BUFFER_COUNT - 1].status |= DESC_TX_STATUS_WRAP;
+
     /* Set WRAP flag to indicate last buffer */
-    tx_desc[i-1].status |= DESC_TX_STATUS_WRAP;
-    tx_curr = &tx_desc[0];
+    rx_desc[ETH_RX_BUFFER_COUNT - 1].address |= DESC_RX_ADDR_WRAP;
+    rx_curr = &rx_desc[0];
     /* Setup buffers index */
     rx_idx = 0;
-    tx_idx = 0;
     /* Store RX buffer descriptor list */
     GMAC->RBQB.reg = (uint32_t) rx_desc;
     /* Store TX buffer descriptor list */
@@ -217,45 +212,58 @@ void sam0_eth_get_mac(eui48_t *out)
 
 int sam0_eth_send(const struct iolist *iolist)
 {
-    unsigned len = iolist_size(iolist);
     unsigned tx_len = 0;
-    tx_curr = &tx_desc[tx_idx];
 
     if (_is_sleeping) {
         return -ENOTSUP;
     }
+
+    unsigned tx_idx_start = tx_idx;
+    struct eth_buf_desc *tx_head = &tx_desc[tx_idx];
 
     /* load packet data into TX buffer */
     for (const iolist_t *iol = iolist; iol; iol = iol->iol_next) {
         if (tx_len + iol->iol_len > ETHERNET_MAX_LEN) {
             return -EBUSY;
         }
-        if (iol->iol_len) {
-            memcpy ((uint32_t*)(tx_curr->address + tx_len), iol->iol_base, iol->iol_len);
-            tx_len += iol->iol_len;
+        if (iol->iol_len == 0) {
+            continue;
         }
-    }
-    if (len == tx_len) {
-        /* Clear and set the frame size */
-        tx_curr->status = (len & DESC_TX_STATUS_LEN_MASK)
-        /* Indicate this is the last buffer and the frame is ready */
-                        | DESC_TX_STATUS_LAST_BUF;
-        /* Prepare next buffer index */
-        if (++tx_idx == ETH_TX_BUFFER_COUNT) {
-            /* Set WRAP flag to indicate last buffer */
-            tx_curr->status |= DESC_TX_STATUS_WRAP;
+
+        struct eth_buf_desc *tx_curr = &tx_desc[tx_idx++];
+        if (tx_idx == ETH_TX_BUFFER_COUNT) {
             tx_idx = 0;
         }
-        __DSB();
-        /* Start transmission */
-        GMAC->NCR.reg |= GMAC_NCR_TSTART;
-        /* Set the next buffer */
-        tx_curr = &tx_desc[tx_idx];
+
+        tx_curr->address = (uintptr_t)iol->iol_base;
+        if (tx_curr->address & 0x3) {
+            puts("snip not aligned");
+        }
+
+        tx_curr->status = (iol->iol_len & DESC_TX_STATUS_LEN_MASK)
+                        | (tx_curr == tx_head ? DESC_TX_STATUS_USED : 0)
+                        | (iol->iol_next ? 0 : DESC_TX_STATUS_LAST_BUF)
+                        | (tx_idx == 0 ? DESC_TX_STATUS_WRAP : 0);
+        tx_len += iol->iol_len;
     }
-    else {
-        DEBUG("Mismatch TX len, abort send\n");
+
+    puts("--------");
+    for (unsigned i = 0; i < ETH_TX_BUFFER_COUNT; ++i) {
+        char c = ' ';
+        unsigned tx_idx_end = tx_idx ? tx_idx - 1 : ETH_TX_BUFFER_COUNT - 1;
+        if (i == tx_idx_end) c = '<';
+        if (i == tx_idx_start) c = '>';
+        printf("[%u] %lx\t%c\n", i, tx_desc[i].status, c);
     }
-    return len;
+
+     __DMB();
+    tx_head->status &= ~DESC_TX_STATUS_USED;
+     __DMB();
+
+     /* Start transmission */
+     GMAC->NCR.reg |= GMAC_NCR_TSTART;
+
+    return tx_len;
 }
 
 static int _try_receive(char* data, unsigned max_len, int block)
@@ -368,7 +376,6 @@ int sam0_eth_init(void)
 
     /* reset buffers */
     memset(rx_buf, 0, sizeof(rx_buf));
-    memset(tx_buf, 0, sizeof(tx_buf));
     memset(rx_desc, 0, sizeof(rx_desc));
     memset(tx_desc, 0, sizeof(tx_desc));
 
@@ -386,7 +393,8 @@ int sam0_eth_init(void)
     GMAC->RSR.reg = GMAC_RSR_HNO | GMAC_RSR_RXOVR | GMAC_RSR_REC | GMAC_RSR_BNA;
     GMAC->TSR.reg = 0xFFFF;
     /* Enable needed interrupts */
-    GMAC->IER.reg = GMAC_IER_RCOMP | GMAC_IER_TCOMP;
+    GMAC->IER.reg = GMAC_IER_RCOMP
+                  | GMAC_IER_TCOMP | GMAC_IER_TFC | GMAC_IER_RLEX | GMAC_IER_TUR;
 
     GMAC->NCFGR.reg = GMAC_NCFGR_MTIHEN
                     | GMAC_NCFGR_RXCOEN | GMAC_NCFGR_MAXFS | GMAC_NCFGR_CAF
