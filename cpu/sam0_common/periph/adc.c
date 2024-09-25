@@ -92,10 +92,11 @@ static void _find_presc(uint32_t f_src, uint32_t f_tgt,
 {
     uint32_t _best_match = UINT32_MAX;
 
-#if defined(ADC_CTRLB_PRESCALER_DIV2)
-    uint8_t start = 1;
+    /* minimal prescaler right shift */
+#if defined(ADC_CTRLA_PRESCALER_DIV2) || defined(ADC_CTRLB_PRESCALER_DIV2)
+    uint8_t start = 1;  /* DIV2 is smallest prescaler */
 #else
-    uint8_t start = 2;
+    uint8_t start = 2;  /* DIV4 is smallest prescaler */
 #endif
     uint8_t end = start + 8;
     for (uint8_t i = start; i < end; ++i) {
@@ -104,7 +105,7 @@ static void _find_presc(uint32_t f_src, uint32_t f_tgt,
             if (diff < _best_match) {
                 _best_match = diff;
                 *samplen  = _samplen;
-                *prescale = i;
+                *prescale = i - 1;
             }
         }
     }
