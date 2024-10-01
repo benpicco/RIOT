@@ -43,7 +43,7 @@
 
 /* Prototypes */
 static void _adc_poweroff(Adc *dev);
-static void _setup_clock(Adc *dev, uint32_t f_tgt);
+static void _setup_clock(Adc *dev, adc_res_t res, uint32_t f_tgt);
 static void _setup_calibration(Adc *dev);
 static int _adc_configure(Adc *dev, adc_res_t res, uint32_t f_tgt);
 
@@ -87,25 +87,45 @@ static uint32_t _absdiff(uint32_t a, uint32_t b)
     return a > b ? a - b : b - a;
 }
 
-static void _find_presc(uint32_t f_src, uint32_t f_tgt,
+static inline uint8_t _res_bits(adc_res_t res)
+{
+    switch (res) {
+    case ADC_RES_8BIT:
+        return 8;
+    case ADC_RES_10BIT:
+        return 10;
+    case ADC_RES_12BIT:
+    default:    /* 16 bit is multiple 12 bit samples */
+        return 12;
+    }
+}
+
+static void _find_presc(uint32_t f_src, adc_res_t res, uint32_t f_tgt,
                         uint8_t *prescale, uint8_t *samplen)
 {
     uint32_t _best_match = UINT32_MAX;
 
+#ifdef CPU_COMMON_SAMD21
+    /* SAM D2x counts in half CLK_ADC cycles */
+    f_src <<= 1;
+#endif
+
     /* minimal prescaler right shift */
 #if defined(ADC_CTRLA_PRESCALER_DIV2) || defined(ADC_CTRLB_PRESCALER_DIV2)
-    uint8_t start = 1;  /* DIV2 is smallest prescaler */
+    const uint8_t start = 1;  /* DIV2 is smallest prescaler */
 #else
-    uint8_t start = 2;  /* DIV4 is smallest prescaler */
+    const uint8_t start = 2;  /* DIV4 is smallest prescaler */
 #endif
     uint8_t end = start + 8;
+    uint8_t bits = _res_bits(res);
+
     for (uint8_t i = start; i < end; ++i) {
         for (uint8_t _samplen = 32; _samplen > 0; --_samplen) {
-            unsigned diff = _absdiff((f_src >> i) / _samplen, f_tgt);
+            unsigned diff = _absdiff((f_src >> i) / (_samplen + bits), f_tgt);
             if (diff < _best_match) {
                 _best_match = diff;
                 *samplen  = _samplen;
-                *prescale = i - 1;
+                *prescale = i - start;
             }
         }
     }
@@ -117,7 +137,7 @@ static void _find_presc(uint32_t f_src, uint32_t f_tgt,
 #define ADC_PRESCALER_Pos   ADC_CTRLA_PRESCALER_Pos
 #endif
 
-static void _setup_clock(Adc *dev, uint32_t f_tgt)
+static void _setup_clock(Adc *dev, adc_res_t res, uint32_t f_tgt)
 {
     /* Enable gclk in case we are the only user */
     sam0_gclk_enable(ADC_GCLK_SRC);
@@ -166,7 +186,7 @@ static void _setup_clock(Adc *dev, uint32_t f_tgt)
     uint8_t sampllen  = 0;
 
     if (f_tgt) {
-        _find_presc(sam0_gclk_freq(ADC_GCLK_SRC), f_tgt,
+        _find_presc(sam0_gclk_freq(ADC_GCLK_SRC), res, f_tgt,
                     &prescaler, &sampllen);
     }
 
@@ -229,7 +249,7 @@ static int _adc_configure(Adc *dev, adc_res_t res, uint32_t f_tgt)
         DEBUG("adc: not ready\n");
     }
 
-    _setup_clock(dev, f_tgt);
+    _setup_clock(dev, res, f_tgt);
     _setup_calibration(dev);
 
     /* Set ADC resolution */
