@@ -105,7 +105,7 @@ static void _find_presc(uint32_t f_src, adc_res_t res, uint32_t f_tgt,
                         uint8_t *prescale, uint8_t *samplen)
 {
     uint32_t _best_match = UINT32_MAX;
-    uint32_t diff;
+    uint32_t diff = UINT32_MAX;
 
     /* ADC Module GCLK max input freq */
     assert(f_src <= MHZ(100));
@@ -131,18 +131,19 @@ static void _find_presc(uint32_t f_src, adc_res_t res, uint32_t f_tgt,
         /* SAM D2x counts in half CLK_ADC cycles */
         f_adc <<= 1;
 #endif
+        /* SAMPLEN register is offset by one (SAMPLEN+1) */
         for (uint8_t _samplen = 32; _samplen > 0; --_samplen) {
             diff = _absdiff(f_adc / (_samplen + bits), f_tgt);
             if (diff < _best_match) {
                 _best_match = diff;
-                *samplen  = _samplen;
+                *samplen  = _samplen - 1;
                 *prescale = i - start;
             }
         }
     }
 
-     DEBUG("adc.c: f_tgt=%"PRIu32", diff=%"PRIu32", prescaler=%"PRIu8", samplen=%"PRIu8"\n",
-           f_tgt, diff, *prescale, *samplen);
+     DEBUG("adc.c: f_src=%"PRIu32", f_tgt=%"PRIu32", diff=%"PRIu32", prescaler=%u, samplen=%u, bits=%u\n",
+           f_src, f_tgt, diff, *prescale, *samplen, bits);
 }
 
 #ifdef ADC_CTRLB_PRESCALER_Pos
