@@ -22,6 +22,7 @@
 
 #include "macros/units.h"
 #include "periph/adc.h"
+#include "time_units.h"
 #include "ztimer.h"
 #include "ztimer/stopwatch.h"
 
