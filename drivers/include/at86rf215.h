@@ -353,6 +353,7 @@ typedef struct at86rf215 {
     uint16_t flags;                         /**< Device specific flags */
     uint16_t num_chans;                     /**< Number of legal channel at current modulation */
     uint16_t tx_frame_len;                  /**< length of the current TX frame */
+    uint8_t spi_users;                      /**< Referecne counter for spi_acquire() */
     uint8_t timeout;                        /**< indicates which timeout was reached */
     uint8_t state;                          /**< current state of the radio */
     uint8_t retries_max;                    /**< number of retries until ACK is received */
@@ -617,12 +618,10 @@ int at86rf215_tx_prepare(at86rf215_t *dev);
  * @param[in,out] dev       device to write data to
  * @param[in] data          buffer containing the data to load
  * @param[in] len           number of bytes in @p buffer
- * @param[in] offset        offset used when writing data to internal buffer
  *
  * @return                  offset + number of bytes written
  */
-size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
-                         size_t len, size_t offset);
+size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data, size_t len);
 
 /**
  * @brief   Trigger sending of data previously loaded into transmit buffer

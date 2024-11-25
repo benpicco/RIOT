@@ -27,11 +27,6 @@
 #define SPIDEV          (dev->params.spi)
 #define CSPIN           (dev->params.cs_pin)
 
-static inline void getbus(const at86rf215_t *dev)
-{
-    spi_acquire(SPIDEV, CSPIN, SPI_MODE_0, dev->params.spi_clk);
-}
-
 /* only to be used by at86rf215_hardware_reset()
    can't use normal at86rf215_reg_read() because
    we already hold the lock */
@@ -44,9 +39,6 @@ static inline uint8_t _get_reg_with_lock(at86rf215_t *dev, uint16_t r)
 
 int at86rf215_hardware_reset(at86rf215_t *dev)
 {
-    /* prevent access during reset */
-    getbus(dev);
-
     /* trigger hardware reset */
     gpio_clear(dev->params.reset_pin);
     xtimer_usleep(CONFIG_AT86RF215_RESET_PULSE_WIDTH_US);
@@ -61,8 +53,6 @@ int at86rf215_hardware_reset(at86rf215_t *dev)
     while (--tries && (state == 0xFF || !(state & IRQS_WAKEUP_MASK))) {
         state = _get_reg_with_lock(dev, dev->RF->RG_IRQS);
     }
-
-    spi_release(SPIDEV);
 
     /* no device connected */
     if (!tries) {
@@ -87,20 +77,16 @@ void at86rf215_reg_write(const at86rf215_t *dev, uint16_t reg, uint8_t value)
 {
     reg = htons(reg | FLAG_WRITE);
 
-    getbus(dev);
     spi_transfer_bytes(SPIDEV, CSPIN, true, &reg, NULL, sizeof(reg));
     spi_transfer_byte(SPIDEV, CSPIN, false, value);
-    spi_release(SPIDEV);
 }
 
 void at86rf215_reg_write_bytes(const at86rf215_t *dev, uint16_t reg, const void *data, size_t len)
 {
     reg = htons(reg | FLAG_WRITE);
 
-    getbus(dev);
     spi_transfer_bytes(SPIDEV, CSPIN, true, &reg, NULL, sizeof(reg));
     spi_transfer_bytes(SPIDEV, CSPIN, false, data, NULL, len);
-    spi_release(SPIDEV);
 }
 
 uint8_t at86rf215_reg_read(const at86rf215_t *dev, uint16_t reg)
@@ -109,10 +95,8 @@ uint8_t at86rf215_reg_read(const at86rf215_t *dev, uint16_t reg)
 
     reg = htons(reg | FLAG_READ);
 
-    getbus(dev);
     spi_transfer_bytes(SPIDEV, CSPIN, true, &reg, NULL, sizeof(reg));
     val = spi_transfer_byte(SPIDEV, CSPIN, false, 0);
-    spi_release(SPIDEV);
 
     return val;
 }
@@ -121,10 +105,8 @@ void at86rf215_reg_read_bytes(const at86rf215_t *dev, uint16_t reg, void *data, 
 {
     reg = htons(reg | FLAG_READ);
 
-    getbus(dev);
     spi_transfer_bytes(SPIDEV, CSPIN, true, &reg, NULL, sizeof(reg));
     spi_transfer_bytes(SPIDEV, CSPIN, false, NULL, data, len);
-    spi_release(SPIDEV);
 }
 
 void at86rf215_filter_ack(at86rf215_t *dev, bool on)

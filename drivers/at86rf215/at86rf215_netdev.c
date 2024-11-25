@@ -37,6 +37,7 @@
 #include "at86rf215_netdev.h"
 #include "at86rf215_internal.h"
 
+#define ENABLE_DEBUG 0
 #include "debug.h"
 
 static int _send(netdev_t *netdev, const iolist_t *iolist);
@@ -56,6 +57,22 @@ const netdev_driver_t at86rf215_driver = {
     .get = _get,
     .set = _set,
 };
+
+static inline void _acquire(at86rf215_t *dev)
+{
+    if (dev->spi_users++) {
+        return;
+    }
+    spi_acquire(dev->params.spi, dev->params.cs_pin, SPI_MODE_0, dev->params.spi_clk);
+}
+
+static inline void _release(at86rf215_t *dev)
+{
+    if (--dev->spi_users) {
+        return;
+    }
+    spi_release(dev->params.spi);
+}
 
 static bool _is_busy(at86rf215_t *dev)
 {
@@ -117,9 +134,11 @@ static int _init(netdev_t *netdev)
         gpio_init(dev->params.reset_pin, GPIO_OUT);
         gpio_set(dev->params.reset_pin);
 
+        _acquire(dev);
+
         /* reset the entire chip */
         if ((res = at86rf215_hardware_reset(dev))) {
-            return res;
+            goto out;
         }
 
         /* turn off unused interface */
@@ -128,12 +147,15 @@ static int _init(netdev_t *netdev)
         }
 
         gpio_init_int(dev->params.int_pin, GPIO_IN, GPIO_RISING, _irq_handler, dev);
-    }
 
-    res = at86rf215_reg_read(dev, RG_RF_PN);
-    if ((res != AT86RF215_PN) && (res != AT86RF215M_PN)) {
-        DEBUG("[at86rf215] error: unable to read correct part number: %x\n", res);
-        return -ENOTSUP;;
+        res = at86rf215_reg_read(dev, RG_RF_PN);
+        if ((res != AT86RF215_PN) && (res != AT86RF215M_PN)) {
+            DEBUG("[at86rf215] error: unable to read correct part number: %x\n", res);
+            res = -ENOTSUP;
+            goto out;
+        }
+    } else {
+        _acquire(dev);
     }
 
     /* reset device to default values and put it into RX state */
@@ -141,8 +163,10 @@ static int _init(netdev_t *netdev)
 
     /* signal link UP */
     netdev->event_callback(netdev, NETDEV_EVENT_LINK_UP);
-
-    return 0;
+    res = 0;
+out:
+    _release(dev);
+    return res;
 }
 
 static int _send(netdev_t *netdev, const iolist_t *iolist)
@@ -150,26 +174,24 @@ static int _send(netdev_t *netdev, const iolist_t *iolist)
     netdev_ieee802154_t *netdev_ieee802154 = container_of(netdev, netdev_ieee802154_t, netdev);
     at86rf215_t *dev = container_of(netdev_ieee802154, at86rf215_t, netdev);
 
-    ssize_t len = at86rf215_tx_prepare(dev);
-    if (len) {
-        return len;
+    _acquire(dev);
+
+    ssize_t res = at86rf215_tx_prepare(dev);
+    if (res) {
+        goto out;
     }
 
     /* load packet data into FIFO */
     for (const iolist_t *iol = iolist; iol; iol = iol->iol_next) {
-
-        /* current packet data + FCS too long */
-        if ((len + iol->iol_len + IEEE802154_FCS_LEN) > AT86RF215_MAX_PKT_LENGTH) {
-            DEBUG("[at86rf215] error: packet too large (%" PRIuSIZE
-                  " byte) to be send\n", len + IEEE802154_FCS_LEN);
-            at86rf215_tx_abort(dev);
-            return -EOVERFLOW;
-        }
-
         if (iol->iol_len) {
-            len = at86rf215_tx_load(dev, iol->iol_base, iol->iol_len, len);
+            res = at86rf215_tx_load(dev, iol->iol_base, iol->iol_len);
+        }
+        if (res < 0) {
+            goto out;
         }
     }
+
+    dev->tx_frame_len += IEEE802154_FCS_LEN;
 
     /* send data out directly if pre-loading id disabled */
     if (!(dev->flags & AT86RF215_OPT_PRELOADING)) {
@@ -177,7 +199,10 @@ static int _send(netdev_t *netdev, const iolist_t *iolist)
     }
 
     /* netdev_new just returns 0 on success */
-    return 0;
+    res = 0;
+out:
+    _release(dev);
+    return res;
 }
 
 static int _confirm_send(netdev_t *netdev, void *info)
@@ -200,6 +225,8 @@ static int _recv(netdev_t *netdev, void *buf, size_t len, void *info)
     at86rf215_t *dev = container_of(netdev_ieee802154, at86rf215_t, netdev);
     int16_t pkt_len;
 
+    _acquire(dev);
+
     /* get the size of the received packet */
     at86rf215_reg_read_bytes(dev, dev->BBC->RG_RXFLL, &pkt_len, sizeof(pkt_len));
 
@@ -208,12 +235,13 @@ static int _recv(netdev_t *netdev, void *buf, size_t len, void *info)
 
     /* just return length when buf == NULL */
     if (buf == NULL) {
-        return pkt_len;
+        goto out;
     }
 
     /* not enough space in buf */
     if (pkt_len > (int) len) {
-        return -ENOBUFS;
+        pkt_len = -ENOBUFS;
+        goto out;
     }
 
     /* copy payload */
@@ -233,7 +261,8 @@ static int _recv(netdev_t *netdev, void *buf, size_t len, void *info)
             netdev_ieee802154_rx_info_set_timestamp(radio_info, res);
         }
     }
-
+out:
+    _release(dev);
     return pkt_len;
 }
 
@@ -360,16 +389,6 @@ static int _get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
                 !!(dev->flags & AT86RF215_OPT_AUTOACK);
             return sizeof(netopt_enable_t);
 
-        case NETOPT_CHANNEL_PAGE:
-            assert(max_len >= sizeof(uint16_t));
-            if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_OQPSK) {
-                return -ENOTSUP;
-            }
-
-            ((uint8_t *)val)[1] = 0;
-            ((uint8_t *)val)[0] = is_subGHz(dev) ? 2 : 0;
-            return sizeof(uint16_t);
-
         case NETOPT_AUTOCCA:
             *((netopt_enable_t *)val) =
                 !!(dev->flags & AT86RF215_OPT_CCATX);
@@ -392,6 +411,8 @@ static int _get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
     if (dev->state == AT86RF215_STATE_SLEEP) {
         return -ENOTSUP;
     }
+
+    _acquire(dev);
 
     /* these options require the transceiver to be not sleeping*/
     switch (opt) {
@@ -428,6 +449,17 @@ static int _get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
             assert(max_len >= sizeof(int8_t));
             *((int8_t *)val) = at86rf215_get_phy_mode(dev);
             res = max_len;
+            break;
+        case NETOPT_CHANNEL_PAGE:
+            assert(max_len >= sizeof(uint16_t));
+            if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_OQPSK) {
+                res = -ENOTSUP;
+                break;
+            }
+
+            ((uint8_t *)val)[1] = 0;
+            ((uint8_t *)val)[0] = is_subGHz(dev) ? 2 : 0;
+            res = sizeof(uint16_t);
             break;
 #ifdef MODULE_NETDEV_IEEE802154_MR_FSK
         case NETOPT_MR_FSK_MODULATION_INDEX:
@@ -506,6 +538,7 @@ static int _get(netdev_t *netdev, netopt_t opt, void *val, size_t max_len)
             break;
     }
 
+    _release(dev);
     return res;
 }
 
@@ -518,6 +551,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
     if (dev == NULL) {
         return -ENODEV;
     }
+
+    _acquire(dev);
 
     /* no need to wake up the device when it's sleeping - all registers
        are reset on wakeup. */
@@ -674,14 +709,15 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
                 break;
 #endif /* MODULE_NETDEV_IEEE802154_MR_FSK */
             default:
-                return -ENOTSUP;
+                res = -ENOTSUP;
             }
             break;
 
 #ifdef MODULE_NETDEV_IEEE802154_MR_FSK
         case NETOPT_MR_FSK_MODULATION_INDEX:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_FSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             if (at86rf215_FSK_set_mod_idx(dev, *(uint8_t *)val) == 0) {
@@ -693,7 +729,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
         case NETOPT_MR_FSK_MODULATION_ORDER:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_FSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             if (*(uint8_t *)val != 2 && *(uint8_t *)val != 4) {
@@ -707,7 +744,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
         case NETOPT_MR_FSK_SRATE:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_FSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             /* find the closest symbol rate value (in 10 kHz) that matches
@@ -723,7 +761,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
         case NETOPT_MR_FSK_FEC:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_FSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             if (at86rf215_FSK_set_fec(dev, *(uint8_t *)val) == 0) {
@@ -736,7 +775,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
         case NETOPT_CHANNEL_SPACING:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_FSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             /* find the closest channel spacing value (in 25 kHz) that matches
@@ -753,7 +793,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 #ifdef MODULE_NETDEV_IEEE802154_MR_OFDM
         case NETOPT_MR_OFDM_OPTION:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_OFDM) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             assert(len <= sizeof(uint8_t));
@@ -766,7 +807,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
         case NETOPT_MR_OFDM_MCS:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_OFDM) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             assert(len <= sizeof(uint8_t));
@@ -780,7 +822,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 #ifdef MODULE_NETDEV_IEEE802154_MR_OQPSK
         case NETOPT_MR_OQPSK_CHIPS:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_OQPSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             uint8_t chips;
@@ -807,7 +850,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 
         case NETOPT_MR_OQPSK_RATE:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_MR_OQPSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             assert(len <= sizeof(uint8_t));
@@ -821,7 +865,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
 #ifdef MODULE_NETDEV_IEEE802154_OQPSK
         case NETOPT_OQPSK_RATE:
             if (at86rf215_get_phy_mode(dev) != IEEE802154_PHY_OQPSK) {
-                return -ENOTSUP;
+                res = -ENOTSUP;
+                break;
             }
 
             assert(len <= sizeof(uint8_t));
@@ -840,6 +885,8 @@ static int _set(netdev_t *netdev, netopt_t opt, const void *val, size_t len)
         res = netdev_ieee802154_set(container_of(netdev, netdev_ieee802154_t, netdev),
                                     opt, val, len);
     }
+
+    _release(dev);
 
     return res;
 }
@@ -1037,6 +1084,8 @@ static void _isr(netdev_t *netdev)
     /* not using IRQMM because we want to know about AGCH */
     bb_irqs_enabled |= BB_IRQ_RXAM;
 
+    _acquire(dev);
+
     rf_irq_mask = at86rf215_reg_read(dev, dev->RF->RG_IRQS);
     bb_irq_mask = at86rf215_reg_read(dev, dev->BBC->RG_IRQS);
 
@@ -1086,7 +1135,7 @@ static void _isr(netdev_t *netdev)
     /* exit early if the interrupt was not for this interface */
     if (!((bb_irq_mask & bb_irqs_enabled) ||
           (rf_irq_mask & (RF_IRQ_EDC | RF_IRQ_TRXRDY)) || timeout)) {
-        return;
+        goto out;
     }
 
     /* check if the received packet has the ACK request bit set */
@@ -1284,4 +1333,6 @@ timeout:
         break;
     }
     }
+out:
+    _release(dev);
 }

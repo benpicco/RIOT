@@ -210,7 +210,7 @@ ssize_t at86rf215_send(at86rf215_t *dev, const void *data, size_t len)
         return -EBUSY;
     }
 
-    at86rf215_tx_load(dev, data, len, 0);
+    at86rf215_tx_load(dev, data, len);
     at86rf215_tx_exec(dev);
     return len;
 }
@@ -254,23 +254,29 @@ int at86rf215_tx_prepare(at86rf215_t *dev)
         return -EBUSY;
     }
 
-    dev->tx_frame_len = IEEE802154_FCS_LEN;
+    dev->tx_frame_len = 0;
 
     return 0;
 }
 
-size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data,
-                         size_t len, size_t offset)
+size_t at86rf215_tx_load(at86rf215_t *dev, const uint8_t *data, size_t len)
 {
+    size_t offset = dev->tx_frame_len;
+
     /* set bit if ACK was requested and retransmission is enabled */
     if (offset == 0 && (data[0] & IEEE802154_FCF_ACK_REQ) && dev->retries_max) {
         dev->flags |= AT86RF215_OPT_ACK_REQUESTED;
     }
 
+    if (dev->tx_frame_len + len > AT86RF215_MAX_PKT_LENGTH - IEEE802154_FCS_LEN) {
+        at86rf215_tx_abort(dev);
+        return -EOVERFLOW;
+    }
+
     at86rf215_reg_write_bytes(dev, dev->BBC->RG_FBTXS + offset, data, len);
     dev->tx_frame_len += (uint16_t) len;
 
-    return offset + len;
+    return dev->tx_frame_len;
 }
 
 int at86rf215_tx_exec(at86rf215_t *dev)
