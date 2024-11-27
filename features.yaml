@@ -72,6 +72,9 @@ groups:
   groups:
   - title: CPU Capabilities
     help: These correspond to features/capabilities provided by certain CPUs
+    features:
+      - name: cpu_reset_cause
+        help: The CPU provides information about the reset reason.
     groups:
     - title: Cortex M Specific Features
       help: These features are only available on (some) ARM Cortex M MCUs

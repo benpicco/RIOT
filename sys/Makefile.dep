@@ -49,6 +49,10 @@ ifneq (,$(filter debug_irq_disable,$(USEMODULE)))
   USEMODULE += fmt
 endif
 
+ifneq (0, $(DEVELHELP))
+  FEATURES_OPTIONAL += cpu_reset_cause
+endif
+
 ifneq (,$(filter fmt_table,$(USEMODULE)))
   USEMODULE += fmt
 endif

@@ -12,6 +12,8 @@ RIOTBASE ?= $(CURDIR)/../..
 # development process:
 DEVELHELP ?= 1
 
+FEATURES_OPTIONAL += cpu_reset_cause
+
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 

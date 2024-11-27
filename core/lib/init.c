@@ -48,6 +48,8 @@ extern int main(void);
 static char main_stack[THREAD_STACKSIZE_MAIN];
 static char idle_stack[THREAD_STACKSIZE_IDLE];
 
+extern const char *cpu_rcause(void);
+
 static void *main_trampoline(void *arg)
 {
     (void)arg;
@@ -58,6 +60,9 @@ static void *main_trampoline(void *arg)
 
     if (!IS_ACTIVE(CONFIG_SKIP_BOOT_MSG) && !IS_USED(MODULE_STDIO_NULL)) {
         LOG_INFO(CONFIG_BOOT_MSG_STRING "\n");
+        if (IS_USED(MODULE_CPU_RESET_CAUSE)) {
+            LOG_INFO("reset: %s\n", rcause);
+        }
     }
 
     int res = main();

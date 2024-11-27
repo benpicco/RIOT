@@ -16,6 +16,7 @@ endif
 
 # include sam0 common periph drivers
 USEMODULE += sam0_common_periph
+USEMODULE += sam0_common
 
 ifneq (,$(filter sam0_eth,$(USEMODULE)))
   USEMODULE += iolist
