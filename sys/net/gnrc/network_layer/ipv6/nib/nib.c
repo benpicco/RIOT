@@ -108,8 +108,10 @@ static inline bool _should_search_rtr(const gnrc_netif_t *netif)
     /* 6LBR interface does not send RS.
        A non-advertising router sends RS or a 6LN that is advertising or not
        has to refetch router information */
-    return !gnrc_netif_is_6lbr(netif) &&
-           (!gnrc_netif_is_rtr_adv(netif) || gnrc_netif_is_6ln(netif));
+    if (gnrc_netif_is_6lbr(netif)) {
+        return false;
+    }
+    return !gnrc_netif_is_rtr_adv(netif) || gnrc_netif_is_6ln(netif);
 }
 
 void gnrc_ipv6_nib_init(void)
@@ -167,6 +169,19 @@ static void _add_static_lladdr(gnrc_netif_t *netif)
 #endif
 }
 
+void _start_search_rtr(gnrc_netif_t *netif)
+{
+    uint32_t next_rs_time = random_uint32_range(0, NDP_MAX_RS_MS_DELAY);
+
+    _evtimer_add(netif, GNRC_IPV6_NIB_SEARCH_RTR, &netif->ipv6.search_rtr,
+                 next_rs_time);
+}
+
+void _stop_search_rtr(gnrc_netif_t *netif)
+{
+    _evtimer_del(&netif->ipv6.search_rtr);
+}
+
 void gnrc_ipv6_nib_iface_up(gnrc_netif_t *netif)
 {
     assert(netif != NULL);
@@ -185,11 +200,9 @@ void gnrc_ipv6_nib_iface_up(gnrc_netif_t *netif)
     }
     _add_static_lladdr(netif);
     _auto_configure_addr(netif, &ipv6_addr_link_local_prefix, 64U);
-    if (_should_search_rtr(netif)) {
-        uint32_t next_rs_time = random_uint32_range(0, NDP_MAX_RS_MS_DELAY);
 
-        _evtimer_add(netif, GNRC_IPV6_NIB_SEARCH_RTR, &netif->ipv6.search_rtr,
-                     next_rs_time);
+    if (_should_search_rtr(netif)) {
+        _start_search_rtr(netif);
     }
 #if IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_ROUTER)
     else {
@@ -208,7 +221,7 @@ void gnrc_ipv6_nib_iface_down(gnrc_netif_t *netif, bool send_final_ra)
 
     _deinit_iface_arsm(netif);
     if (_should_search_rtr(netif)) {
-        _evtimer_del(&netif->ipv6.search_rtr);
+        _stop_search_rtr(netif);
     }
 #if IS_ACTIVE(CONFIG_GNRC_IPV6_NIB_ROUTER)
     else {

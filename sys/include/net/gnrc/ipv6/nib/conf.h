@@ -125,10 +125,17 @@ extern "C" {
 #endif
 
 /**
- * @brief    activate router advertising at interface start-up
+ * @brief   activate router advertising at interface start-up
  */
 #ifndef CONFIG_GNRC_IPV6_NIB_ADV_ROUTER
 #define CONFIG_GNRC_IPV6_NIB_ADV_ROUTER               0
+#endif
+
+/**
+ * @brief   activate authoritative border router functionality at interface start-up
+ */
+#ifndef CONFIG_GNRC_IPV6_NIB_ABR
+#define CONFIG_GNRC_IPV6_NIB_ABR                    CONFIG_GNRC_IPV6_NIB_6LBR
 #endif
 
 /**
