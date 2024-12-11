@@ -234,6 +234,13 @@ extern "C" {
 #endif
 
 /**
+ * @brief   Start sending RAs when a RA has been received
+ */
+#ifndef CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C_AUTO_ADV
+#define CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C_AUTO_ADV  CONFIG_GNRC_IPV6_NIB_MULTIHOP_P6C
+#endif
+
+/**
  * @brief   Multihop duplicate address detection
  *
  * @see [RFC 6775, section 8.2](https://tools.ietf.org/html/rfc6775#section-8.2)
