@@ -12,6 +12,8 @@ include ../Makefile.drivers_common
 USEMODULE += ws281x
 USEMODULE += xtimer
 
+FEATURES_REQUIRED += periph_gpio_irq
+
 # Only AVR boards CPU clocked at 8MHz or 16 MHz are supported. The Waspmote Pro
 # is clocked at 14.7456 MHz :-/
 BOARD_BLACKLIST := waspmote-pro
