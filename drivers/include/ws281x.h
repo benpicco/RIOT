@@ -232,6 +232,13 @@ static inline void ws281x_set(ws281x_t *dev, uint16_t index, color_rgb_t color)
     ws281x_set_buffer(dev->params.buf, index, color);
 }
 
+static inline void ws281x_set_all(ws281x_t *dev, color_rgb_t color)
+{
+    for (unsigned i = 0; i < dev->params.numof; ++i) {
+        ws281x_set(dev, i, color);
+    }
+}
+
 /**
  * @brief   Writes the internal buffer to the LED chain
  *
