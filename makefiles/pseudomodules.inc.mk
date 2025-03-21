@@ -492,7 +492,8 @@ PSEUDOMODULES += stdio_cdc_acm
 ## @ingroup sys_stdio
 ## @{
 ## This module selects the default STDIO method of a given board.
-## It will be enabled by default if no other stdio method is selected.
+## If the board does not define a stdio_default provider, this will select stdio_uart.
+## The module will be enabled by default if no other stdio method is selected.
 PSEUDOMODULES += stdio_default
 ## @}
 PSEUDOMODULES += stdio_dispatch
