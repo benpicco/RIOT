@@ -308,6 +308,9 @@ static void _connect_bootloader(int fd)
 {
     const char spinner[] = "|/-\\";
     unsigned tries = 0;
+
+    write(fd, "serload\n", 8);
+
     while (_get_char(fd) != RIOTBOOT_STAT_WAITING) {
         printf("connecting [%c]", spinner[tries % (sizeof(spinner) - 1)]);
         _put_char(fd, RIOTBOOT_PROBE);
