@@ -16,10 +16,11 @@
 #include <unistd.h>
 
 #include "riotboot/serial.h"
+#include "riotboot/hdr.h"
 
 extern int serial_open(int argc, char **argv);
 
-typedef int (*line_cb_t)(void *ctx, uint32_t addr, uint8_t len, const char *s);
+typedef int (*line_cb_t)(void *ctx, uint32_t addr, uint8_t len, const uint8_t *s);
 
 enum {
     IHEX_DATA,
@@ -179,7 +180,17 @@ static unsigned _hex_to_int(const char *s, size_t len)
     return ret;
 }
 
-static int _write_out(void *ctx, uint32_t addr, uint8_t len, const char *s)
+static void _hex_buf_to_bin(char *s, size_t len)
+{
+    uint8_t *bin = (void *)s;
+    while (len) {
+        *bin++ = _hex_to_int(s, 2);
+        s += 2;
+        len -= 2;
+    }
+}
+
+static int _write_out(void *ctx, uint32_t addr, uint8_t len, const uint8_t *s)
 {
     int fd = *(int*)ctx;
 
@@ -191,9 +202,7 @@ static int _write_out(void *ctx, uint32_t addr, uint8_t len, const char *s)
     _write_crc(fd, &addr, sizeof(addr), &crc);
 
     while (len--) {
-        uint8_t byte = _hex_to_int(s, 2);
-        _write_crc_byte(fd, byte, &crc);
-        s += 2;
+        _write_crc_byte(fd, *s++, &crc);
     }
 
     write(fd, &crc, 1);
@@ -227,7 +236,8 @@ static void _parse_ihex(FILE *hex, line_cb_t cb, void *ctx)
 
         switch (type) {
         case IHEX_DATA:
-            while (cb(ctx, addr, len, pos) > 0) {}
+            _hex_buf_to_bin(pos, len * 2);
+            while (cb(ctx, addr, len, (void *)pos) > 0) {}
             break;
         case IHEX_EXT_SEG_ADDR:
             offset = _hex_to_int(pos, len) << 12;
@@ -243,7 +253,41 @@ static void _parse_ihex(FILE *hex, line_cb_t cb, void *ctx)
     }
 }
 
-static int _min_max(void *ctx, uint32_t addr, uint8_t len, const char *s)
+static bool _parse_slotfile(FILE *file, line_cb_t cb, void *ctx)
+{
+    uint8_t buf[24];
+    size_t len;
+    uint32_t offset = 0;
+
+    rewind(file);
+
+    while ((len = fread(buf, 1, sizeof(buf), file))) {
+        if (offset == 0) {
+            riotboot_hdr_t *hdr = (void *)buf;
+            if (hdr->magic_number != RIOTBOOT_MAGIC) {
+                return false;
+            }
+            offset = hdr->start_addr;
+            offset &= ~(1 << __builtin_ctz(offset));
+            printf("offset: %x\n", offset);
+        }
+
+        while (cb(ctx, offset, len, buf) > 0) {}
+        offset += len;
+    }
+
+    return true;
+}
+
+static void _parse_file(FILE *file, line_cb_t cb, void *ctx)
+{
+    if (_parse_slotfile(file, cb, ctx)) {
+        return;
+    }
+    _parse_ihex(file, cb, ctx);
+}
+
+static int _min_max(void *ctx, uint32_t addr, uint8_t len, const uint8_t *s)
 {
     (void)s;
 
@@ -303,7 +347,7 @@ int main(int argc, char** argv)
 
     /* parse hex file to get firmware address range */
     uint32_t min_max[2] = {UINT32_MAX, 0};
-    _parse_ihex(hex, _min_max, min_max);
+    _parse_file(hex, _min_max, min_max);
 
     printf("%u byte firmware (0x%x - 0x%x)\n",
            min_max[1] - min_max[0], min_max[0], min_max[1]);
@@ -330,7 +374,7 @@ int main(int argc, char** argv)
     }
 
     /* flash the firmware */
-    _parse_ihex(hex, _write_out, &fd);
+    _parse_file(hex, _write_out, &fd);
 
     cmd_boot(fd);
 
