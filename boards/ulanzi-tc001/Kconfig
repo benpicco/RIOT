@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2020 HAW Hamburg
+# SPDX-License-Identifier: LGPL-2.1-only
+
+config BOARD
+    default "esp32-wroom-32" if BOARD_ESP32_WROOM_32
+
+config BOARD_ESP32_WROOM_32
+    bool
+    default y
+    select BOARD_COMMON_ESP32
+    select CPU_MODEL_ESP32_WROOM_32
+
+source "$(RIOTBOARD)/common/esp32/Kconfig"
