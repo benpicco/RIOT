@@ -51,6 +51,16 @@ extern "C" {
 /** @} */
 
 /**
+ * @name    Properties of the SDL backend.
+ * @{
+ */
+#ifdef MODULE_WS281X_SDL
+#define WS281X_HAVE_PREPARE_TRANSMISSION    (1)
+#define WS281X_HAVE_END_TRANSMISSION        (1)
+#endif
+/** @} */
+
+/**
  * @name    Properties of the timer_gpio_ll backend.
  * @{
  */
