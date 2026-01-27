@@ -1,9 +1,9 @@
-BOARD ?= atmega328p
+BOARD ?= native
 include ../Makefile.drivers_common
 
 # Update this to your needs
 # PIN ?= GPIO_PIN(0, 0)
-# N ?= 8
+N ?= (8*32)
 # When using the ws281x_timer_gpio_ll module, you'll also need to define those:
 # (Example values are suitable for nRF52 devices)
 # TIMER ?= 2
