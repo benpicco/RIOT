@@ -16,23 +16,15 @@
 #define SERPENTINE     1
 #endif
 
-/* ---- Text & color ---- */
+/* ---- Text ---- */
 static const char *TEXT = " FOSDEM Beer Event ";
-static const color_rgb_t FG = { .r = 0x80, .g = 0x80, .b = 0xFF };  /* bluish */
-static const color_rgb_t BG = { .r = 0x00, .g = 0x00, .b = 0x00 };  /* off */
 
-/* ---- Sine wave controls ----
- * amplitude: vertical pixels (try 1..2)
- * wavelength: pixels per full sine period along x
- * speed: LUT index steps per frame (1..4)
- */
+/* ---- Sine wave controls ---- */
 #define WAV_AMP_PX     1
 #define WAV_LEN_PX     8
 #define WAV_SPEED      1
 
-/* ---- 64-step integer sine LUT, scaled to [-127, +127] ----
- * sin(2*pi*n/64)*127 rounded to nearest integer.
- */
+/* ---- 64-step integer sine LUT ---- */
 #define LUT_LEN 64
 static const int8_t SIN_LUT[LUT_LEN] = {
      0,  12,  25,  37,  49,  60,  71,  81,
@@ -45,12 +37,25 @@ static const int8_t SIN_LUT[LUT_LEN] = {
    -90, -81, -71, -60, -49, -37, -25, -12
 };
 
-static uint8_t g_phase;  /* 0..63 */
+static uint8_t g_phase;  /* sine phase 0..63 */
+
+/* ---- Rainbow parameters ---- */
+#define HUE_SPEED           2
+#define HUE_PER_LETTER     16
+#define HUE_PER_COL         8
+#define RAINBOW_BRIGHTNESS 200
+static uint8_t g_hue_phase;
+
+/* ---- Global brightness pulse (breathing) ---- */
+#define BRIGHT_MIN        120
+#define BRIGHT_MAX        255
+#define PULSE_SPEED         2
+static uint8_t g_pulse_phase;
 
 /* WS281x device */
 static ws281x_t leds;
 
-/* Map (x,y) -> LED index in the 1D chain */
+/* Map (x,y) -> LED index */
 static inline uint16_t map_xy_to_index(unsigned x, unsigned y)
 {
     if (x >= MAT_W || y >= MAT_H) {
@@ -76,78 +81,46 @@ static inline void set_px(unsigned x, unsigned y, color_rgb_t c)
     }
 }
 
+/* Clear matrix to off */
 static void clear_matrix(void)
 {
+    color_rgb_t off = {0,0,0};
     for (unsigned y = 0; y < MAT_H; y++) {
         for (unsigned x = 0; x < MAT_W; x++) {
-            set_px(x, y, BG);
+            set_px(x, y, off);
         }
     }
 }
 
-/* Draw a 5x5 Mineplex glyph at (x0,y0).  LSB of each byte is leftmost pixel. */
-static void draw_glyph_mineplex(int x0, int y0, char ch, color_rgb_t col)
-{
-    const uint8_t *g = mineplex_char(ch);
-    for (int row = 0; row < (int)MINEPLEX_CHAR_H; row++) {
-        uint8_t rbits = g[row];
-        for (int col_x = 0; col_x < (int)MINEPLEX_CHAR_W; col_x++) {
-            if (rbits & (1u << col_x)) {
-                int x = x0 + col_x;
-                int y = y0 + row;
-                if ((unsigned)x < MAT_W && (unsigned)y < MAT_H) {
-                    set_px((unsigned)x, (unsigned)y, col);
-                }
-            }
-        }
-    }
-}
-
-/* Convert an x-position (in pixels) into a small vertical offset (in pixels)
-   using the sine LUT and the current phase. */
 static inline int wave_offset_for_x(int xpix)
 {
-    /* Map x to LUT index via wavelength; add phase; wrap by LUT_LEN */
     unsigned idx = (unsigned)(g_phase + ((xpix * LUT_LEN) / WAV_LEN_PX)) & (LUT_LEN - 1);
-
-    /* Scale [-127..127] to pixel offset with rounding */
     int v = SIN_LUT[idx]; /* -127..127 */
     int off = (WAV_AMP_PX * v + (v >= 0 ? 63 : -63)) / 127;
     return off;
 }
 
-/* ---- Rainbow parameters ---- */
-#define HUE_SPEED           2       /* hue phase advance per frame (bigger = faster color flow) */
-#define HUE_PER_LETTER      16      /* hue step between letters */
-#define HUE_PER_COL          8      /* hue step across the 5 columns of a glyph */
-#define RAINBOW_BRIGHTNESS 200      /* 0..255 overall brightness of rainbow */
-
-static uint8_t g_hue_phase;         /* animated hue offset 0..255 */
-
-/* Fast rainbow wheel: maps 0..255 -> RGB rainbow, then scales by brightness. */
+/* Rainbow wheel hue->RGB */
 static inline color_rgb_t wheel(uint8_t pos, uint8_t bright)
 {
     uint8_t r, g, b;
-
-    if (pos < 85) {                  /*   0.. 84 */
+    if (pos < 85) {
         r = (uint8_t)(255 - pos * 3);
         g = (uint8_t)(pos * 3);
         b = 0;
     }
-    else if (pos < 170) {            /*  85..169 */
+    else if (pos < 170) {
         pos -= 85;
         r = 0;
         g = (uint8_t)(255 - pos * 3);
         b = (uint8_t)(pos * 3);
     }
-    else {                           /* 170..255 */
+    else {
         pos -= 170;
         r = (uint8_t)(pos * 3);
         g = 0;
         b = (uint8_t)(255 - pos * 3);
     }
-
-    /* Scale by brightness (0..255) */
     color_rgb_t c;
     c.r = (uint8_t)(((uint16_t)r * bright) >> 8);
     c.g = (uint8_t)(((uint16_t)g * bright) >> 8);
@@ -155,8 +128,21 @@ static inline color_rgb_t wheel(uint8_t pos, uint8_t bright)
     return c;
 }
 
-/* Draw a 5x5 Mineplex glyph with a small rainbow gradient across its columns */
-static void draw_glyph_mineplex_rainbow(int x0, int y0, char ch, uint8_t base_hue)
+/* Current global brightness from pulse */
+static inline uint8_t pulse_brightness_now(void)
+{
+    int v = SIN_LUT[g_pulse_phase];            /* -127..127 */
+    int u = v + 127;                           /* 0..254 */
+    uint8_t base = (uint8_t)u;                 /* 0..254 */
+
+    unsigned span = (unsigned)(BRIGHT_MAX - BRIGHT_MIN);
+    uint8_t scaled = (uint8_t)((base * span + 127) / 255);
+    return (uint8_t)(BRIGHT_MIN + scaled);
+}
+
+/* Draw a Mineplex glyph with rainbow gradient across columns */
+static void draw_glyph_mineplex_rainbow(int x0, int y0, char ch,
+                                        uint8_t base_hue, uint8_t cur_bright)
 {
     const uint8_t *g = mineplex_char(ch);
     for (int row = 0; row < (int)MINEPLEX_CHAR_H; row++) {
@@ -166,17 +152,16 @@ static void draw_glyph_mineplex_rainbow(int x0, int y0, char ch, uint8_t base_hu
                 int x = x0 + col_x;
                 int y = y0 + row;
                 if ((unsigned)x < MAT_W && (unsigned)y < MAT_H) {
-                    /* Per-column hue variation inside the letter */
                     uint8_t h = (uint8_t)(base_hue + (uint8_t)(col_x * HUE_PER_COL));
-                    set_px((unsigned)x, (unsigned)y, wheel(h, RAINBOW_BRIGHTNESS));
+                    set_px((unsigned)x, (unsigned)y, wheel(h, cur_bright));
                 }
             }
         }
     }
 }
 
-/* Draw text riding the sine wave, with rainbow letters */
-static void draw_text_sine_rainbow(int x_left, int y_base, const char *s)
+/* Draw rainbow text riding the sine wave, modulated by the pulse brightness */
+static void draw_text_sine_rainbow(int x_left, int y_base, const char *s, uint8_t cur_bright)
 {
     const int glyph_w = (int)MINEPLEX_CHAR_W;
     const int spacing = 1;
@@ -186,37 +171,14 @@ static void draw_text_sine_rainbow(int x_left, int y_base, const char *s)
     int letter_index = 0;
 
     while (*s) {
-        /* Center x of this letter controls its vertical wave */
         int glyph_center_x = cursor + glyph_w / 2;
         int y = y_base + wave_offset_for_x(glyph_center_x);
 
-        /* Base hue for this letter (animated) */
         uint8_t base_hue = (uint8_t)(g_hue_phase + (uint8_t)(letter_index * HUE_PER_LETTER));
-
-        draw_glyph_mineplex_rainbow(cursor, y, *s++, base_hue);
+        draw_glyph_mineplex_rainbow(cursor, y, *s++, base_hue, cur_bright);
 
         cursor += char_step;
         letter_index++;
-
-        if (cursor >= (int)MAT_W) {
-            break;
-        }
-    }
-}
-
-/* Draw string with sine-wave vertical motion (per-letter). */
-static void draw_text_sine(int x_left, int y_base, const char *s, color_rgb_t col)
-{
-    const int glyph_w = (int)MINEPLEX_CHAR_W;
-    const int spacing = 1;
-    const int char_step = glyph_w + spacing;
-
-    int cursor = x_left;
-    while (*s) {
-        int glyph_center_x = cursor + glyph_w / 2;
-        int y = y_base + wave_offset_for_x(glyph_center_x);
-        draw_glyph_mineplex(cursor, y, *s++, col);
-        cursor += char_step;
         if (cursor >= (int)MAT_W) {
             break;
         }
@@ -225,7 +187,6 @@ static void draw_text_sine(int x_left, int y_base, const char *s, color_rgb_t co
 
 int main(void)
 {
-    /* Use default ws281x_params, but override the number of LEDs */
     ws281x_params_t p = ws281x_params[0];
     p.numof = NUM_LEDS;
 
@@ -237,40 +198,27 @@ int main(void)
     const int glyph_w = (int)MINEPLEX_CHAR_W;
     const int spacing = 1;
     const int char_step = glyph_w + spacing;
-
     const int text_px = (int)strlen(TEXT) * char_step;
-
-    /* center the 5-pixel font vertically in 8 pixels */
     const int y_center = (MAT_H - (int)MINEPLEX_CHAR_H) / 2;
 
-    int scroll_x = MAT_W;  /* start from right edge */
+    int scroll_x = MAT_W;
 
     while (1) {
         clear_matrix();
 
-        /* draw text with sine-wave vertical offsets */
-        if (0) {
-            draw_text_sine(scroll_x, y_center, TEXT, FG);
-        } else {
-            draw_text_sine_rainbow(scroll_x, y_center, TEXT);
-        }
-
-        /* push frame to LEDs */
+        uint8_t cur_bright = pulse_brightness_now();
+        draw_text_sine_rainbow(scroll_x, y_center, TEXT, cur_bright);
         ws281x_write(&leds);
 
-        /* advance the rainbow phase */
-        g_hue_phase = (uint8_t)(g_hue_phase + HUE_SPEED);
-
-        /* advance horizontal scroll and sine phase */
         scroll_x--;
         if (scroll_x <= -text_px) {
             scroll_x = MAT_W;
         }
-        g_phase = (g_phase + WAV_SPEED) & (LUT_LEN - 1);
+        g_phase       = (uint8_t)((g_phase + WAV_SPEED) & (LUT_LEN - 1));
+        g_hue_phase   = (uint8_t)(g_hue_phase + HUE_SPEED);
+        g_pulse_phase = (uint8_t)((g_pulse_phase + PULSE_SPEED) & (LUT_LEN - 1));
 
-        /* frame time -> horizontal speed; tune together with WAV_SPEED */
         xtimer_usleep(60 * 1000);
     }
-
     return 0;
 }
