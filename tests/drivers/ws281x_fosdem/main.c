@@ -16,10 +16,36 @@
 #define SERPENTINE     1
 #endif
 
-/* Choose a text and color */
+/* ---- Text & color ---- */
 static const char *TEXT = " RIOT + WS281x  ";
 static const color_rgb_t FG = { .r = 0x80, .g = 0x80, .b = 0xFF };  /* bluish */
 static const color_rgb_t BG = { .r = 0x00, .g = 0x00, .b = 0x00 };  /* off */
+
+/* ---- Sine wave controls ----
+ * amplitude: vertical pixels (try 1..2)
+ * wavelength: pixels per full sine period along x
+ * speed: LUT index steps per frame (1..4)
+ */
+#define WAV_AMP_PX     1
+#define WAV_LEN_PX     24
+#define WAV_SPEED      1
+
+/* ---- 64-step integer sine LUT, scaled to [-127, +127] ----
+ * sin(2*pi*n/64)*127 rounded to nearest integer.
+ */
+#define LUT_LEN 64
+static const int8_t SIN_LUT[LUT_LEN] = {
+     0,  12,  25,  37,  49,  60,  71,  81,
+    90,  98, 106, 112, 117, 122, 125, 126,
+   127, 126, 125, 122, 117, 112, 106,  98,
+    90,  81,  71,  60,  49,  37,  25,  12,
+     0, -12, -25, -37, -49, -60, -71, -81,
+   -90, -98,-106,-112,-117,-122,-125,-126,
+  -127,-126,-125,-122,-117,-112,-106, -98,
+   -90, -81, -71, -60, -49, -37, -25, -12
+};
+
+static uint8_t g_phase;  /* 0..63 */
 
 /* WS281x device */
 static ws281x_t leds;
@@ -28,10 +54,9 @@ static ws281x_t leds;
 static inline uint16_t map_xy_to_index(unsigned x, unsigned y)
 {
     if (x >= MAT_W || y >= MAT_H) {
-        return 0; /* shouldn’t happen */
+        return 0;
     }
 #if SERPENTINE
-    /* Even rows left->right, odd rows right->left */
     if (y & 1) {
         return (y * MAT_W) + (MAT_W - 1 - x);
     }
@@ -39,12 +64,10 @@ static inline uint16_t map_xy_to_index(unsigned x, unsigned y)
         return (y * MAT_W) + x;
     }
 #else
-    /* Simple left->right, top->bottom */
     return (y * MAT_W) + x;
 #endif
 }
 
-/* Set a pixel in the internal WS281x buffer */
 static inline void set_px(unsigned x, unsigned y, color_rgb_t c)
 {
     uint16_t idx = map_xy_to_index(x, y);
@@ -53,7 +76,6 @@ static inline void set_px(unsigned x, unsigned y, color_rgb_t c)
     }
 }
 
-/* Clear whole matrix to background color */
 static void clear_matrix(void)
 {
     for (unsigned y = 0; y < MAT_H; y++) {
@@ -63,9 +85,7 @@ static void clear_matrix(void)
     }
 }
 
-/* Draw a 5x5 Mineplex glyph at (x0,y0).
-   According to the docs, mineplex_char() returns 5 bytes (rows top->bottom),
-   and each row uses the LSB 5 bits, with bit 0 == leftmost pixel. */
+/* Draw a 5x5 Mineplex glyph at (x0,y0).  LSB of each byte is leftmost pixel. */
 static void draw_glyph_mineplex(int x0, int y0, char ch, color_rgb_t col)
 {
     const uint8_t *g = mineplex_char(ch);
@@ -75,7 +95,7 @@ static void draw_glyph_mineplex(int x0, int y0, char ch, color_rgb_t col)
             if (rbits & (1u << col_x)) {
                 int x = x0 + col_x;
                 int y = y0 + row;
-                if (x >= 0 && x < (int)MAT_W && y >= 0 && y < (int)MAT_H) {
+                if ((unsigned)x < MAT_W && (unsigned)y < MAT_H) {
                     set_px((unsigned)x, (unsigned)y, col);
                 }
             }
@@ -83,61 +103,78 @@ static void draw_glyph_mineplex(int x0, int y0, char ch, color_rgb_t col)
     }
 }
 
-/* Draw a string using Mineplex; add 1px spacing after each char */
-static void draw_text(int x, int y, const char *s, color_rgb_t col)
+/* Convert an x-position (in pixels) into a small vertical offset (in pixels)
+   using the sine LUT and the current phase. */
+static inline int wave_offset_for_x(int xpix)
 {
-    int cursor = x;
+    /* Map x to LUT index via wavelength; add phase; wrap by LUT_LEN */
+    unsigned idx = (unsigned)(g_phase + ((xpix * LUT_LEN) / WAV_LEN_PX)) & (LUT_LEN - 1);
+
+    /* Scale [-127..127] to pixel offset with rounding */
+    int v = SIN_LUT[idx]; /* -127..127 */
+    int off = (WAV_AMP_PX * v + (v >= 0 ? 63 : -63)) / 127;
+    return off;
+}
+
+/* Draw string with sine-wave vertical motion (per-letter). */
+static void draw_text_sine(int x_left, int y_base, const char *s, color_rgb_t col)
+{
+    const int glyph_w = (int)MINEPLEX_CHAR_W;
+    const int spacing = 1;
+    const int char_step = glyph_w + spacing;
+
+    int cursor = x_left;
     while (*s) {
+        int glyph_center_x = cursor + glyph_w / 2;
+        int y = y_base + wave_offset_for_x(glyph_center_x);
         draw_glyph_mineplex(cursor, y, *s++, col);
-        cursor += (int)MINEPLEX_CHAR_W + 1;
+        cursor += char_step;
         if (cursor >= (int)MAT_W) {
-            break; /* off the right edge */
+            break;
         }
     }
 }
 
 int main(void)
 {
-    /* ---- Initialize WS281x with overrides from ws281x_params.h ----
-       We’ll override the LED count to 32x8 in the Makefile.
-       The buffer comes from ws281x_params (or the default).
-    */
+    /* Use default ws281x_params, but override the number of LEDs */
     ws281x_params_t p = ws281x_params[0];
-    p.numof = NUM_LEDS;                 /* make sure numof matches matrix */
+    p.numof = NUM_LEDS;
 
     if (ws281x_init(&leds, &p) != 0) {
         puts("ws281x_init failed");
         return 1;
     }
 
-    /* Simple scrolling demo */
     const int glyph_w = (int)MINEPLEX_CHAR_W;
     const int spacing = 1;
     const int char_step = glyph_w + spacing;
 
-    /* Total text width in pixels */
     const int text_px = (int)strlen(TEXT) * char_step;
 
-    /* Vertically center the 5-pixel-tall font in an 8-pixel-tall matrix */
-    const int y0 = (MAT_H - (int)MINEPLEX_CHAR_H) / 2;
+    /* center the 5-pixel font vertically in 8 pixels */
+    const int y_center = (MAT_H - (int)MINEPLEX_CHAR_H) / 2;
 
-    int offset = MAT_W;  /* start scrolling in from the right edge */
+    int scroll_x = MAT_W;  /* start from right edge */
+
     while (1) {
         clear_matrix();
-        /* draw text with its left edge at x = offset */
-        draw_text(offset, y0, TEXT, FG);
+
+        /* draw text with sine-wave vertical offsets */
+        draw_text_sine(scroll_x, y_center, TEXT, FG);
 
         /* push frame to LEDs */
         ws281x_write(&leds);
 
-        /* update scroll offset */
-        offset--;
-        if (offset <= -(text_px)) {
-            offset = MAT_W;  /* restart */
+        /* advance horizontal scroll and sine phase */
+        scroll_x--;
+        if (scroll_x <= -text_px) {
+            scroll_x = MAT_W;
         }
+        g_phase = (g_phase + WAV_SPEED) & (LUT_LEN - 1);
 
-        /* adjust speed as you like */
-        xtimer_usleep(60 * 1000);  /* ~60ms per step */
+        /* frame time -> horizontal speed; tune together with WAV_SPEED */
+        xtimer_usleep(60 * 1000);
     }
 
     return 0;
