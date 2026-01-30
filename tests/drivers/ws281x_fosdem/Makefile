@@ -13,6 +13,10 @@ USEMODULE += ws281x
 USEMODULE += xtimer
 USEMODULE += mineplex
 
+USEMODULE += sht3x
+USEMODULE += walltime
+USEMODULE += walltime_impl_ds1307
+
 EXTERNAL_BOARD_DIRS += $(RIOTBASE)/tests/build_system/external_board_dirs/esp-ci-boards
 
 include $(RIOTBASE)/Makefile.include

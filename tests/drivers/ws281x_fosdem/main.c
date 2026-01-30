@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "xtimer.h"
+#include "fmt.h"
 #include "color.h"
+#include "walltime.h"
 #include "ws281x.h"
 #include "ws281x_params.h"
 #include "mineplex.h"
@@ -185,6 +187,9 @@ static void draw_text_sine_rainbow(int x_left, int y_base, const char *s, uint8_
     }
 }
 
+#include "sht3x.h"
+#include "sht3x_params.h"
+
 int main(void)
 {
     ws281x_params_t p = ws281x_params[0];
@@ -198,16 +203,81 @@ int main(void)
     const int glyph_w = (int)MINEPLEX_CHAR_W;
     const int spacing = 1;
     const int char_step = glyph_w + spacing;
-    const int text_px = (int)strlen(TEXT) * char_step;
     const int y_center = (MAT_H - (int)MINEPLEX_CHAR_H) / 2;
 
+    gpio_init(BTN0_PIN, BTN0_MODE);
+    gpio_init(BTN1_PIN, BTN1_MODE);
+
     int scroll_x = MAT_W;
+
+    sht3x_dev_t sht3x;
+    sht3x_init(&sht3x, &sht3x_params[0]);
+
+    enum {
+        MODE_TEXT,
+        MODE_TIME,
+        MODE_TEMP,
+    } op_mode = MODE_TEXT;
+
+    xtimer_ticks32_t last_wakeup = 0;
+    char custom_text[64];
+    unsigned update_interval = 0;
 
     while (1) {
         clear_matrix();
 
+        const char *text;
+
+        switch (op_mode) {
+        case MODE_TEXT:
+            text = TEXT;
+            break;
+        case MODE_TIME:
+            text = custom_text;
+
+            if (update_interval--) {
+                break;
+            }
+            update_interval = 15;
+
+            struct tm now;
+            if (!walltime_get(&now, NULL)) {
+                snprintf(custom_text, sizeof(custom_text), "%02u:%02u:%02u",
+                         now.tm_hour, now.tm_min, now.tm_sec);
+            }
+
+            break;
+        case MODE_TEMP:
+            text = custom_text;
+
+            if (update_interval--) {
+                break;
+            }
+            update_interval = 40;
+
+            int16_t temp;
+            int16_t hum;
+            sht3x_read(&sht3x, &temp, &hum);
+            snprintf(custom_text, sizeof(custom_text), "%u.%02uC %u.%02u%% hum",
+                     temp / 100, temp % 100,
+                     hum / 100, hum % 100);
+            break;
+        }
+
+        if (!gpio_read(BTN0_PIN)) {
+            op_mode = MODE_TEXT;
+        } else if (!gpio_read(BTN1_PIN)) {
+            op_mode = MODE_TIME;
+            update_interval = 0;
+        } else if (!gpio_read(BTN2_PIN)) {
+            op_mode = MODE_TEMP;
+            update_interval = 0;
+        }
+
+        int text_px = (int)strlen(text) * char_step;
+
         uint8_t cur_bright = pulse_brightness_now();
-        draw_text_sine_rainbow(scroll_x, y_center, TEXT, cur_bright);
+        draw_text_sine_rainbow(scroll_x, y_center, text, cur_bright);
         ws281x_write(&leds);
 
         scroll_x--;
@@ -218,7 +288,7 @@ int main(void)
         g_hue_phase   = (uint8_t)(g_hue_phase + HUE_SPEED);
         g_pulse_phase = (uint8_t)((g_pulse_phase + PULSE_SPEED) & (LUT_LEN - 1));
 
-        xtimer_usleep(60 * 1000);
+        xtimer_periodic_wakeup(&last_wakeup, 60 * 1000);
     }
     return 0;
 }
