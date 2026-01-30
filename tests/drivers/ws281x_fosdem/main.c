@@ -163,7 +163,7 @@ static void draw_glyph_mineplex_rainbow(int x0, int y0, char ch,
 }
 
 /* Draw rainbow text riding the sine wave, modulated by the pulse brightness */
-static void draw_text_sine_rainbow(int x_left, int y_base, const char *s, uint8_t cur_bright)
+static void draw_text_sine_rainbow(int x_left, int y_base, const char *s, uint8_t cur_bright, bool wobble)
 {
     const int glyph_w = (int)MINEPLEX_CHAR_W;
     const int spacing = 1;
@@ -174,7 +174,10 @@ static void draw_text_sine_rainbow(int x_left, int y_base, const char *s, uint8_
 
     while (*s) {
         int glyph_center_x = cursor + glyph_w / 2;
-        int y = y_base + wave_offset_for_x(glyph_center_x);
+        int y = y_base;
+        if (wobble) {
+            y += wave_offset_for_x(glyph_center_x);
+        }
 
         uint8_t base_hue = (uint8_t)(g_hue_phase + (uint8_t)(letter_index * HUE_PER_LETTER));
         draw_glyph_mineplex_rainbow(cursor, y, *s++, base_hue, cur_bright);
@@ -258,7 +261,7 @@ int main(void)
             int16_t temp;
             int16_t hum;
             sht3x_read(&sht3x, &temp, &hum);
-            snprintf(custom_text, sizeof(custom_text), "%u.%02uC %u.%02u%% hum",
+            snprintf(custom_text, sizeof(custom_text), "%u.%02uC  %u.%02u%% hum",
                      temp / 100, temp % 100,
                      hum / 100, hum % 100);
             break;
@@ -277,7 +280,7 @@ int main(void)
         int text_px = (int)strlen(text) * char_step;
 
         uint8_t cur_bright = pulse_brightness_now();
-        draw_text_sine_rainbow(scroll_x, y_center, text, cur_bright);
+        draw_text_sine_rainbow(scroll_x, y_center, text, cur_bright, op_mode == MODE_TEXT);
         ws281x_write(&leds);
 
         scroll_x--;
