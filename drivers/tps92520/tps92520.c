@@ -41,11 +41,13 @@
 #define REG_CH2IADJH    0x0b
 #define REG_PWMDIV      0x0c
 
+#define REG_TEMPL       0x1b
+#define REG_TEMPH       0x1c
 
-#define SYSCFG_CH1EN    (1 << 0)
-#define SYSCFG_CH2EN    (1 << 2)
+#define SYSCFG1_CH1EN   (1 << 0)
+#define SYSCFG1_CH2EN   (1 << 2)
 
-static int _read_reg(tps92520_t *dev, uint8_t addr)
+static uint8_t _read_reg(tps92520_t *dev, uint8_t addr)
 {
     uint16_t tx_buf = CMD_READ | (addr << 1);
     tx_buf = (tx_buf | __builtin_parity(tx_buf)) << 8;
@@ -61,21 +63,87 @@ static int _read_reg(tps92520_t *dev, uint8_t addr)
     return tx_buf & 0xFF;
 }
 
-static int _write_reg(tps92520_t *dev, uint8_t addr, uint8_t write_data)
+static void _write_reg(tps92520_t *dev, uint8_t addr, uint8_t write_data)
 {
     uint16_t tx_buf = CMD_WRITE | (addr << 1);
     tx_buf = (tx_buf | __builtin_parity(tx_buf)) << 8;
     tx_buf |= write_data;
 
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, NULL, sizeof(tx_buf));
+}
+
+int tps92520_set_current(tps92520_t *dev, uint8_t chan, uint16_t val)
+{
+    assume(chan < 2);
+
+    uint8_t reg = chan
+                ? REG_CH2IADJL
+                : REG_CH1IADJL;
+
+    SPI_ACQUIRE(dev);
+
+    _write_reg(dev, reg, val & 0x3);
+    _write_reg(dev, reg + 1, val >> 2);
+
+    SPI_RELEASE(dev);
 
     return 0;
 }
 
+int tps92520_enable(tps92520_t *dev, uint8_t chan)
+{
+    assume(chan < 2);
+
+    uint8_t mask = chan
+                 ? SYSCFG1_CH2EN
+                 : SYSCFG1_CH1EN;
+
+    SPI_ACQUIRE(dev);
+
+    uint8_t val = _read_reg(dev, REG_SYSCFG1);
+    val |= mask;
+    _write_reg(dev, REG_SYSCFG1, val);
+
+    SPI_RELEASE(dev);
+
+    return 0;
+}
+
+int tps92520_disable(tps92520_t *dev, uint8_t chan)
+{
+    assume(chan < 2);
+
+    uint8_t mask = chan
+                 ? SYSCFG1_CH2EN
+                 : SYSCFG1_CH1EN;
+
+    SPI_ACQUIRE(dev);
+
+    uint8_t val = _read_reg(dev, REG_SYSCFG1);
+    val &= ~mask;
+    _write_reg(dev, REG_SYSCFG1, val);
+
+    SPI_RELEASE(dev);
+
+    return 0;
+}
+
+int tps92520_get_temperature(tps92520_t *dev)
+{
+    uint16_t val;
+
+    SPI_ACQUIRE(dev);
+
+    val = _read_reg(dev, REG_TEMPL) & 0x3;
+    val |= _read_reg(dev, REG_TEMPH) << 2;
+
+    SPI_RELEASE(dev);
+
+    return (val * 448 * 100) / 625 - 27151;
+}
+
 int tps92520_init(tps92520_t *dev, const tps92520_params_t *params)
 {
-    int res;
-
     dev->params = params;
 
     spi_init_cs(params->spi, params->cs_pin);
@@ -83,20 +151,12 @@ int tps92520_init(tps92520_t *dev, const tps92520_params_t *params)
     SPI_ACQUIRE(dev);
 
     /* read to clear power cycle bit */
-    res = _read_reg(dev, REG_STATUS3);
-    if (res < 0) {
-        goto out;
-    }
+    _read_reg(dev, REG_STATUS3);
 
     /* reset !FLT, disable watchdog */
-    res = _write_reg(dev, REG_SYSCFG1, 0x0);
-    if (res < 0) {
-        goto out;
-    }
+    _write_reg(dev, REG_SYSCFG1, 0x0);
 
-
-    res = 0;
-out:
     SPI_RELEASE(dev);
-    return res;
+
+    return 0;
 }
