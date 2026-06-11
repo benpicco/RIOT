@@ -50,24 +50,28 @@
 static uint8_t _read_reg(tps92520_t *dev, uint8_t addr)
 {
     uint16_t tx_buf = CMD_READ | (addr << 1);
-    tx_buf = (tx_buf | __builtin_parity(tx_buf)) << 8;
+    tx_buf = (tx_buf | !__builtin_parity(tx_buf));
 
-    spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, NULL, sizeof(tx_buf));
+    printf("tx_buf: %x (addr: %x)\n", tx_buf, addr);
+
+    spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, &tx_buf, sizeof(tx_buf));
+    printf("prev resonse: %x\n", tx_buf);
 
     tx_buf = 0;
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, &tx_buf, sizeof(tx_buf));
 
-    uint8_t meta = tx_buf >> 8;
-    DEBUG("_read_reg: got %02x (data: %02x)\n", meta, tx_buf & 0xFF);
+    uint8_t meta = tx_buf & 0xff;
+    uint8_t data = tx_buf >> 8;
+    DEBUG("_read_reg: got %02x (data: %02x)\n", meta, data);
 
-    return tx_buf & 0xFF;
+    return data;
 }
 
 static void _write_reg(tps92520_t *dev, uint8_t addr, uint8_t write_data)
 {
     uint16_t tx_buf = CMD_WRITE | (addr << 1);
-    tx_buf = (tx_buf | __builtin_parity(tx_buf)) << 8;
-    tx_buf |= write_data;
+    tx_buf = (tx_buf | !__builtin_parity(tx_buf));
+    tx_buf |= write_data << 8;
 
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, NULL, sizeof(tx_buf));
 }
