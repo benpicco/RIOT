@@ -43,6 +43,7 @@
 
 #define REG_TEMPL       0x1b
 #define REG_TEMPH       0x1c
+#define REG_V5D         0x1d
 
 #define SYSCFG1_CH1EN   (1 << 0)
 #define SYSCFG1_CH2EN   (1 << 2)
@@ -52,10 +53,7 @@ static uint8_t _read_reg(tps92520_t *dev, uint8_t addr)
     uint16_t tx_buf = CMD_READ | (addr << 1);
     tx_buf = (tx_buf | !__builtin_parity(tx_buf));
 
-    printf("tx_buf: %x (addr: %x)\n", tx_buf, addr);
-
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, &tx_buf, sizeof(tx_buf));
-    printf("prev resonse: %x\n", tx_buf);
 
     tx_buf = 0;
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, &tx_buf, sizeof(tx_buf));
@@ -144,6 +142,32 @@ int tps92520_get_temperature(tps92520_t *dev)
     SPI_RELEASE(dev);
 
     return (val * 448 * 100) / 625 - 27151;
+}
+
+int tps92520_get_5V(tps92520_t *dev)
+{
+    uint8_t val;
+
+    SPI_ACQUIRE(dev);
+
+    val = _read_reg(dev, REG_V5D);
+
+    SPI_RELEASE(dev);
+
+    return (val * 533) / 255;
+}
+
+int tps92520_get_led_voltage(tps92520_t *dev, tps92520_chan_t chan)
+{
+    uint8_t val;
+
+    SPI_ACQUIRE(dev);
+
+    val = _read_reg(dev, chan);
+
+    SPI_RELEASE(dev);
+
+    return (val * 6500) / 255;
 }
 
 int tps92520_init(tps92520_t *dev, const tps92520_params_t *params)
