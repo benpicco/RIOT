@@ -51,6 +51,17 @@ typedef struct {
  */
 int tps92520_init(tps92520_t *dev, const tps92520_params_t *params);
 
+int tps92520_get_temperature(tps92520_t *dev);
+
+int tps92520_get_5V(tps92520_t *dev);
+
+typedef enum {
+    TPS92520_CH1VIN = 0x13,
+    TPS92520_CH2VIN = 0x17,
+} tps92520_chan_t;
+
+int tps92520_get_led_voltage(tps92520_t *dev, tps92520_chan_t chan);
+
 #ifdef __cplusplus
 }
 #endif
