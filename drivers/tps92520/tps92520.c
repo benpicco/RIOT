@@ -17,7 +17,7 @@
 #include "tps92520.h"
 #include "byteorder.h"
 
-#define ENABLE_DEBUG 1
+#define ENABLE_DEBUG 0
 #include "debug.h"
 
 #define SPI_PARAM(dev) dev->params->spi, dev->params->cs_pin
@@ -51,7 +51,7 @@
 static uint8_t _read_reg(tps92520_t *dev, uint8_t addr)
 {
     uint16_t tx_buf = CMD_READ | (addr << 1);
-    tx_buf = (tx_buf | !__builtin_parity(tx_buf));
+    tx_buf |= !__builtin_parity(tx_buf);
 
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, &tx_buf, sizeof(tx_buf));
 
@@ -60,7 +60,7 @@ static uint8_t _read_reg(tps92520_t *dev, uint8_t addr)
 
     uint8_t meta = tx_buf & 0xff;
     uint8_t data = tx_buf >> 8;
-    DEBUG("_read_reg: got %02x (data: %02x)\n", meta, data);
+    DEBUG("_read_reg %x: got %02x (data: %02x)\n", addr, meta, data);
 
     return data;
 }
@@ -68,8 +68,8 @@ static uint8_t _read_reg(tps92520_t *dev, uint8_t addr)
 static void _write_reg(tps92520_t *dev, uint8_t addr, uint8_t write_data)
 {
     uint16_t tx_buf = CMD_WRITE | (addr << 1);
-    tx_buf = (tx_buf | !__builtin_parity(tx_buf));
     tx_buf |= write_data << 8;
+    tx_buf |= !__builtin_parity(tx_buf);
 
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, NULL, sizeof(tx_buf));
 }
@@ -167,7 +167,7 @@ int tps92520_get_led_voltage(tps92520_t *dev, tps92520_chan_t chan)
 
     SPI_RELEASE(dev);
 
-    return (val * 6500) / 255;
+    return (val * 65000) / 255;
 }
 
 int tps92520_init(tps92520_t *dev, const tps92520_params_t *params)

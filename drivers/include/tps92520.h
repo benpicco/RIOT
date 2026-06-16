@@ -56,11 +56,22 @@ int tps92520_get_temperature(tps92520_t *dev);
 int tps92520_get_5V(tps92520_t *dev);
 
 typedef enum {
-    TPS92520_CH1VIN = 0x13,
-    TPS92520_CH2VIN = 0x17,
+    TPS92520_CH1VIN      = 0x13,
+    TPS92520_CH1VLED     = 0x14,
+    TPS92520_CH1VLED_ON  = 0x15,
+    TPS92520_CH1VLED_OFF = 0x16,
+    TPS92520_CH2VIN      = 0x17,
+    TPS92520_CH2VLED     = 0x18,
+    TPS92520_CH2VLED_ON  = 0x19,
+    TPS92520_CH2VLED_OFF = 0x1a,
 } tps92520_chan_t;
 
 int tps92520_get_led_voltage(tps92520_t *dev, tps92520_chan_t chan);
+
+int tps92520_enable(tps92520_t *dev, uint8_t chan);
+int tps92520_disable(tps92520_t *dev, uint8_t chan);
+
+int tps92520_set_current(tps92520_t *dev, uint8_t chan, uint16_t val);
 
 #ifdef __cplusplus
 }
