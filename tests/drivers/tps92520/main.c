@@ -32,10 +32,15 @@ int main(void)
         .cs_pin  = GPIO_PIN(PC, 6),
     };
 
-    gpio_init(GPIO_PIN(PB, 0), GPIO_OUT);
+    gpio_init(GPIO_PIN(PD, 0), GPIO_OUT);
+    gpio_init(GPIO_PIN(PB, 1), GPIO_OUT);
     gpio_init(GPIO_PIN(PB, 6), GPIO_OUT);
+
+    ztimer_sleep(ZTIMER_MSEC, 100);
+
     gpio_set(GPIO_PIN(PB, 6));
-    gpio_set(GPIO_PIN(PB, 0));
+    gpio_set(GPIO_PIN(PB, 1));
+    gpio_set(GPIO_PIN(PD, 0));
 
     ztimer_sleep(ZTIMER_MSEC, 10);
 
@@ -73,9 +78,11 @@ static int cmd_set_current(int argc, char **argv)
 
     tps92520_disable(&dev, chan);
 
-    tps92520_set_current(&dev, chan, current);
+    if (current) {
 
-    tps92520_enable(&dev, chan);
+        tps92520_set_current(&dev, chan, current);
+        tps92520_enable(&dev, chan);
+    }
 
     return 0;
 }
@@ -128,6 +135,20 @@ static int cmd_get_temp(int argc, char **argv)
     return 0;
 }
 
+static int cmd_get_state(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    uint8_t state[3];
+
+    tps92520_get_state(&dev, state);
+    printf("state: %02x %02x %02x\n", state[0], state[1], state[2]);
+
+    return 0;
+}
+
 SHELL_COMMAND(set_current, "set LED current", cmd_set_current);
 SHELL_COMMAND(get_vled, "get LED voltage", cmd_get_vled);
 SHELL_COMMAND(get_temp, "get temperature", cmd_get_temp);
+SHELL_COMMAND(get_state, "", cmd_get_state);
