@@ -71,6 +71,8 @@ static void _write_reg(tps92520_t *dev, uint8_t addr, uint8_t write_data)
     tx_buf |= write_data << 8;
     tx_buf |= !__builtin_parity(tx_buf);
 
+    DEBUG("_write_reg %x: write %x\n", addr, tx_buf);
+
     spi_transfer_bytes(SPI_PARAM(dev), false, &tx_buf, NULL, sizeof(tx_buf));
 }
 
@@ -82,7 +84,13 @@ int tps92520_set_current(tps92520_t *dev, uint8_t chan, uint16_t val)
                 ? REG_CH2IADJL
                 : REG_CH1IADJL;
 
+    if (val >= 1024) {
+        return -ERANGE;
+    }
+
     SPI_ACQUIRE(dev);
+
+    printf("set channel %u to %x\n", chan, val);
 
     _write_reg(dev, reg, val & 0x3);
     _write_reg(dev, reg + 1, val >> 2);
@@ -187,4 +195,22 @@ int tps92520_init(tps92520_t *dev, const tps92520_params_t *params)
     SPI_RELEASE(dev);
 
     return 0;
+}
+
+void tps92520_set_sleep(tps92520_t *dev, bool sleep)
+{
+    SPI_ACQUIRE(dev);
+    _write_reg(dev, REG_SLEEP, sleep);
+    SPI_RELEASE(dev);
+}
+
+void tps92520_get_state(tps92520_t *dev, uint8_t state[3])
+{
+    SPI_ACQUIRE(dev);
+
+    state[0] = _read_reg(dev, REG_STATUS1);
+    state[1] = _read_reg(dev, REG_STATUS2);
+    state[2] = _read_reg(dev, REG_STATUS3);
+
+    SPI_RELEASE(dev);
 }

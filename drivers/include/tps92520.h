@@ -73,6 +73,10 @@ int tps92520_disable(tps92520_t *dev, uint8_t chan);
 
 int tps92520_set_current(tps92520_t *dev, uint8_t chan, uint16_t val);
 
+void tps92520_set_sleep(tps92520_t *dev, bool sleep);
+
+void tps92520_get_state(tps92520_t *dev, uint8_t state[3]);
+
 #ifdef __cplusplus
 }
 #endif
