@@ -1,0 +1,65 @@
+/**
+ * @defgroup pkg_codec2lite Codec 2 lite speech codec
+ * @ingroup  pkg
+ * @ingroup  sys
+ * @brief    Provides a self-contained, low bit rate speech codec
+ *
+ * # codec2lite
+ *
+ * Codec 2 is an open source (LGPL 2.1) low bit rate speech codec, designed
+ * for digital voice communication over narrow-band channels such as HF and
+ * VHF/UHF radio.
+ *
+ * codec2lite is a stripped down version of the original
+ * [codec2](http://rowetel.com/codec2.html) library that contains only the
+ * speech codec itself (encoder/decoder), without any of the modem, file
+ * I/O or build-system dependencies of the full project. This makes it
+ * straightforward to build on constrained embedded targets.
+ *
+ * ## Usage
+ *
+ * Add the package to your application:
+ *
+ * ```makefile
+ * USEPKG += codec2lite
+ * ```
+ *
+ * And include the header:
+ *
+ * ```c
+ * #include "codec2.h"
+ * ```
+ *
+ * A codec instance is created for one of the supported bit rate modes
+ * (e.g. `CODEC2_MODE_3200`, `CODEC2_MODE_1300`, `CODEC2_MODE_700C`, ...),
+ * with lower bit rate modes requiring less flash and less CPU time to
+ * decode, at the cost of speech quality:
+ *
+ * ```c
+ * struct CODEC2 *c2 = codec2_create(CODEC2_MODE_1200);
+ * int samples_per_frame = codec2_samples_per_frame(c2);
+ * int bytes_per_frame = (codec2_bits_per_frame(c2) + 7) / 8;
+ * ```
+ *
+ * Speech is encoded from 16 bit, 8 kHz signed PCM samples into a compact
+ * bit-packed frame, and decoded back into PCM samples:
+ *
+ * ```c
+ * unsigned char bits[bytes_per_frame];
+ * int16_t pcm[samples_per_frame];
+ *
+ * codec2_encode(c2, bits, pcm);
+ * codec2_decode(c2, pcm, bits);
+ * ```
+ *
+ * By default all bit rate modes are compiled in. To save flash, individual
+ * modes can be enabled explicitly instead, which disables all other modes,
+ * e.g. to only build the 1200 bit/s mode:
+ *
+ * ```makefile
+ * USEMODULE += codec2lite_mode_1200
+ * ```
+ *
+ * @see      https://erdgeist.org/gitweb/codec2lite/
+ * @see      http://rowetel.com/codec2.html
+ */

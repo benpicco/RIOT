@@ -1,0 +1,78 @@
+INCLUDES += -I$(PKGDIRBASE)/codec2lite
+
+# codec2lite uses M_PI from <math.h>, which on some libcs (e.g. picolibc, as
+# used for most ARM targets) is only visible with a permissive feature test
+# macro, as RIOT builds with -std=c11 (strict ANSI) by default.
+CFLAGS += -D_DEFAULT_SOURCE
+
+CFLAGS += -Wno-discarded-qualifiers
+CFLAGS += -Wno-old-style-definition
+CFLAGS += -Wno-strict-prototypes
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Wno-cast-align
+
+# codec2 supports a number of different bit rate modes, all of which are
+# compiled in by default. To save flash on constrained targets, individual
+# modes can be selected explicitly, in which case only those modes are
+# compiled in:
+#
+#     USEMODULE += codec2lite_mode_1200
+#
+PSEUDOMODULES += codec2lite_mode_3200
+PSEUDOMODULES += codec2lite_mode_2400
+PSEUDOMODULES += codec2lite_mode_1600
+PSEUDOMODULES += codec2lite_mode_1400
+PSEUDOMODULES += codec2lite_mode_1300
+PSEUDOMODULES += codec2lite_mode_1200
+PSEUDOMODULES += codec2lite_mode_700
+PSEUDOMODULES += codec2lite_mode_700b
+PSEUDOMODULES += codec2lite_mode_700c
+PSEUDOMODULES += codec2lite_mode_450
+PSEUDOMODULES += codec2lite_mode_450pwb
+
+CODEC2LITE_MODE_MODULES := codec2lite_mode_3200 codec2lite_mode_2400 \
+                            codec2lite_mode_1600 codec2lite_mode_1400 \
+                            codec2lite_mode_1300 codec2lite_mode_1200 \
+                            codec2lite_mode_700 codec2lite_mode_700b \
+                            codec2lite_mode_700c codec2lite_mode_450 \
+                            codec2lite_mode_450pwb
+
+# if at least one bit rate mode was selected explicitly, disable all modes
+# by default and only compile in the ones that were selected
+ifneq (,$(filter $(CODEC2LITE_MODE_MODULES),$(USEMODULE)))
+  CFLAGS += -DCODEC2_MODE_EN_DEFAULT=0
+
+  ifneq (,$(filter codec2lite_mode_3200,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_3200_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_2400,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_2400_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_1600,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_1600_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_1400,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_1400_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_1300,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_1300_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_1200,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_1200_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_700,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_700_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_700b,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_700B_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_700c,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_700C_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_450,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_450_EN=1
+  endif
+  ifneq (,$(filter codec2lite_mode_450pwb,$(USEMODULE)))
+    CFLAGS += -DCODEC2_MODE_450PWB_EN=1
+  endif
+endif
